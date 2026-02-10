@@ -27,7 +27,7 @@ class UserBase(BaseModel):
     email_address: EmailStr
 
 class UserCreate(UserBase):
-    hash_password: str = Field(min_length=6)
+    password: str = Field(min_length=6)
     role: Optional[str] = Field(default=None)
     is_active: Optional[bool] = Field(default=True)
 

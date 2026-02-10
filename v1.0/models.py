@@ -28,4 +28,4 @@ class Users(Base):
     email_address = Column(String, unique=True)
     hash_password = Column(String)
     role = Column(String)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=False)

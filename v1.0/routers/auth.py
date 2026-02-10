@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from typing import Annotated
 from database import get_db
+from passlib.context import CryptContext
 
 import models
 
@@ -12,6 +13,8 @@ import models
 router = APIRouter()
 
 db_dependency = Annotated[Session, Depends(get_db)]
+
+bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @router.get("/auth", response_model=list[UserResponse], status_code=status.HTTP_200_OK, tags=["Get Methods"])
@@ -42,7 +45,16 @@ async def delete_users_by_id(db: db_dependency, user_id: int = Path(ge=1)):
 
 @router.post("/auth", response_model=UserResponse, status_code=status.HTTP_201_CREATED, tags=["Add Methods"])
 async def add_users(db: db_dependency, user_request: UserCreate):
-    new_user = models.Users(**user_request.model_dump())
+    new_user = models.Users(
+        username=user_request.username,
+        first_name=user_request.first_name,
+        last_name=user_request.last_name,
+        date_of_birth=user_request.date_of_birth,
+        email_address=user_request.email_address,
+        hash_password=user_request.password,
+        role=bcrypt_context.hash(user_request.role),
+        is_active=user_request.is_active
+    )
 
     try:
         db.add(new_user)
