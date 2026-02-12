@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Path, HTTPException
-from pydantic_schemas import UserCreate, UserResponse
+from pydantic_schemas import UserCreate, UserResponse, UserUpdate, UserUpdatePassword
 from starlette import status
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
@@ -16,6 +16,7 @@ db_dependency = Annotated[Session, Depends(get_db)]
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+MESSAGE_404 = "User not found"
 
 @router.get("/auth", response_model=list[UserResponse], status_code=status.HTTP_200_OK, tags=["Get Methods"])
 async def get_all_users(db: db_dependency):
@@ -27,7 +28,7 @@ async def get_users_by_id(db: db_dependency, user_id: int = Path(ge=1)):
     user_model = db.query(models.Users).filter(models.Users.id == user_id).first()
 
     if user_model is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=MESSAGE_404)
     
     return user_model
 
@@ -37,7 +38,7 @@ async def delete_users_by_id(db: db_dependency, user_id: int = Path(ge=1)):
     user_model = db.query(models.Users).filter(models.Users.id == user_id).first()
 
     if user_model is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=MESSAGE_404)
     
     db.delete(user_model)
     db.commit()
@@ -51,8 +52,8 @@ async def add_users(db: db_dependency, user_request: UserCreate):
         last_name=user_request.last_name,
         date_of_birth=user_request.date_of_birth,
         email_address=user_request.email_address,
-        hash_password=user_request.password,
-        role=bcrypt_context.hash(user_request.role),
+        hash_password=bcrypt_context.hash(user_request.password),
+        role=user_request.role,
         is_active=user_request.is_active
     )
 
@@ -68,16 +69,17 @@ async def add_users(db: db_dependency, user_request: UserCreate):
         raise HTTPException(status_code=409, detail="Duplicate values are not accepted")
     
 
-@router.put("/auth/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK, tags=["Update Methods"])
-async def update_users_by_id(db: db_dependency, user_request: UserCreate, user_id: int = Path(ge=1)):
+@router.put("/auth/personal_info/{user_id}", response_model=UserResponse, status_code=status.HTTP_200_OK, tags=["Update Methods"])
+async def update_users_by_id(db: db_dependency, user_request: UserUpdate, user_id: int = Path(ge=1)):
     user_model = db.query(models.Users).filter(models.Users.id == user_id).first()
 
     if user_model is None:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail=MESSAGE_404)
     
     try:
         for field, value in user_request.model_dump().items():
-            setattr(user_model, field, value)
+            if value is not None:
+                setattr(user_model, field, value)
 
         db.commit()
     except IntegrityError:
@@ -86,3 +88,21 @@ async def update_users_by_id(db: db_dependency, user_request: UserCreate, user_i
         raise HTTPException(status_code=409, detail="Duplicate values are not accepted")
     
     return user_model
+
+@router.put("/auth/password/{user_id}", status_code=status.HTTP_200_OK, tags=["Update Methods"])
+async def update_users_password(db: db_dependency, user_request: UserUpdatePassword, user_id: int = Path(ge=1)):
+    user_model = db.query(models.Users).filter(models.Users.id == user_id).first()
+
+    if user_model is None:
+        raise HTTPException(status_code=404, detail=MESSAGE_404)
+
+    if user_model.email_address != user_request.email_address:
+        raise HTTPException(status_code=401, detail="Incorrect email_address was entered")
+
+    if not bcrypt_context.verify(user_request.old_password, user_model.hash_password):
+        raise HTTPException(status_code=400, detail="Old password is incorrect")
+
+    user_model.hash_password = bcrypt_context.hash(user_request.new_password)
+    db.commit()
+
+    return {"message": "Password was sucessfully changed"}

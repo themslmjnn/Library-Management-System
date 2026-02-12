@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 from typing import Annotated, Optional
 from starlette import status
-from pydantic_schemas import BookCreate, BookResponse
+from pydantic_schemas import BookCreate, BookResponse, BookUpdate
 from datetime import date
 
 import models
@@ -15,20 +15,22 @@ router = APIRouter()
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
+MESSAGE_404 = "Book not found"
 
 @router.get("/books", response_model=list[BookResponse], status_code=status.HTTP_200_OK, tags=["Get Methods"])
-async def get_all_books(db: db_dependency):
+async def get_all_books(db: db_dependency): 
     return db.query(models.Books).all()
 
 
 @router.get("/books/search", response_model=list[BookResponse], status_code=status.HTTP_200_OK, tags=["Search Methods"])
 async def search_books(
-    db: db_dependency,
+    db: db_dependency, 
     title: Optional[str] = Query(None, min_length=3),
     author: Optional[str] = Query(None, min_length=3),
     category: Optional[str] = Query(None, min_length=3),
     rating: Optional[float] = Query(None, ge=1, le=5),
-    publishing_date: Optional[date] = Query(None)):
+    publishing_date: Optional[date] = Query(None)
+):
 
     query = db.query(models.Books)
 
@@ -50,7 +52,7 @@ async def search_books(
     results = query.all()
 
     if not results:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(status_code=404, detail=MESSAGE_404)
 
     return results
 
@@ -60,7 +62,7 @@ async def get_books_by_id(db: db_dependency, book_id: int = Path(ge=1)):
     query_result = db.query(models.Books).filter(models.Books.id == book_id).first()
 
     if query_result is None:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(status_code=404, detail=MESSAGE_404)
     
     return query_result
 
@@ -70,7 +72,7 @@ async def delete_books_by_id(db: db_dependency, book_id: int = Path(ge=1)):
     query_result = db.query(models.Books).filter(models.Books.id == book_id).first()
 
     if query_result is None:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(status_code=404, detail=MESSAGE_404)
     
     db.delete(query_result)
     db.commit()
@@ -93,15 +95,16 @@ async def add_books(db: db_dependency, book_request: BookCreate):
     
 
 @router.put("/books/{book_id}", response_model=BookResponse, status_code=status.HTTP_200_OK, tags=["Update Methods"])
-async def update_books(db: db_dependency, book_request: BookCreate, book_id: int = Path(ge=1)):
+async def update_books(db: db_dependency, book_request: BookUpdate, book_id: int = Path(ge=1)):
     query_result = db.query(models.Books).filter(models.Books.id == book_id).first()
 
     if query_result is None:
-        raise HTTPException(status_code=404, detail="Book not found")
+        raise HTTPException(status_code=404, detail=MESSAGE_404)
 
     try:
         for field, value in book_request.model_dump().items():
-            setattr(query_result, field, value)
+            if value is not None:
+                setattr(query_result, field, value)
 
         db.commit()
     except IntegrityError:
