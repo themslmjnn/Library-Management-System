@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from models.loaning_books_model import LoanedBook
+from models.loaned_books_model import LoanedBook
 
 
 class LoaningBookRepository:

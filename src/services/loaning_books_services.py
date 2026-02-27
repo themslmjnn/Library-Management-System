@@ -2,7 +2,7 @@ from fastapi import HTTPException
 
 from sqlalchemy.exc import IntegrityError
 
-from models.loaning_books_model import LoanedBook
+from models.loaned_books_model import LoanedBook
 from repositories.loaning_books_repositories import LoaningBookRepository
 
 

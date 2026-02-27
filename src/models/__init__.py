@@ -1,4 +1,1 @@
-from models import user_model
-from models import book_model
-from models import loaning_books_model
-from models import returning_books_model
+from src.models import user_model, book_model, loaned_books_model, book_inventory_model
