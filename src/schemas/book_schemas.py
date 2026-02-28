@@ -18,7 +18,7 @@ class BookCreatePublic(BookBase):
 
 
 class BookCreateAdmin(BookBase):
-    pass
+    created_by: int = Field(ge=1)
 
 
 class BookResponse(BookBase):

@@ -35,8 +35,20 @@ class User(Base):
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
 
-    created_users = relationship("User", remote_side=[id])
-    loaned_records = relationship("LoanedBook", back_populates="user")
-    loaned_book_creator = relationship("LoanedBook", back_populates="creator")
-    inventory_records_creator = relationship("BookInventory", back_populates="creator")
+    creator = relationship(
+        "User",
+        remote_side="User.id",
+        back_populates="created_users"
+    )
+
+    created_users = relationship(
+        "User",
+        back_populates="creator"
+    )
+
+    loaned_records = relationship("LoanBook", foreign_keys="LoanBook.user_id", back_populates="user")
+    loaned_book_creator = relationship("LoanBook", foreign_keys="LoanBook.created_by", back_populates="creator")
+
+    inventory_records_creator = relationship("BookInventory", foreign_keys="BookInventory.added_by", back_populates="creator")
+
     created_books = relationship("Book", back_populates="user")

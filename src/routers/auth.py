@@ -7,8 +7,8 @@ from typing import Annotated
 from passlib.context import CryptContext
 
 from db.database import get_db
-from schemas.auth_schemas import UserCreatePublic, UserResponse, UserUpdate, UserUpdatePassword
-from services.auth_services import UserService
+from src.schemas.auth_schemas import UserCreatePublic, UserResponse, UserUpdate, UserUpdatePassword
+from src.services.auth_services import UserService
 
 
 router = APIRouter(

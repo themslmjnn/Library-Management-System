@@ -9,8 +9,8 @@ from starlette import status
 from datetime import date
 
 from db.database import get_db
-from schemas.book_schemas import BookCreatePublic, BookResponse, BookUpdate, BookSearch
-from services.book_services import BookService
+from src.schemas.book_schemas import BookCreatePublic, BookResponse, BookUpdate, BookSearch
+from src.services.book_services import BookService
 
 
 router = APIRouter(
@@ -50,6 +50,6 @@ def add_book(db: db_dependency, book_request: BookCreatePublic):
     return BookService.add_book(db, book_request)
     
 
-@router.put("/{book_id}", response_model=BookResponse, status_code=status.HTTP_200_OK, tags=["Update Methods"])
+@router.put("/{book_id}", response_model=BookResponse, status_code=status.HTTP_200_OK)
 def update_books(db: db_dependency, book_request: BookUpdate, book_id: int = Path(ge=1)):
     return BookService.update_book_by_id(db, book_request, book_id)

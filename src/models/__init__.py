@@ -1,1 +1,1 @@
-from src.models import user_model, book_model, loaned_books_model, book_inventory_model
+from src.models import user_model, book_model, book_inventory_model, loan_book_model

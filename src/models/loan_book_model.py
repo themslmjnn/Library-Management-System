@@ -10,7 +10,7 @@ from db.database import Base
 int_pk = Annotated[int, mapped_column(primary_key=True, index=True)]
 
 
-class LoanedBook(Base):
+class LoanBook(Base):
     __tablename__ = "loaned_books"
 
     id: Mapped[int_pk]

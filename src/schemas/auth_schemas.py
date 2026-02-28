@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 from datetime import date
 
+from src.models.user_model import UserRole
+
 
 class UserBase(BaseModel):
     username: str = Field(min_length=6, max_length=20)
@@ -17,6 +19,7 @@ class UserCreatePublic(UserBase):
 
 
 class UserCreateAdmin(UserBase):
+    password: str = Field(min_length=6)
     role: str = Field(default="user")
     is_active: bool = Field(default=True)
 
@@ -39,3 +42,12 @@ class UserUpdate(BaseModel):
 class UserUpdatePassword(BaseModel):
     old_password: str = Field(min_length=6)
     new_password: str = Field(min_length=6)
+
+class UserSearch(BaseModel):
+    username: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] =None
+    date_of_birth: Optional[date] = None
+    email_address: Optional[EmailStr] = None
+    role: Optional[UserRole] = None
+    is_active: Optional[bool] = None

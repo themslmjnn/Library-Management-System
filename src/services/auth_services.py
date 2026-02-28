@@ -2,8 +2,8 @@ from fastapi import HTTPException
 
 from sqlalchemy.exc import IntegrityError
 
-from models.user_model import Users
-from repositories.auth_repositories import UserRepository
+from src.models.user_model import User
+from src.repositories.auth_repositories import UserRepository
 
 
 MESSAGE_409 = "Duplicate values are not accepted"
@@ -13,7 +13,7 @@ MESSAGE_404 = "User not found"
 class UserService:
     @staticmethod
     def register_user(db, user_request, bcrypt_context):
-        new_user = Users(
+        new_user = User(
             username=user_request.username,
             first_name=user_request.first_name,
             last_name=user_request.last_name,

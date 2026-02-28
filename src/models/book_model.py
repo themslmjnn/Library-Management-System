@@ -35,7 +35,7 @@ class Book(Base):
 
     user = relationship("User", back_populates="created_books")
     inventory_records = relationship("BookInventory", back_populates="book")
-    loaned_records = relationship("LoanedBook", back_populates="book")
+    loaned_records = relationship("LoanBook", back_populates="book")
 
     __table_args__ = (
         UniqueConstraint('title', 'author', name="uix_title_author"),

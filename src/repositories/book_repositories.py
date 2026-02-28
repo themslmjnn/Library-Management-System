@@ -1,12 +1,12 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from models.book_model import Books
+from src.models.book_model import Book
 
 class BookRepository:
     @staticmethod
     def get_all_books(db: Session):
-        query = select(Books)
+        query = select(Book)
 
         result = db.execute(query)
 
@@ -16,18 +16,13 @@ class BookRepository:
     @staticmethod
     def get_book_by_id(db: Session, book_id: int):
         query = (
-            select(Books)
-            .filter(Books.id == book_id)
+            select(Book)
+            .filter(Book.id == book_id)
         )
 
         result = db.execute(query)
 
         return result.scalars().first()
-    
-
-    @staticmethod
-    def delete_book_by_id(db: Session, book):
-        db.delete(book)
 
 
     @staticmethod
@@ -37,23 +32,23 @@ class BookRepository:
         return book_request
     
     @staticmethod
-    def search_book(db: Session, search_book_request):
-        query = select(Books)
+    def search_books(db: Session, search_book_request):
+        query = select(Book)
 
         if search_book_request.title:
-            query = query.filter(Books.title.ilike(search_book_request.title))
+            query = query.filter(Book.title.ilike(search_book_request.title))
 
         if search_book_request.author:
-            query = query = query.filter(Books.author.ilike(search_book_request.author))
+            query = query.filter(Book.author.ilike(search_book_request.author))
 
         if search_book_request.category:
-            query = query = query.filter(Books.category.ilike(search_book_request.category))
+            query = query.filter(Book.category.ilike(search_book_request.category))
 
         if search_book_request.rating is not None:
-            query = query.filter(Books.rating == search_book_request.rating)
+            query = query.filter(Book.rating == search_book_request.rating)
 
         if search_book_request.publishing_date:
-            query = query.filter(Books.publishing_date == search_book_request.publishing_date)
+            query = query.filter(Book.publishing_date == search_book_request.publishing_date)
 
         results = db.execute(query)
 

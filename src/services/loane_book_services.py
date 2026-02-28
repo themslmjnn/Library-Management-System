@@ -2,8 +2,8 @@ from fastapi import HTTPException
 
 from sqlalchemy.exc import IntegrityError
 
-from models.loaned_books_model import LoanedBook
-from repositories.loaning_books_repositories import LoaningBookRepository
+from models.loan_book_model import LoanedBook
+from repositories.loan_book_repositories import LoaningBookRepository
 
 
 MESSAGE_409 = "Duplicate values are not accepted"
@@ -42,17 +42,3 @@ class LoaningBookService:
             raise HTTPException(status_code=404, detail=MESSAGE_404)
         
         return loaned_book_model
-    
-    
-    @staticmethod
-    def delete_loaned_book_id(db, loaned_book_id):
-        loaned_book_model = LoaningBookRepository.get_loaned_book_by_id(db, loaned_book_id)
-
-        if not loaned_book_model:
-            raise HTTPException(status_code=404, detail=MESSAGE_404)
-        
-        LoaningBookRepository.delete_loaned_book_by_id(loaned_book_model)
-
-        db.commit()
-
-
