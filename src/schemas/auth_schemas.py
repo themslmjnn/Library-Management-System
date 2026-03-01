@@ -20,8 +20,7 @@ class UserCreatePublic(UserBase):
 
 class UserCreateAdmin(UserBase):
     password: str = Field(min_length=6)
-    role: str = Field(default="user")
-    is_active: bool = Field(default=True)
+    role: str
 
 
 class UserResponse(UserBase):
@@ -42,6 +41,7 @@ class UserUpdate(BaseModel):
 class UserUpdatePassword(BaseModel):
     old_password: str = Field(min_length=6)
     new_password: str = Field(min_length=6)
+
 
 class UserSearch(BaseModel):
     username: Optional[str] = None

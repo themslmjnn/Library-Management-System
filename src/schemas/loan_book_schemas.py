@@ -7,39 +7,38 @@ from datetime import date, datetime
 
 # Schemas
 class LoanBookBase(BaseModel):
-    user_id: int = Field(ge=1)
     book_id: int = Field(ge=1)
+    user_id: int = Field(ge=1)
+
+
+class LoanBookCreate(LoanBookBase):
     due_at: date
 
 
-class LoanBookCreatePublic(LoanBookBase):
-    pass
-
-
-class LoanBookCreateMember(LoanBookBase):
-    created_by: int = Field(ge=1)
-
-
-class LoanBookCreateAdmin(LoanBookCreateMember):
-    pass
-
-
-class LoanBookRepsonse(LoanBookBase):
+class LoanBookResponse(BaseModel):
     id: int
+    book_id: int = Field(ge=1)
+    user_id: int = Field(ge=1)
+    created_by: int = Field(ge=1)
+    loaned_at: datetime
+    due_at: date
+    returned_at: Optional[datetime] = Field(None)
 
     class Config:
         from_attributes = True
 
 
 class LoanBookSearch(BaseModel):
-    user_id: Optional[int] = None
     book_id: Optional[int] = None
+    user_id: Optional[int] = None
     created_by: Optional[int] = None
-    created_at: Optional[datetime] = None
+    loaned_at: Optional[datetime] = None
     due_at: Optional[date] = None
 
-class ReturnLoanRequest(LoanBookBase):
-    pass
 
-class ReturnLoanResponse(LoanBookCreateMember):
+class ReturnLoanRequest(LoanBookBase):
+    due_at: date
+
+
+class ReturnLoanResponse(LoanBookCreate):
     returned_at: datetime

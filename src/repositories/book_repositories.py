@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from src.models.book_model import Book
 
+
 class BookRepository:
     @staticmethod
     def get_all_books(db: Session):
@@ -31,18 +32,19 @@ class BookRepository:
 
         return book_request
     
+    
     @staticmethod
     def search_books(db: Session, search_book_request):
         query = select(Book)
 
         if search_book_request.title:
-            query = query.filter(Book.title.ilike(search_book_request.title))
+            query = query.filter(Book.title.ilike('%' + search_book_request.title + '%'))
 
         if search_book_request.author:
-            query = query.filter(Book.author.ilike(search_book_request.author))
+            query = query.filter(Book.author.ilike('%' + search_book_request.author + '%'))
 
         if search_book_request.category:
-            query = query.filter(Book.category.ilike(search_book_request.category))
+            query = query.filter(Book.category == search_book_request.category)
 
         if search_book_request.rating is not None:
             query = query.filter(Book.rating == search_book_request.rating)

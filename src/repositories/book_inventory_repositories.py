@@ -3,10 +3,12 @@ from sqlalchemy.orm import Session
 
 from src.models.book_inventory_model import BookInventory
 
+
 class BookInventoryRepository:
     @staticmethod
     def add_book_inventory(db: Session, book_inventory_request):
         db.add(book_inventory_request)
+
 
     @staticmethod
     def get_all_book_inventory(db: Session):
@@ -16,6 +18,7 @@ class BookInventoryRepository:
 
         return result.scalars().all()
     
+
     @staticmethod
     def get_book_inventory_by_id(db: Session, book_inventory_id: int):
         query = (
@@ -27,6 +30,7 @@ class BookInventoryRepository:
 
         return result.scalars().first()
     
+
     @staticmethod
     def search_book_inventory(db: Session, search_book_inventory_request):
         query = select(BookInventory)
@@ -47,15 +51,9 @@ class BookInventoryRepository:
 
         return result.scalars().all()
     
+
     @staticmethod
     def get_quantity_added(db: Session, book_id: int):
-        # query = (
-        #     select(func.sum(BookInventory.quantity_added))
-        #     .select_from(BookInventory)
-        #     .group_by(BookInventory.book_id)
-        #     .having(BookInventory.book_id == book_id)
-        # )
-
         query = (
             select(func.sum(BookInventory.quantity_added))
             .select_from(BookInventory)

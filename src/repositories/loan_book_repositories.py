@@ -2,7 +2,6 @@ from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session
 
 from src.models.loan_book_model import LoanBook
-from src.models.book_inventory_model import BookInventory
 
 
 class LoanBookRepository:
@@ -12,7 +11,7 @@ class LoanBookRepository:
 
         return loan_request
     
-
+    
     @staticmethod
     def get_loaned_books(db: Session):
         query = select(LoanBook)
@@ -21,7 +20,7 @@ class LoanBookRepository:
 
         return result.scalars().all()
     
-
+    
     @staticmethod
     def get_loaned_book_by_id(db: Session, loaned_book_id):
         query = (
@@ -32,6 +31,33 @@ class LoanBookRepository:
         result = db.execute(query)
 
         return result.scalars().first()
+    
+    
+    @staticmethod
+    def get_loaned_books_by_user_id(db: Session, user_id):
+        query = (
+            select(LoanBook)
+            .filter(and_(
+                LoanBook.user_id == user_id,
+                LoanBook.returned_at.is_(None))
+            )
+        )
+
+        result = db.execute(query)
+
+        return result.scalars().all()
+    
+    
+    @staticmethod
+    def get_loaned_books_by_book_id(db: Session, book_id):
+        query = (
+            select(LoanBook)
+            .filter(LoanBook.book_id == book_id)
+        )
+
+        result = db.execute(query)
+
+        return result.scalars().all()
 
     
     @staticmethod
@@ -57,6 +83,7 @@ class LoanBookRepository:
 
         return result.scalars().all()
     
+    
     @staticmethod
     def get_not_returned_loans(db: Session, book_id: int):
         query = (
@@ -72,19 +99,21 @@ class LoanBookRepository:
 
         return result.scalar()
     
+    
     @staticmethod
-    def get_loan_by_user_and_book_id(db: Session, book_id: int, user_id: int):
+    def get_number_of_loaned_books_by_user_id(db: Session, user_id):
         query = (
-            select(LoanBook)
+            select(func.count())
             .filter(and_(
-                LoanBook.book_id == book_id,
-                LoanBook.user_id == user_id
-            ))
+                LoanBook.user_id == user_id,
+                LoanBook.returned_at.is_(None))
+            )
         )
 
         result = db.execute(query)
 
-        return result.scalars().first()
+        return result.scalar()
+
 
     
     

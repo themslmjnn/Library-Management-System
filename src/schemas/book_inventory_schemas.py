@@ -3,9 +3,9 @@ from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
+
 class BookInventoryBase(BaseModel):
     book_id: int
-    added_by: int
     quantity_added: int
 
 
@@ -14,7 +14,7 @@ class BookInventoryCreate(BookInventoryBase):
 
 
 class BookInventoryResponse(BookInventoryBase):
-    pass
+    added_by: int
 
 
 class BookInventorySearch(BaseModel):
