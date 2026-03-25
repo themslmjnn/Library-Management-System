@@ -7,8 +7,7 @@ from alembic import context
 from db.database import Base
 from db.config import settings
 
-from models import loan_book_model
-from src.models import book_model, user_model, book_inventory_model
+import src.models
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

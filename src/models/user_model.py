@@ -1,4 +1,5 @@
-from sqlalchemy import Enum as SQLEnum, ForeignKey, func
+from sqlalchemy import ForeignKey, func, String
+from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from enum import Enum
@@ -7,9 +8,9 @@ from typing import Annotated
 from datetime import date, datetime
 
 from db.database import Base
+from src.utils.model_constants import int_pk, str_ix_30, str_uix_50
 
 
-int_pk = Annotated[int, mapped_column(primary_key=True, index=True)]
 str_unique = Annotated[str, mapped_column(unique=True, nullable=False)]
 
 
@@ -23,17 +24,26 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int_pk]
-    username: Mapped[str_unique]
-    first_name: Mapped[str] = mapped_column(nullable=False)
-    last_name: Mapped[str] = mapped_column(nullable=False)
+
+    username: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
+
+    first_name: Mapped[str_ix_30]
+    last_name: Mapped[str_ix_30]
+
     date_of_birth: Mapped[date] = mapped_column(nullable=False)
-    email_address: Mapped[str_unique]
-    hash_password: Mapped[str] = mapped_column(nullable=False)
-    role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), nullable=False)
-    is_active: Mapped[bool] = mapped_column(default=True)
+
+    email_address: Mapped[str_uix_50]
+
+    password_hash: Mapped[str] = mapped_column(nullable=False)
+
+    role: Mapped[UserRole] = mapped_column(SQLEnum(UserRole), index=True, nullable=False)
+
+    is_active: Mapped[bool] = mapped_column(default=True, nullable=False)
 
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now(), nullable=False)
 
     creator = relationship(
         "User",

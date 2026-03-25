@@ -9,7 +9,8 @@ from typing import Annotated
 
 from core.security import get_current_user
 from db.database import get_db
-from src.schemas import auth_schemas, loan_book_schemas
+from schemas import user_schemas
+from src.schemas import loan_book_schemas
 from src.services import core_services
 
 
@@ -27,15 +28,15 @@ bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated="auto")
 path_param_int_ge1 = Annotated[int, Path(ge=1)]
 
 
-@router.post("/users_registration_public", response_model=auth_schemas.UserResponse, status_code=status.HTTP_200_OK)
+@router.post("/users_registration_public", response_model=user_schemas.UserResponse, status_code=status.HTTP_200_OK)
 def register_user_public(
         db: db_dependency,
-        user_request: auth_schemas.UserCreatePublic):
+        user_request: user_schemas.UserCreatePublic):
     
     return core_services.CoreService.register_user_public(db, user_request, bcrypt_context)
 
 
-@router.get("/users/{user_id}", response_model=auth_schemas.UserResponse, status_code=status.HTTP_200_OK)
+@router.get("/users/{user_id}", response_model=user_schemas.UserResponse, status_code=status.HTTP_200_OK)
 def get_user_by_id(
         db: db_dependency, 
         user: user_dependency,
@@ -53,11 +54,11 @@ def delete_user_by_id(
     core_services.CoreService.delete_user_by_id(db, user, user_id)
 
 
-@router.put("/update_users_info/{user_id}", response_model=auth_schemas.UserResponse, status_code=status.HTTP_200_OK)
+@router.put("/update_users_info/{user_id}", response_model=user_schemas.UserResponse, status_code=status.HTTP_200_OK)
 def update_user_info_by_user_id(
         db: db_dependency, 
         user: user_dependency,
-        user_request: auth_schemas.UserUpdate, 
+        user_request: user_schemas.UserUpdate, 
         user_id: path_param_int_ge1):
 
     return core_services.CoreService.update_user_info_by_user_id(db, user, user_request, user_id)
@@ -67,7 +68,7 @@ def update_user_info_by_user_id(
 def update_user_password_by_user_id(
         db: db_dependency, 
         user: user_dependency,
-        user_password_request: auth_schemas.UserUpdatePassword, 
+        user_password_request: user_schemas.UserUpdatePassword, 
         user_id: path_param_int_ge1):
 
     core_services.CoreService.update_user_password_by_user_id(db, user, user_password_request, user_id, bcrypt_context)

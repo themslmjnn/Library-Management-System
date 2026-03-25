@@ -1,44 +1,44 @@
-# Imports
 from pydantic import BaseModel, Field
 
 from typing import Optional
 from datetime import date, datetime
 
+from src.schemas.base_schema import BaseSchema
 
-# Schemas
-class LoanBookBase(BaseModel):
+
+class LoanedBookBase(BaseModel):
     book_id: int = Field(ge=1)
     user_id: int = Field(ge=1)
 
 
-class LoanBookCreate(LoanBookBase):
+class LoanedBookCreate(LoanedBookBase):
     due_at: date
 
 
-class LoanBookResponse(BaseModel):
+class LoanedBookResponse(LoanedBookBase, BaseSchema):
     id: int
-    book_id: int = Field(ge=1)
-    user_id: int = Field(ge=1)
+
     created_by: int = Field(ge=1)
     loaned_at: datetime
     due_at: date
-    returned_at: Optional[datetime] = Field(None)
-
-    class Config:
-        from_attributes = True
+    returned_at: Optional[datetime] = None
 
 
-class LoanBookSearch(BaseModel):
+class LoanedBookSearch(BaseModel):
     book_id: Optional[int] = None
     user_id: Optional[int] = None
     created_by: Optional[int] = None
-    loaned_at: Optional[datetime] = None
     due_at: Optional[date] = None
+    returned_at: Optional[date] = None
 
 
-class ReturnLoanRequest(LoanBookBase):
+class LoanedBookUpdate(LoanedBookSearch):
+    pass
+
+
+class ReturnLoanRequest(LoanedBookBase):
     due_at: date
 
 
-class ReturnLoanResponse(LoanBookCreate):
+class ReturnLoanResponse(LoanedBookResponse):
     returned_at: datetime

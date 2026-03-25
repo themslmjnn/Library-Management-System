@@ -9,7 +9,8 @@ from typing import Annotated
 
 from core.security import get_current_user
 from db.database import get_db
-from src.schemas import auth_schemas, book_schemas, book_inventory_schemas, loan_book_schemas
+from schemas import user_schemas
+from src.schemas import book_schemas, book_inventory_schemas, loan_book_schemas
 from src.services import admin_services
 
 
@@ -27,16 +28,16 @@ bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated="auto")
 path_param_int_ge1 = Annotated[int, Path(ge=1)]
 
 
-@router.post("/users_registration", response_model=auth_schemas.UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/users_registration", response_model=user_schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user_admin(
         db: db_dependency, 
         user: user_dependency,
-        user_request: auth_schemas.UserCreateAdmin):
+        user_request: user_schemas.UserCreateAdmin):
 
     return admin_services.AdminAuthService.register_user(db, user, user_request, bcrypt_context)
 
 
-@router.get("/users", response_model=list[auth_schemas.UserResponse], status_code=status.HTTP_200_OK)
+@router.get("/users", response_model=list[user_schemas.UserResponse], status_code=status.HTTP_200_OK)
 def get_all_users(
         db: db_dependency,
         user: user_dependency):
@@ -44,11 +45,11 @@ def get_all_users(
     return admin_services.AdminAuthService.get_all_users(db, user)
 
 
-@router.get("/search/users", response_model=list[auth_schemas.UserResponse], status_code=status.HTTP_200_OK)
+@router.get("/search/users", response_model=list[user_schemas.UserResponse], status_code=status.HTTP_200_OK)
 def search_users(
         db: db_dependency, 
         user: user_dependency,
-        user_search_request: Annotated[auth_schemas.UserSearch, Depends()]):
+        user_search_request: Annotated[user_schemas.UserSearch, Depends()]):
 
     return admin_services.AdminAuthService.search_users(db, user, user_search_request)
 

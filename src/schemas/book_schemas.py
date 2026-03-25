@@ -1,43 +1,55 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from typing import Optional
-from datetime import date
+from datetime import date, datetime
 
 from src.models.book_model import Category
+from src.schemas.base_schema import BaseSchema
+from src.utils.schema_fields_validator import _validate_publishing_date
 
 
 class BookBase(BaseModel):
     title: str = Field(min_length=3, max_length=50)
     author: str = Field(min_length=3, max_length=50)
-    category: Category = Field(min_length=3, max_length=30)
+    category: Category
     description: Optional[str] = Field(None, max_length=100)
     rating: Optional[float] = Field(None, ge=1, le=5)
-    publishing_date: Optional[date] = Field(None)
+    publishing_date: Optional[date] = None
+
+    @field_validator("publishing_date")
+    @classmethod
+    def validate_publishing_date(cls, v: date) -> date:
+        return _validate_publishing_date(v)
 
 
-class BookCreateAdmin(BookBase):
+class BookCreate(BookBase):
     pass
 
 
-class BookResponse(BookBase):
+class BookResponse(BookBase, BaseSchema):
     id: int
 
-    class Config:
-        from_attributes = True
+    created_at: datetime
 
 
 class BookUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=3, max_length=50)
     author: Optional[str] = Field(None, min_length=3, max_length=50)
-    category: Optional[str] = Field(None, min_length=3, max_length=30)
+    category: Optional[Category] = None
     description: Optional[str] = Field(None, max_length=100)
     rating: Optional[float] = Field(None, ge=1, le=5)
-    publishing_date: Optional[date] = Field(None)
+    publishing_date: Optional[date] = None
+
+
+class BookUpdateResponse(BookBase, BaseSchema):
+    id: int
+
+    updated_at: datetime
 
 
 class BookSearch(BaseModel):
     title: Optional[str] = Field(None, min_length=3)
     author: Optional[str] = Field(None, min_length=3)
-    category: Optional[Category] = Field(None, min_length=3)
+    category: Optional[Category] = None
     rating: Optional[float] = Field(None, ge=1, le=5)
-    publishing_date: Optional[date] = Field(None)
+    publishing_date: Optional[date] = None
