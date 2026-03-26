@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 
 from core.core_methods import LoanBookLogic, ReturnLoanLogic
 from src.models.user_model import User
-from src.repositories.auth_repositories import UserRepository
+from repositories.user_repositories import UserRepository
 from src.repositories.loan_book_repositories import LoanBookRepository
 
 
@@ -17,31 +17,6 @@ MESSAGE_409 = "Duplicate values are not accepted"
 
 
 class CoreService:
-    @staticmethod
-    def register_user_public(db, user_request, bcrypt_context):
-        new_user = User(\
-            username=user_request.username,
-            first_name=user_request.first_name.title(),
-            last_name=user_request.last_name.title(),
-            date_of_birth=user_request.date_of_birth,
-            email_address=user_request.email_address,
-            hash_password=bcrypt_context.hash(user_request.password),
-            role="user"
-        )
-
-        try:
-            UserRepository.register_user(db, new_user)
-
-            db.commit()
-            db.refresh(new_user)
-
-            return new_user
-        
-        except IntegrityError:
-            db.rollback()
-
-            raise HTTPException(status_code=409, detail=MESSAGE_409) 
-
 
     @staticmethod
     def get_user_by_id(db, user, user_id):

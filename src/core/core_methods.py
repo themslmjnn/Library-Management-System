@@ -4,7 +4,7 @@ from datetime import datetime
 
 from models.loaned_book_model import LoanBook
 from src.schemas.loan_book_schemas import LoanBookCreate
-from src.repositories.auth_repositories import UserRepository
+from repositories.user_repositories import UserRepository
 from src.repositories.book_repositories import BookRepository
 from src.repositories.loan_book_repositories import LoanBookRepository
 from src.repositories.book_inventory_repositories import BookInventoryRepository

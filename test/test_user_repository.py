@@ -1,6 +1,6 @@
 import pytest
 
-from src.repositories.auth_repositories import UserRepository
+from repositories.user_repositories import UserRepository
 from src.models.user_model import User, UserRole
 
 from datetime import date

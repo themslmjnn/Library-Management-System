@@ -9,8 +9,6 @@ class UserRepository:
     def register_user(db: Session, new_user):
         db.add(new_user)
 
-        return new_user
-
 
     @staticmethod
     def get_user_by_id(db: Session, user_id):
@@ -49,9 +47,6 @@ class UserRepository:
     def search_users(db: Session, search_user_request):
         query = select(User)
 
-        if search_user_request.username:
-            query = query.filter(User.username.ilike('%' + search_user_request.username + '%'))
-
         if search_user_request.first_name:
             query = query.filter(User.first_name.ilike('%' + search_user_request.first_name + '%'))
 
@@ -60,9 +55,6 @@ class UserRepository:
 
         if search_user_request.date_of_birth:
             query = query.filter(User.date_of_birth == search_user_request.date_of_birth)
-
-        if search_user_request.email_address:
-            query = query.filter(User.email_address.ilike('%' + search_user_request.email_address + '%'))
 
         if search_user_request.role:
             query = query.filter(User.role == search_user_request.role)
@@ -73,4 +65,3 @@ class UserRepository:
         result = db.execute(query)
 
         return result.scalars().all()
-    

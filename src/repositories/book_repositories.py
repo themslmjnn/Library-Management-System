@@ -29,12 +29,10 @@ class BookRepository:
     @staticmethod
     def add_book(db: Session, book_request):
         db.add(book_request)
-
-        return book_request
     
     
     @staticmethod
-    def search_books(db: Session, search_book_request):
+    def search_book(db: Session, search_book_request):
         query = select(Book)
 
         if search_book_request.title:
