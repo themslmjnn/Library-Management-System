@@ -5,7 +5,7 @@ from datetime import date, datetime
 
 from src.models.user_model import UserRole
 from src.schemas.base_schema import BaseSchema
-from src.utils.schema_fields_validator import _validate_date_of_birth, _validate_email, _validate_password
+from src.utils.schema_fields_validator import _validate_date_of_birth, _validate_email_address, _validate_password
 
 
 class UserBase(BaseModel):
@@ -15,24 +15,26 @@ class UserBase(BaseModel):
     date_of_birth: date
     email_address: EmailStr
 
+
     @field_validator("date_of_birth")
     @classmethod
-    def validate_date_of_birth(cls, v: date) -> date:
-        return _validate_date_of_birth(v)
+    def validate_date_of_birth(cls, field: date) -> date:
+        return _validate_date_of_birth(field)
     
     @field_validator("email_address")
     @classmethod
-    def valdiate_email_address(cls, v: str) -> str:
-        return _validate_email(v)
+    def valdiate_email_address(cls, field: str) -> str:
+        return _validate_email_address(field)
 
 
 class UserCreatePublic(UserBase):
     password: str = Field(min_length=8)
 
+
     @field_validator("password")
     @classmethod
-    def validate_password_strength(cls, v: str) -> str:
-        return _validate_password(v)
+    def validate_password_strength(cls, field: str) -> str:
+        return _validate_password(field)
     
 
 class UserResponsePublic1(UserBase, BaseSchema):
@@ -50,10 +52,11 @@ class UserCreateAdmin(UserBase):
 
     role: UserRole
 
+
     @field_validator("password")
     @classmethod
-    def validate_password_strength(cls, v: str) -> str:
-        return _validate_password(v)
+    def validate_password_strength(cls, field: str) -> str:
+        return _validate_password(field)
 
 
 class UserResponseAdmin1(UserBase, BaseSchema):
@@ -76,16 +79,16 @@ class UserUpdateBase(BaseModel):
     date_of_birth: Optional[date] = None
     email_address: Optional[EmailStr] = None
 
+
     @field_validator("date_of_birth")
     @classmethod
-    def validate_date_of_birth(cls, v: date) -> date:
-        return _validate_date_of_birth(v)
+    def validate_date_of_birth(cls, field: date) -> date:
+        return _validate_date_of_birth(field)
     
     @field_validator("email_address")
     @classmethod
-    def valdiate_email_address(cls, v: str) -> str:
-        return _validate_email(v)
-
+    def valdiate_email_address(cls, field: str) -> str:
+        return _validate_email_address(field)
 
 
 class UserUpdatePublic(UserUpdateBase):
@@ -142,11 +145,13 @@ class UserSearch(BaseModel):
     is_active: Optional[bool] = None
 
 
+class UserActivateAccountPublic(BaseModel):
+    username: str
+    password: str
+
 class CurrentUserResponse(BaseSchema):
    id: int
 
    username: str = Field(min_length=6, max_length=20)
 
    role: UserRole
-
-   

@@ -3,13 +3,13 @@ from fastapi import HTTPException, status
 from src.utils.constants import MESSAGE_404_USER, MESSAGE_404_BOOK, MESSAGE_409_USERNAME, MESSAGE_409_EMAIL, MESSAGE_409_DUPLICATE
 
 
-def check_unique_username_error(e):
-    if "ix_users_username" in str(e.orig):
+def check_unique_username_error(error):
+    if "ix_users_username" in str(error.orig):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=MESSAGE_409_USERNAME)
 
 
-def check_unique_email_error(e):
-    if "users_email_address_key" in str(e.orig):
+def check_unique_email_error(error):
+    if "users_email_address_key" in str(error.orig):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=MESSAGE_409_EMAIL)
     
 

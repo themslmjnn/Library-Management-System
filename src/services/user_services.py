@@ -4,7 +4,7 @@ from src.models.user_model import User, UserRole
 from src.repositories.user_repositories import UserRepository
 from src.core.security import hash_password, verify_password
 from src.utils.exceptions import check_unique_username_error, check_unique_email_error
-from src.utils.helpers import require_admin, require_user, require_admin_or_owner
+from src.utils.helpers import require_admin, require_user, require_admin_or_owner, is_both_admin
 from src.utils.helpers import ensure_exists, update_object
 from src.utils.constants import MESSAGE_404_USER, MESSAGE_400_PASSWORD
 
@@ -14,8 +14,8 @@ class UserService:
     def register_user_public(db, user_request):
         new_user = User(
             username=user_request.username,
-            first_name=user_request.first_name.title(),
-            last_name=user_request.last_name.title(),
+            first_name=user_request.first_name,
+            last_name=user_request.last_name,
             date_of_birth=user_request.date_of_birth,
             email_address=user_request.email_address,
             password_hash=hash_password(user_request.password),
@@ -24,19 +24,19 @@ class UserService:
         )
 
         try:
-            UserRepository.register_user(db, new_user)
+            UserRepository.add_user(db, new_user)
 
             db.commit()
             db.refresh(new_user)
 
             return new_user
         
-        except IntegrityError as e:
+        except IntegrityError as error:
             db.rollback()
 
-            check_unique_username_error(e)
+            check_unique_username_error(error)
 
-            check_unique_email_error(e)
+            check_unique_email_error(error)
                 
             raise
 
@@ -58,19 +58,19 @@ class UserService:
         )
 
         try:
-            UserRepository.register_user(db, new_user)
+            UserRepository.add_user(db, new_user)
 
             db.commit()
             db.refresh(new_user)
 
             return new_user
         
-        except IntegrityError as e:
+        except IntegrityError as error:
             db.rollback()
 
-            check_unique_username_error(e)
+            check_unique_username_error(error)
 
-            check_unique_email_error(e)
+            check_unique_email_error(error)
                 
             raise
     
@@ -79,7 +79,7 @@ class UserService:
     def get_all_users(db, current_user):
         require_admin(current_user)
 
-        return UserRepository.get_all_users(db)
+        return UserRepository.get_all_non_admin_users(db)
     
 
     @staticmethod
@@ -94,16 +94,15 @@ class UserService:
         require_admin(current_user)
 
         user = UserRepository.get_user_by_id(db, user_id)
+
         ensure_exists(user, MESSAGE_404_USER)
 
         return user
     
 
     @staticmethod
-    def get_user_by_id_public(db, current_user, user_id):
-        require_user(current_user, user_id)
-
-        user = UserRepository.get_user_by_id(db, user_id)
+    def get_user_by_id_public(db, current_user):
+        user = UserRepository.get_user_by_id(db, current_user["id"])
 
         ensure_exists(user, MESSAGE_404_USER)
 
@@ -117,6 +116,8 @@ class UserService:
         user = UserRepository.get_user_by_id(db, user_id)
 
         ensure_exists(user, MESSAGE_404_USER)
+
+        is_both_admin(current_user, user)
         
         user.is_active = False
 
@@ -124,7 +125,7 @@ class UserService:
 
 
     @staticmethod
-    def activate_user_account(db, current_user, user_id):
+    def activate_account_admin(db, current_user, user_id):
         require_admin(current_user)
         
         user = UserRepository.get_user_by_id(db, user_id)
@@ -137,15 +138,30 @@ class UserService:
 
 
     @staticmethod
-    def update_user_info_admin(db, current_user, user_id, user_request):
+    def activate_account_public(db, activate_account_request):
+        user = UserRepository.get_user_by_username(db, activate_account_request.username)
+
+        ensure_exists(user, MESSAGE_404_USER)
+
+        verify_password(activate_account_request.password, user.password_hash, MESSAGE_400_PASSWORD)
+        
+        user.is_active = True
+
+        db.commit()
+
+
+    @staticmethod
+    def update_user_admin(db, current_user, user_id, update_request):
         require_admin(current_user)
 
         user = UserRepository.get_user_by_id(db, user_id)
 
         ensure_exists(user, MESSAGE_404_USER)
 
+        is_both_admin(current_user, user)
+
         try:
-            update_object(user, user_request)
+            update_object(user, update_request)
 
             db.commit()
 
@@ -162,7 +178,7 @@ class UserService:
     
 
     @staticmethod
-    def update_user_info_public(db, current_user, user_id, user_request):
+    def update_user_public(db, current_user, user_id, update_request):
         require_user(current_user, user_id)
 
         user = UserRepository.get_user_by_id(db, user_id)
@@ -170,7 +186,7 @@ class UserService:
         ensure_exists(user, MESSAGE_404_USER)
 
         try:
-            update_object(user, user_request)
+            update_object(user, update_request)
 
             db.commit()
 
@@ -187,28 +203,28 @@ class UserService:
     
 
     @staticmethod
-    def update_user_password_public(db, current_user, user_id, user_password_request):
-        require_user(current_user, user_id)
+    def update_password_public(db, current_user, update_request):
+        user = UserRepository.get_user_by_id(db, current_user.id)
 
-        user_model = UserRepository.get_user_by_id(db, user_id)
-
-        ensure_exists(user_model, MESSAGE_404_USER)
+        ensure_exists(user, MESSAGE_404_USER)
         
-        verify_password(user_password_request.old_password, user_model.password_hash, MESSAGE_400_PASSWORD)
+        verify_password(update_request.old_password, user.password_hash, MESSAGE_400_PASSWORD)
         
-        user_model.password_hash = hash_password(user_password_request.new_password)
+        user.password_hash = hash_password(update_request.new_password)
 
         db.commit()
 
 
     @staticmethod
-    def update_user_password_admin(db, current_user, user_id, user_password_request):
+    def update_password_admin(db, current_user, user_id, update_request):
         require_admin(current_user)
         
-        user_model = UserRepository.get_user_by_id(db, user_id)
+        user = UserRepository.get_user_by_id(db, user_id)
 
-        ensure_exists(user_model, MESSAGE_404_USER)
+        ensure_exists(user, MESSAGE_404_USER)
 
-        user_model.password_hash = hash_password(user_password_request.new_password)
+        is_both_admin(current_user, user)
+
+        user.password_hash = hash_password(update_request.new_password)
 
         db.commit()

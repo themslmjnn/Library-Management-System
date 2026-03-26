@@ -1,36 +1,36 @@
 from datetime import date, datetime
 
 
-def _validate_password(v: str) -> str:
-    if not any(c.isupper() for c in v):
-        raise ValueError("Password must contain at least one uppercase letter.")
-    if not any(c.isdigit() for c in v):
-        raise ValueError("Password must contain at least one digit.")
-    if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in v):
-        raise ValueError("Password must contain at least one special character.")
-    return v
+def _validate_password(password: str) -> str:
+    if not any(symbol.isupper() for symbol in password):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not any(symbol.isdigit() for symbol in password):
+        raise ValueError("Password must contain at least one digit")
+    if not any(symbol in "!@#$%^&*()_+-=[]{}|;:,.<>?" for symbol in password):
+        raise ValueError("Password must contain at least one special character")
+    
+    return password
 
 
-def _validate_date_of_birth(v: date) -> date:
+def _validate_date_of_birth(date_of_birth: date) -> date:
     today = date.today()
         
-    if v >= today:
-        raise ValueError("Date of birth must be in the past.")
+    if date_of_birth >= today:
+        raise ValueError("Date of birth must be in the past")
         
-    age = today.year - v.year - ((today.month, today.day) < (v.month, v.day))
-    if age < 13:
-        raise ValueError("User must be at least 13 years old.")
-    if age > 120:
-        raise ValueError("Please enter a valid date of birth.")
+    age = today.year - date_of_birth.year - ((today.month, today.day) < (date_of_birth.month, date_of_birth.day))
+
+    if not 12 <= age <= 100:
+        raise ValueError("Birth date range must be between 12 and 100")
         
-    return v
+    return date_of_birth
 
 
-def _validate_email(v: str) -> str:
-    if v.split('@')[-1] not in ("gmail.com", "mail.ru", "outlook.com", "yahoo.com", "icloud.com"):
+def _validate_email_address(email_address: str) -> str:
+    if email_address.split('@')[-1] not in ("gmail.com", "mail.ru", "outlook.com", "yahoo.com", "icloud.com"):
         raise ValueError("Email with the following domain is not accepted")
     
-    return v
+    return email_address
 
 
 def _validate_publishing_date(v: date) -> date:
