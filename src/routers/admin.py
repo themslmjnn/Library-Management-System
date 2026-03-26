@@ -28,51 +28,6 @@ bcrypt_context = CryptContext(schemes=['bcrypt'], deprecated="auto")
 path_param_int_ge1 = Annotated[int, Path(ge=1)]
 
 
-@router.post("/book_inventory", response_model=book_inventory_schemas.BookInventoryResponse, status_code=status.HTTP_201_CREATED)
-def add_book_inventory(
-        db: db_dependency, 
-        user: user_dependency,
-        book_inventory_request: book_inventory_schemas.BookInventoryCreate):
-
-    return admin_services.AdminBookInventoryService.add_book_inventory(db, user, book_inventory_request)
-
-
-@router.get("/books_inventory", response_model=list[book_inventory_schemas.BookInventoryResponse], status_code=status.HTTP_200_OK)
-def get_all_book_inventory(
-        db: db_dependency,
-        user: user_dependency):
-
-    return admin_services.AdminBookInventoryService.get_all_books_inventory(db, user)
-    
-
-@router.get("/books_inventory/{book_inventory_id}", response_model=book_inventory_schemas.BookInventoryResponse, status_code=status.HTTP_200_OK)
-def get_book_inventory_by_id(
-        db: db_dependency, 
-        user: user_dependency,
-        book_inventory_id: 
-        path_param_int_ge1):
-
-    return admin_services.AdminBookInventoryService.get_book_inventory_by_id(db, user, book_inventory_id)
-
-
-@router.get("/search/books_inventory", response_model=list[book_inventory_schemas.BookInventoryResponse], status_code=status.HTTP_200_OK)
-def search_books_inventory(
-        db: db_dependency, 
-        user: user_dependency,
-        search_book_inventory_request: Annotated[book_inventory_schemas.BookInventorySearch, Depends()]):
-
-    return admin_services.AdminBookInventoryService.search_books_inventory(db, user, search_book_inventory_request)
-
-
-@router.put("/books_inventory/update_quantity_added/{book_inventory_id}", response_model=book_inventory_schemas.BookInventoryResponse, status_code=status.HTTP_200_OK)
-def update_book_inventory_quantity_by_id(
-        db: db_dependency, 
-        user: user_dependency,
-        quantity: int, 
-        book_inventory_id: path_param_int_ge1):
-
-    return admin_services.AdminBookInventoryService.update_book_inventory_quantity_by_id(db, user, quantity, book_inventory_id)
-
 
 @router.get("/loaned_books", response_model=list[loan_book_schemas.LoanBookResponse], status_code=status.HTTP_200_OK)
 def get_all_loaned_books(
