@@ -45,15 +45,6 @@ class UserRepository:
 
         return result.scalars().first()
     
-    
-    # @staticmethod
-    # def get_all_users(db: Session):
-    #     query = select(User)
-
-    #     result = db.execute(query)
-
-    #     return result.scalars().all()
-    
 
     @staticmethod
     def search_users(db: Session, search_request):

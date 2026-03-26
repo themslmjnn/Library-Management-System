@@ -15,12 +15,15 @@ class BookInventoryCreate(BookInventoryBase):
     pass
 
 
-class BookInventoryResponse(BookInventoryBase, BaseSchema):
+class BookInventoryResponse1(BookInventoryBase, BaseSchema):
     id: int
 
     added_by: int
-
     added_at: datetime
+
+
+class BookInventoryResponse2(BookInventoryResponse1):
+    updated_at: datetime
 
 
 class BookInventoryUpdate(BaseModel):

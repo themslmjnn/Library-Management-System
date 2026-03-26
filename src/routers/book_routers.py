@@ -5,7 +5,7 @@ from typing import Annotated
 from db.database import db_dependency
 from src.core.security import user_dependency
 from src.schemas.book_schemas import BookResponse1, BookResponse2, BookCreate, BookSearch, BookUpdate, BookUpdateResponse
-from src.schemas.book_inventory_schemas import BookInventoryCreate, BookInventoryResponse, BookInventorySearch, BookInventoryUpdate, BookInventoryUpdateResponse
+from src.schemas.book_inventory_schemas import BookInventoryCreate, BookInventoryResponse1, BookInventoryResponse2, BookInventorySearch, BookInventoryUpdate, BookInventoryUpdateResponse
 from src.services.book_services import BookService
 from src.utils.constants import path_param_int_ge1
 
@@ -29,6 +29,7 @@ def add_book(
 def get_all_books(db: db_dependency):
     return BookService.get_all_books(db)
 
+
 @router.get("/search", response_model=list[BookResponse2], status_code=status.HTTP_200_OK)
 def search_book(
         db: db_dependency, 
@@ -37,50 +38,50 @@ def search_book(
     return BookService.search_book(db, search_book_request)
 
 
-@router.put("/{book_id}/update_info", response_model=BookUpdateResponse, status_code=status.HTTP_200_OK)
-def update_book_info_by_id(
+@router.put("/{book_id}/update", response_model=BookUpdateResponse, status_code=status.HTTP_200_OK)
+def update_book_by_id(
         db: db_dependency, 
         current_user: user_dependency,
-        book_request: BookUpdate, 
+        update_request: BookUpdate, 
         book_id: path_param_int_ge1):
 
-    return BookService.update_book_info_by_id(db, current_user, book_request, book_id)
+    return BookService.update_book_by_id(db, current_user, update_request, book_id)
 
 
-@router.post("/inventory/add", response_model=BookInventoryResponse, status_code=status.HTTP_201_CREATED)
-def add_book_inventory(
+@router.post("/inventory/add", response_model=BookInventoryResponse1, status_code=status.HTTP_201_CREATED)
+def add_inventory(
         db: db_dependency, 
         current_user: user_dependency,
-        book_inventory_request: BookInventoryCreate):
+        inventory_request: BookInventoryCreate):
 
-    return BookService.add_book_inventory(db, current_user, book_inventory_request)
+    return BookService.add_inventory(db, current_user, inventory_request)
 
 
-@router.get("/inventory", response_model=list[BookInventoryResponse], status_code=status.HTTP_200_OK)
-def get_all_book_inventory(
+@router.get("/inventory", response_model=list[BookInventoryResponse2], status_code=status.HTTP_200_OK)
+def get_all_inventories(
         db: db_dependency,
         current_user: user_dependency):
 
-    return BookService.get_all_books_inventory(db, current_user)
+    return BookService.get_all_inventories(db, current_user)
     
 
-@router.get("/inventory/search", response_model=list[BookInventoryResponse], status_code=status.HTTP_200_OK)
-def search_books_inventory(
+@router.get("/inventory/search", response_model=list[BookInventoryResponse2], status_code=status.HTTP_200_OK)
+def search_inventories(
         db: db_dependency, 
         current_user: user_dependency,
-        search_book_inventory_request: Annotated[BookInventorySearch, Depends()]):
+        search_request: Annotated[BookInventorySearch, Depends()]):
 
-    return BookService.search_books_inventory(db, current_user, search_book_inventory_request)
+    return BookService.search_inventories(db, current_user, search_request)
 
 
-@router.put("/inventory/{inventory_id}/update/quantity", response_model=BookInventoryResponse, status_code=status.HTTP_200_OK)
-def update_book_inventory_quantity(
+@router.put("/inventory/{inventory_id}/update/quantity", response_model=BookInventoryResponse2, status_code=status.HTTP_200_OK)
+def update_inventory_quantity(
         db: db_dependency, 
         current_user: user_dependency,
         quantity: int, 
         inventory_id: path_param_int_ge1):
 
-    return BookService.update_book_inventory_quantity_by_id(db, current_user, quantity, inventory_id)
+    return BookService.update_inventory_quantity_by_id(db, current_user, quantity, inventory_id)
 
 
 @router.get("/{book_id}", response_model=BookResponse2, status_code=status.HTTP_200_OK)
@@ -91,10 +92,10 @@ def get_book_by_id(
     return BookService.get_book_by_id(db, book_id)
 
 
-@router.get("/inventory/{inventory_id}", response_model=BookInventoryResponse, status_code=status.HTTP_200_OK)
-def get_book_inventory_by_id(
+@router.get("/inventory/{inventory_id}", response_model=BookInventoryResponse2, status_code=status.HTTP_200_OK)
+def get_inventory_by_id(
         db: db_dependency, 
         current_user: user_dependency,
         inventory_id: path_param_int_ge1):
 
-    return BookService.get_book_inventory_by_id(db, current_user, inventory_id)
+    return BookService.get_inventory_by_id(db, current_user, inventory_id)

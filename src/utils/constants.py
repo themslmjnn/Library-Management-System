@@ -13,5 +13,6 @@ MESSAGE_404_LOAN = "Loan(s) not found"
 MESSAGE_409_DUPLICATE = "Duplicate values are not accepted"
 MESSAGE_409_USERNAME = "Username already taken"
 MESSAGE_409_EMAIL = "Email already registered"
+MESSAGE_409_TITLE_OR_AUTHOR = "Duplicate title or author"
 
 path_param_int_ge1 = Annotated[int, Path(ge=1)]

@@ -23,6 +23,7 @@ def require_admin_or_member(user) -> None:
     if user["role"] not in (UserRole.admin, UserRole.member):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MESSAGE_403_FORBIDDEN)
 
+
 def is_both_admin(current_user, user_to_be_deleted) -> None:
     if current_user["role"] == UserRole.admin and user_to_be_deleted.role == UserRole.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MESSAGE_403_FORBIDDEN)
