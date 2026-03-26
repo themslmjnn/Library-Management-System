@@ -9,8 +9,9 @@ MESSAGE_403 = "Accessing denied"
 MESSAGE_404_USER = "User(s) not found"
 MESSAGE_404_BOOK = "Book(s) not found"
 MESSAGE_404_INVENTORY = "Book inventory(s) not found"
+MESSAGE_404_LOAN = "Loan(s) not found"
 MESSAGE_409_DUPLICATE = "Duplicate values are not accepted"
-MESSAGE_409_2 = "Username already taken"
-MESSAGE_409_3 = "Email already registered"
+MESSAGE_409_USERNAME = "Username already taken"
+MESSAGE_409_EMAIL = "Email already registered"
 
 path_param_int_ge1 = Annotated[int, Path(ge=1)]

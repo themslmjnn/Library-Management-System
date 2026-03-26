@@ -1,5 +1,5 @@
 from src.core.security import bcrypt_context
-from repositories.user_repositories import UserRepository
+from src.repositories.user_repositories import UserRepository
 
 
 class TokenService:
@@ -13,7 +13,7 @@ class TokenService:
         if not user.is_active:
             return False
         
-        if not bcrypt_context.verify(password, user.hash_password):
+        if not bcrypt_context.verify(password, user.password_hash):
             return False
         
         return user

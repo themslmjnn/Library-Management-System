@@ -1,20 +1,18 @@
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import Session
 
-from models.loaned_book_model import LoanBook
+from src.models.loaned_book_model import LoanedBook
 
 
-class LoanBookRepository:
+class LoanedBookRepository:
     @staticmethod
     def loan_book(db: Session, loan_request):
         db.add(loan_request)
-
-        return loan_request
     
     
     @staticmethod
     def get_loaned_books(db: Session):
-        query = select(LoanBook)
+        query = select(LoanedBook)
 
         result = db.execute(query)
 
@@ -24,8 +22,8 @@ class LoanBookRepository:
     @staticmethod
     def get_loaned_book_by_id(db: Session, loaned_book_id):
         query = (
-            select(LoanBook)
-            .filter(LoanBook.id == loaned_book_id)
+            select(LoanedBook)
+            .filter(LoanedBook.id == loaned_book_id)
         )
 
         result = db.execute(query)
@@ -36,10 +34,10 @@ class LoanBookRepository:
     @staticmethod
     def get_loaned_books_by_user_id(db: Session, user_id):
         query = (
-            select(LoanBook)
+            select(LoanedBook)
             .filter(and_(
-                LoanBook.user_id == user_id,
-                LoanBook.returned_at.is_(None))
+                LoanedBook.user_id == user_id,
+                LoanedBook.returned_at.is_(None))
             )
         )
 
@@ -51,8 +49,8 @@ class LoanBookRepository:
     @staticmethod
     def get_loaned_books_by_book_id(db: Session, book_id):
         query = (
-            select(LoanBook)
-            .filter(LoanBook.book_id == book_id)
+            select(LoanedBook)
+            .filter(LoanedBook.book_id == book_id)
         )
 
         result = db.execute(query)
@@ -61,23 +59,23 @@ class LoanBookRepository:
 
     
     @staticmethod
-    def search_loaned_books(db: Session, search_loaned_book_request):
-        query = select(LoanBook)
+    def search_loaned_book(db: Session, search_loaned_book_request):
+        query = select(LoanedBook)
 
         if search_loaned_book_request.book_id is not None:
-            query = query.filter(LoanBook.book_id == search_loaned_book_request.book_id)
+            query = query.filter(LoanedBook.book_id == search_loaned_book_request.book_id)
 
         if search_loaned_book_request.user_id is not None:
-            query = query.filter(LoanBook.user_id == search_loaned_book_request.user_id)
+            query = query.filter(LoanedBook.user_id == search_loaned_book_request.user_id)
 
         if search_loaned_book_request.created_by is not None:
-            query = query.filter(LoanBook.created_by == search_loaned_book_request.created_by)
+            query = query.filter(LoanedBook.created_by == search_loaned_book_request.created_by)
 
         if search_loaned_book_request.loaned_at is not None:
-            query = query.filter(LoanBook.loaned_at == search_loaned_book_request.loaned_at)
+            query = query.filter(LoanedBook.loaned_at == search_loaned_book_request.loaned_at)
 
         if search_loaned_book_request.due_at is not None:
-            query = query.filter(LoanBook.due_at == search_loaned_book_request.due_at)
+            query = query.filter(LoanedBook.due_at == search_loaned_book_request.due_at)
 
         result = db.execute(query)
 
@@ -88,10 +86,10 @@ class LoanBookRepository:
     def get_not_returned_loans(db: Session, book_id: int):
         query = (
             select(func.count())
-            .select_from(LoanBook)
+            .select_from(LoanedBook)
             .filter(and_(
-                LoanBook.book_id == book_id,
-                LoanBook.returned_at.is_(None)
+                LoanedBook.book_id == book_id,
+                LoanedBook.returned_at.is_(None)
             ))
         )
 
@@ -105,15 +103,11 @@ class LoanBookRepository:
         query = (
             select(func.count())
             .filter(and_(
-                LoanBook.user_id == user_id,
-                LoanBook.returned_at.is_(None))
+                LoanedBook.user_id == user_id,
+                LoanedBook.returned_at.is_(None))
             )
         )
 
         result = db.execute(query)
 
         return result.scalar()
-
-
-    
-    

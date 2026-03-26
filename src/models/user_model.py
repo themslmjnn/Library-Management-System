@@ -56,8 +56,8 @@ class User(Base):
         back_populates="creator"
     )
 
-    loaned_records = relationship("LoanBook", foreign_keys="LoanBook.user_id", back_populates="user")
-    loaned_book_creator = relationship("LoanBook", foreign_keys="LoanBook.created_by", back_populates="creator")
+    loaned_records = relationship("LoanedBook", foreign_keys="LoanedBook.user_id", back_populates="user")
+    loaned_book_creator = relationship("LoanedBook", foreign_keys="LoanedBook.created_by", back_populates="creator")
 
     inventory_records_creator = relationship("BookInventory", foreign_keys="BookInventory.added_by", back_populates="creator")
 

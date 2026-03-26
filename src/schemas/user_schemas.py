@@ -35,10 +35,14 @@ class UserCreatePublic(UserBase):
         return _validate_password(v)
     
 
-class UserResponsePublic(UserBase, BaseSchema):
+class UserResponsePublic1(UserBase, BaseSchema):
     id: int
 
     created_at: datetime
+
+
+class UserResponsePublic2(UserResponsePublic1):
+    updated_at: datetime
 
 
 class UserCreateAdmin(UserBase):
@@ -52,13 +56,16 @@ class UserCreateAdmin(UserBase):
         return _validate_password(v)
 
 
-class UserResponseAdmin(UserBase, BaseSchema):
+class UserResponseAdmin1(UserBase, BaseSchema):
     id: int
 
     role: UserRole
     is_active: bool
 
     created_at: datetime
+
+
+class UserResponseAdmin2(UserResponseAdmin1):
     updated_at: datetime
 
 
@@ -68,6 +75,17 @@ class UserUpdateBase(BaseModel):
     last_name: Optional[str] = Field(None, min_length=2, max_length=20)
     date_of_birth: Optional[date] = None
     email_address: Optional[EmailStr] = None
+
+    @field_validator("date_of_birth")
+    @classmethod
+    def validate_date_of_birth(cls, v: date) -> date:
+        return _validate_date_of_birth(v)
+    
+    @field_validator("email_address")
+    @classmethod
+    def valdiate_email_address(cls, v: str) -> str:
+        return _validate_email(v)
+
 
 
 class UserUpdatePublic(UserUpdateBase):
@@ -81,6 +99,15 @@ class UserUpdateAdmin(UserUpdateBase):
 
 class UserUpdateResponsePublic(UserBase, BaseSchema):
     id: int
+
+    updated_at: datetime
+
+
+class UserUpdateResponseAdmin(UserBase, BaseSchema):
+    id: int
+
+    role: UserRole
+    is_active: bool
 
     updated_at: datetime
 
@@ -121,3 +148,5 @@ class CurrentUserResponse(BaseSchema):
    username: str = Field(min_length=6, max_length=20)
 
    role: UserRole
+
+   

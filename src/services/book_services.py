@@ -5,7 +5,7 @@ from src.models.book_model import Book
 from src.models.book_inventory_model import BookInventory
 from src.repositories.book_repositories import BookRepository
 from src.utils.helpers import require_admin_or_member, require_admin, ensure_exists, update_object
-from src.utils.constants import MESSAGE_409_DUPLICATE, MESSAGE_404_INVENTORY
+from src.utils.constants import MESSAGE_409_DUPLICATE, MESSAGE_404_INVENTORY, MESSAGE_404_BOOK
 from src.utils.exceptions import check_added_by_fkey_error, check_book_id_fkey_error
 
 
@@ -37,7 +37,11 @@ class BookService:
 
     @staticmethod
     def get_book_by_id(db, book_id):
-        return BookRepository.get_book_by_id(db, book_id)
+        book = BookRepository.get_book_by_id(db, book_id)
+
+        ensure_exists(book, MESSAGE_404_BOOK)
+
+        return book
     
 
     @staticmethod
@@ -51,7 +55,7 @@ class BookService:
 
         book = BookRepository.get_book_by_id(db, book_id)
 
-        ensure_exists(book)
+        ensure_exists(book, MESSAGE_404_BOOK)
 
         try:
             update_object(book, book_request)

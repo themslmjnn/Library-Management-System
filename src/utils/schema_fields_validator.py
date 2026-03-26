@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 
 def _validate_password(v: str) -> str:
@@ -11,7 +11,7 @@ def _validate_password(v: str) -> str:
     return v
 
 
-def _validate_date_of_birth(v: str) -> date:
+def _validate_date_of_birth(v: date) -> date:
     today = date.today()
         
     if v >= today:
@@ -33,8 +33,10 @@ def _validate_email(v: str) -> str:
     return v
 
 
-def _validate_publishing_date(v: str) -> date:
+def _validate_publishing_date(v: date) -> date:
     today = date.today()
-        
-    if v >= today:
-        raise ValueError("Date of birth must be in the past.")
+
+    if v > today:
+        raise ValueError("Publishing date must be in the past.")
+
+    return v

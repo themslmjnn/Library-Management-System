@@ -24,7 +24,7 @@ class UserService:
         )
 
         try:
-            UserRepository.add_user(db, new_user)
+            UserRepository.register_user(db, new_user)
 
             db.commit()
             db.refresh(new_user)
@@ -42,23 +42,23 @@ class UserService:
 
     
     @staticmethod
-    def register_user_admin(db, user, user_request):
-        require_admin(user)
+    def register_user_admin(db, current_user, user_request):
+        require_admin(current_user)
 
         new_user = User(
             username=user_request.username,
-            first_name=user_request.first_name.title(),
-            last_name=user_request.last_name.title(),
+            first_name=user_request.first_name,
+            last_name=user_request.last_name,
             date_of_birth=user_request.date_of_birth,
             email_address=user_request.email_address,
             password_hash=hash_password(user_request.password),
             role=user_request.role,
             is_active=True,
-            created_by=user["id"]
+            created_by=current_user["id"]
         )
 
         try:
-            UserRepository.add_user(db, new_user)
+            UserRepository.register_user(db, new_user)
 
             db.commit()
             db.refresh(new_user)
@@ -76,80 +76,80 @@ class UserService:
     
 
     @staticmethod
-    def get_all_users(db, user):
-        require_admin(user)
+    def get_all_users(db, current_user):
+        require_admin(current_user)
 
         return UserRepository.get_all_users(db)
     
 
     @staticmethod
-    def search_users(db, user, users_request):
-        require_admin(user)
+    def search_users(db, current_user, users_request):
+        require_admin(current_user)
 
         return UserRepository.search_users(db, users_request)
     
 
     @staticmethod
-    def get_user_by_id_admin(db, user, user_id):
-        require_admin(user)
+    def get_user_by_id_admin(db, current_user, user_id):
+        require_admin(current_user)
 
-        user_model = UserRepository.get_user_by_id(db, user_id)
-        ensure_exists(user_model, MESSAGE_404_USER)
+        user = UserRepository.get_user_by_id(db, user_id)
+        ensure_exists(user, MESSAGE_404_USER)
 
-        return user_model
+        return user
     
 
     @staticmethod
-    def get_user_by_id_public(db, user, user_id):
-        require_user(user, user_id)
+    def get_user_by_id_public(db, current_user, user_id):
+        require_user(current_user, user_id)
 
-        user_model = UserRepository.get_user_by_id(db, user_id)
+        user = UserRepository.get_user_by_id(db, user_id)
 
-        ensure_exists(user_model, MESSAGE_404_USER)
+        ensure_exists(user, MESSAGE_404_USER)
 
-        return user_model
+        return user
     
 
     @staticmethod
-    def delete_user_by_id(db, user, user_id):
-        require_admin_or_owner(user, user_id)
+    def delete_user_by_id(db, current_user, user_id):
+        require_admin_or_owner(current_user, user_id)
 
-        user_model = UserRepository.get_user_by_id(db, user_id)
+        user = UserRepository.get_user_by_id(db, user_id)
 
-        ensure_exists(user_model, MESSAGE_404_USER)
+        ensure_exists(user, MESSAGE_404_USER)
         
-        user_model.is_active = False
+        user.is_active = False
 
         db.commit()
 
 
     @staticmethod
-    def activate_user_account(db, user, user_id):
-        require_admin(user)
+    def activate_user_account(db, current_user, user_id):
+        require_admin(current_user)
         
-        user_model = UserRepository.get_user_by_id(db, user_id)
+        user = UserRepository.get_user_by_id(db, user_id)
 
-        ensure_exists(user_model, MESSAGE_404_USER)
+        ensure_exists(user, MESSAGE_404_USER)
         
-        user_model.is_active = True
+        user.is_active = True
 
         db.commit()
 
 
     @staticmethod
-    def update_user_info_admin(db, user, user_id, user_request):
-        require_admin(user)
+    def update_user_info_admin(db, current_user, user_id, user_request):
+        require_admin(current_user)
 
-        user_model = UserRepository.get_user_by_id(db, user_id)
+        user = UserRepository.get_user_by_id(db, user_id)
 
-        ensure_exists(user_model, MESSAGE_404_USER)
+        ensure_exists(user, MESSAGE_404_USER)
 
         try:
-            update_object(user_model, user_request)
+            update_object(user, user_request)
 
             db.commit()
 
-            return user_model
+            return user
         
         except IntegrityError as e:
             db.rollback()
@@ -162,19 +162,19 @@ class UserService:
     
 
     @staticmethod
-    def update_user_info_public(db, user, user_id, user_request):
-        require_user(user, user_id)
+    def update_user_info_public(db, current_user, user_id, user_request):
+        require_user(current_user, user_id)
 
-        user_model = UserRepository.get_user_by_id(db, user_id)
+        user = UserRepository.get_user_by_id(db, user_id)
 
-        ensure_exists(user_model, MESSAGE_404_USER)
+        ensure_exists(user, MESSAGE_404_USER)
 
         try:
-            update_object(user_model, user_request)
+            update_object(user, user_request)
 
             db.commit()
 
-            return user_model
+            return user
         
         except IntegrityError as e:
             db.rollback()

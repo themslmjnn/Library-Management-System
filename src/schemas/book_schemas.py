@@ -16,20 +16,22 @@ class BookBase(BaseModel):
     rating: Optional[float] = Field(None, ge=1, le=5)
     publishing_date: Optional[date] = None
 
+
+class BookCreate(BookBase):
     @field_validator("publishing_date")
     @classmethod
     def validate_publishing_date(cls, v: date) -> date:
         return _validate_publishing_date(v)
 
 
-class BookCreate(BookBase):
-    pass
-
-
-class BookResponse(BookBase, BaseSchema):
+class BookResponse1(BookBase, BaseSchema):
     id: int
 
     created_at: datetime
+
+
+class BookResponse2(BookResponse1):
+    updated_at: datetime
 
 
 class BookUpdate(BaseModel):
@@ -39,6 +41,11 @@ class BookUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=100)
     rating: Optional[float] = Field(None, ge=1, le=5)
     publishing_date: Optional[date] = None
+
+    @field_validator("publishing_date")
+    @classmethod
+    def validate_publishing_date(cls, v: date) -> date:
+        return _validate_publishing_date(v)
 
 
 class BookUpdateResponse(BookBase, BaseSchema):

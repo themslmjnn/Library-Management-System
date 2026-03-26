@@ -1,21 +1,16 @@
 from fastapi import HTTPException, status
 
-from src.utils.constants import MESSAGE_404_USER, MESSAGE_404_BOOK, MESSAGE_409_1, MESSAGE_409_2, MESSAGE_409_3
+from src.utils.constants import MESSAGE_404_USER, MESSAGE_404_BOOK, MESSAGE_409_USERNAME, MESSAGE_409_EMAIL, MESSAGE_409_DUPLICATE
 
 
 def check_unique_username_error(e):
     if "ix_users_username" in str(e.orig):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=MESSAGE_409_2)
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=MESSAGE_409_USERNAME)
 
 
 def check_unique_email_error(e):
-    if "ix_users_email_address" in str(e.orig):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=MESSAGE_409_3)
-    
-
-def check_uix_title_deadline_error(e):
-    if "uix_title_deadline" in str(e.orig):
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=MESSAGE_409_1)
+    if "users_email_address_key" in str(e.orig):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=MESSAGE_409_EMAIL)
     
 
 def check_book_id_fkey_error(e):
