@@ -149,6 +149,7 @@ class UserActivateAccountPublic(BaseModel):
     username: str
     password: str
 
+
 class CurrentUserResponse(BaseSchema):
    id: int
 

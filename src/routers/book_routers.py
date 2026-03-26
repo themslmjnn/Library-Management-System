@@ -5,7 +5,7 @@ from typing import Annotated
 from db.database import db_dependency
 from src.core.security import user_dependency
 from src.schemas.book_schemas import BookResponse1, BookResponse2, BookCreate, BookSearch, BookUpdate, BookUpdateResponse
-from src.schemas.book_inventory_schemas import BookInventoryCreate, BookInventoryResponse1, BookInventoryResponse2, BookInventorySearch, BookInventoryUpdate, BookInventoryUpdateResponse
+from src.schemas.book_inventory_schemas import BookInventoryCreate, BookInventoryResponse1, BookInventoryResponse2, BookInventorySearch
 from src.services.book_services import BookService
 from src.utils.constants import path_param_int_ge1
 

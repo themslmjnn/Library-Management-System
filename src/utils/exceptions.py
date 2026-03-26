@@ -1,6 +1,7 @@
 from fastapi import HTTPException, status
 
-from src.utils.constants import MESSAGE_404_USER, MESSAGE_404_BOOK, MESSAGE_409_USERNAME, MESSAGE_409_EMAIL, MESSAGE_409_TITLE_OR_AUTHOR
+from src.utils.constants import MESSAGE_404_USER, MESSAGE_404_BOOK
+from src.utils.constants import MESSAGE_409_USERNAME, MESSAGE_409_EMAIL, MESSAGE_409_TITLE_OR_AUTHOR
 
 
 def check_unique_username_error(error):

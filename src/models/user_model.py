@@ -4,14 +4,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from enum import Enum
 
-from typing import Annotated
 from datetime import date, datetime
 
 from db.database import Base
 from src.utils.model_constants import int_pk, str_ix_30, str_uix_50
-
-
-str_unique = Annotated[str, mapped_column(unique=True, nullable=False)]
 
 
 class UserRole(str, Enum):

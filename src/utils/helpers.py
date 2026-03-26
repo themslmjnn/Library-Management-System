@@ -30,7 +30,7 @@ def is_both_admin(current_user, user_to_be_deleted) -> None:
     
 
 def ensure_exists(object, message) -> None:
-    if object is None:
+    if object is None or not object:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
      
 

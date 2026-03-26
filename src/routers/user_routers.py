@@ -5,7 +5,8 @@ from typing import Annotated
 from db.database import db_dependency
 from src.core.security import user_dependency
 from src.services.user_services import UserService
-from src.schemas.user_schemas import UserActivateAccountPublic, UserCreatePublic, UserResponsePublic1, UserResponsePublic2, UserUpdatePasswordPublic, UserUpdatePublic, UserUpdateResponsePublic
+from src.schemas.user_schemas import UserActivateAccountPublic, UserCreatePublic, UserResponsePublic1, UserResponsePublic2
+from src.schemas.user_schemas import UserUpdatePasswordPublic, UserUpdatePublic, UserUpdateResponsePublic
 from src.schemas.user_schemas import UserCreateAdmin, UserResponseAdmin1, UserUpdateAdmin, UserUpdatePasswordAdmin, UserResponseAdmin2, UserUpdateResponseAdmin
 from src.schemas.user_schemas import UserSearch
 

@@ -1,6 +1,5 @@
 from sqlalchemy import String, UniqueConstraint, ForeignKey, func
 from sqlalchemy import Enum as SQLEnum
-
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from enum import Enum

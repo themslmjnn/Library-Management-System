@@ -9,10 +9,11 @@ from src.schemas.base_schema import BaseSchema
 class LoanedBookBase(BaseModel):
     book_id: int = Field(ge=1)
     user_id: int = Field(ge=1)
+    due_at: date
 
 
 class LoanedBookCreate(LoanedBookBase):
-    due_at: date
+    pass
 
 
 class LoanedBookResponse(LoanedBookBase, BaseSchema):
@@ -20,7 +21,6 @@ class LoanedBookResponse(LoanedBookBase, BaseSchema):
 
     created_by: int = Field(ge=1)
     loaned_at: datetime
-    due_at: date
     returned_at: Optional[datetime] = None
 
 
@@ -36,9 +36,5 @@ class LoanedBookUpdate(LoanedBookSearch):
     pass
 
 
-class ReturnLoanRequest(LoanedBookBase):
-    due_at: date
-
-
 class ReturnLoanResponse(LoanedBookResponse):
-    returned_at: datetime
+    pass
