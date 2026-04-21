@@ -41,6 +41,9 @@ class User(Base):
     invite_token_hash: Mapped[str | None] = mapped_column(nullable=True)
     invite_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    account_activation_code_hash: Mapped[str | None] = mapped_column(nullable=True)
+    account_activation_code_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     access_token_version: Mapped[int] = mapped_column(nullable=False, default=1)
 
     refresh_token_hash: Mapped[str | None] = mapped_column(nullable=True)

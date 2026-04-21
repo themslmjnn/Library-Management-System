@@ -23,7 +23,7 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
 
 
-class ActivateAccountRequest(BaseModel):
+class ActivateAccountWithToken(BaseModel):
     email: str
     invite_token: str
     password: str
@@ -32,3 +32,7 @@ class ActivateAccountRequest(BaseModel):
     @classmethod
     def validate_password_strength(cls, field: str) -> str:
         return validate_password(field)
+    
+class ActivateAccountWithCode(BaseModel):
+    email: str
+    code: str

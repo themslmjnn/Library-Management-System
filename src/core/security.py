@@ -19,7 +19,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def generate_invite_token() -> tuple[str, str]:
     raw_invite_token = secrets.token_urlsafe(32)
-    hashed_invite_token = hash(raw_invite_token)
+    hashed_invite_token = bcrypt_context.hash(raw_invite_token)
 
     return raw_invite_token, hashed_invite_token
 
@@ -91,3 +91,13 @@ def decode_refresh_token(refresh_token: str) -> dict:
     
 def verify_refresh_token(raw_refresh_roken: str, hashed_refresh_token: str) -> bool:
     return bcrypt_context.verify(raw_refresh_roken, hashed_refresh_token)
+
+
+def generate_account_activation_code() -> tuple[str, str]:
+    raw_activation_code = secrets.token_hex(8)
+    hashed_activation_code = bcrypt_context.hash(raw_activation_code)
+
+    return raw_activation_code, hashed_activation_code
+
+def verify_account_activation_code(raw_activation_code: str, hashed_activation_code: str) -> bool:
+    return bcrypt_context.verify(raw_activation_code, hashed_activation_code)

@@ -5,7 +5,7 @@ from fastapi import HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.repository import AuthRepository
-from src.auth.schemas import ActivateAccountRequest, LoginRequest, LoginResponse
+from src.auth.schemas import ActivateAccountWithToken, ActivateAccountWithCode, LoginRequest, LoginResponse, CreateAccessTokenRequest, CreateRefreshTokenRequest
 from src.core.config import settings
 from src.core.security import (
     create_access_token,
@@ -15,6 +15,8 @@ from src.core.security import (
     verify_invite_token,
     verify_password,
     verify_refresh_token,
+    verify_account_activation_code,
+    generate_account_activation_code
 )
 from src.user.models import User
 from src.user.repository import UserRepository
@@ -47,7 +49,7 @@ class AuthService:
 
     @staticmethod
     async def _invalidate_all_tokens(db: AsyncSession, user: User) -> None:
-        user.token_version += 1
+        user.access_token_version += 1
         user.refresh_token_hash = None
         user.refresh_token_family = None
         user.refresh_token_expires_at = None
@@ -56,7 +58,7 @@ class AuthService:
 
     @staticmethod
     async def login(db: AsyncSession, response: Response, login_request: LoginRequest) -> LoginResponse:
-        user = await AuthRepository.get_by_login_identifier(db, login_request.identifier)
+        user = await AuthRepository.get_by_login_identifier(db, login_request.username)
 
         if user is None:
             raise HTTPException(
@@ -104,19 +106,23 @@ class AuthService:
         user.refresh_token_family = new_family
 
         access_token = create_access_token(
-            user_id=user.id,
-            role=user.role,
-            token_version=user.token_version,
+            CreateAccessTokenRequest(
+                user_id=user.id,
+                role=user.role,
+                access_token_version=user.access_token_version,
+            )
         )
 
         raw_refresh_token, hashed_refresh_token = create_refresh_token(
-            user_id=user.id,
-            family=new_family,
+            CreateRefreshTokenRequest(
+                user_id=user.id,
+                family=new_family,
+            )
         )
 
         user.refresh_token_hash = hashed_refresh_token
         user.refresh_token_expires_at = (
-            datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+            datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_DAYS)
         )
 
         await db.commit()
@@ -126,25 +132,25 @@ class AuthService:
         return {"access_token": access_token, "token_type": "bearer"}
 
     @staticmethod
-    async def activate_account(db: AsyncSession, request: ActivateAccountRequest) -> None:
+    async def activate_account_with_token(db: AsyncSession, request: ActivateAccountWithToken) -> None:
         user = await AuthRepository.get_by_login_identifier(db, request.email)
 
         if user is None or user.invite_token_hash is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=HTTP400.INVITE_TOKEN_INVALID,
+                detail=HTTP400.INVALID_INVITE_TOKEN,
             )
 
         if datetime.now(timezone.utc) > user.invite_token_expires_at:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=HTTP400.INVITE_TOKEN_EXPIRED,
+                detail=HTTP400.EXPIRED_INVITE_TOKEN,
             )
 
         if not verify_invite_token(request.invite_token, user.invite_token_hash):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=HTTP400.INVITE_TOKEN_INVALID,
+                detail=HTTP400.INVALID_INVITE_TOKEN,
             )
 
         user.password_hash = hash_password(request.password)
@@ -153,6 +159,36 @@ class AuthService:
         user.invite_token_expires_at = None
 
         await db.commit()
+
+
+    @staticmethod
+    async def activate_account_with_code(db: AsyncSession, request: ActivateAccountWithCode) -> None:
+        user = await AuthRepository.get_by_login_identifier(db, request.email)
+
+        if user is None or user.account_activation_code_hash is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=HTTP400.INVALID_ACTIVATION_CODE,
+            )
+
+        if datetime.now(timezone.utc) > user.account_activation_code_expires_at:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=HTTP400.EXPIRED_ACTIVATION_CODE,
+            )
+
+        if not verify_account_activation_code(request.code, user.account_activation_code_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=HTTP400.INVALID_ACTIVATION_CODE,
+            )
+
+        user.is_active = True
+        user.account_activation_code_hash = None
+        user.account_activation_code_expires_at = None
+
+        await db.commit()
+
 
     @staticmethod
     async def refresh_token(db: AsyncSession, response: Response, raw_refresh_token: str) -> LoginResponse:
@@ -199,23 +235,28 @@ class AuthService:
         user.refresh_token_family = new_family
 
         access_token = create_access_token(
-            user_id=user.id,
-            role=user.role,
-            token_version=user.token_version,
-        )
-        raw_refresh, hashed_refresh = create_refresh_token(
-            user_id=user.id,
-            family=new_family,
+            CreateAccessTokenRequest(
+                user_id=user.id,
+                role=user.role,
+                access_token_version=user.access_token_version,
+            )
         )
 
-        user.refresh_token_hash = hashed_refresh
+        raw_refresh_token, hashed_refresh_token = create_refresh_token(
+            CreateRefreshTokenRequest(
+                user_id=user.id,
+                family=new_family,
+            )
+        )
+
+        user.refresh_token_hash = hashed_refresh_token
         user.refresh_token_expires_at = (
-            datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+            datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_DAYS)
         )
 
         await db.commit()
 
-        AuthService._set_refresh_cookie(response, raw_refresh)
+        AuthService._set_refresh_cookie(response, raw_refresh_token)
 
         return {"access_token": access_token, "token_type": "bearer"}
 
