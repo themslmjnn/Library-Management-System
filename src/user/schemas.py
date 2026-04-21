@@ -105,13 +105,11 @@ class UpdateUserPasswordPublic(BaseModel):
         return validate_password(field)
 
 
-class SearchUserBase(BaseModel):
+class SearchUser(BaseModel):
     username: str | None = None
     first_name: str | None = None
     last_name: str | None = None
     date_of_birth: date| None = None
-
-class SearchUserAdmin(SearchUserBase):
     email: str | None = None
     phone_number: str | None = None
     role: UserRole | None = None
