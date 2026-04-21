@@ -3,7 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from src.auth.schemas import ActivateAccountWithCode, ActivateAccountWithToken, LoginResponse
+from src.auth.schemas import (
+    ActivateAccountWithCode,
+    ActivateAccountWithToken,
+    LoginResponse,
+)
 from src.auth.service import AuthService
 from src.core.dependencies import async_db_dependency, current_user_dependency
 from src.utils.exception_constants import HTTP401

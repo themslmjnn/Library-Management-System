@@ -1,18 +1,24 @@
-from sqlalchemy.ext.asyncio import AsyncSession
-from src.user.schemas import CreateUserPublic
-from src.user.models import User, UserRole
-from src.core.security import hash_password
-from src.user.repository import UserRepositoryBase
-from sqlalchemy.exc import IntegrityError
-from src.utils.exceptions import handle_user_integrity_error
+from datetime import datetime, timedelta, timezone
+
 from fastapi import HTTPException, status
-from src.core.security import generate_invite_token, generate_account_activation_code
-from datetime import datetime, timezone, timedelta
-from src.utils.email import send_invite_email, send_account_activation_code
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.core.security import (
+    generate_account_activation_code,
+    generate_invite_token,
+    hash_password,
+)
+from src.user.models import User, UserRole
+from src.user.repository import UserRepositoryBase
+from src.user.schemas import CreateUserAdmin, CreateUserBase, CreateUserPublic
+from src.utils.email import send_account_activation_code, send_invite_email
+from src.utils.exceptions import handle_user_integrity_error
+
 
 class UserServiceAdmin:
     @staticmethod
-    async def create_account_admin(db: AsyncSession, user_request: CreateUserPublic, current_user: User) -> User:
+    async def create_account_admin(db: AsyncSession, user_request: CreateUserAdmin, current_user: User) -> User:
         if user_request.role == UserRole.system_admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -55,7 +61,7 @@ class UserServiceAdmin:
 
 class UserServiceStaff:
     @staticmethod
-    async def create_account_staff(db: AsyncSession, user_request: CreateUserPublic, current_user: User) -> User:
+    async def create_account_staff(db: AsyncSession, user_request: CreateUserBase, current_user: User) -> User:
         raw_invite_token, invite_token_hash = generate_invite_token()
         invite_token_expires_at = (
             datetime.now(timezone.utc) + timedelta(days=2)

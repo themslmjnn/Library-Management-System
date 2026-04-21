@@ -1,10 +1,14 @@
-from fastapi import APIRouter, status, Depends
-from src.user.schemas import UserResponseAdmin, CreateUserAdmin
-from src.core.dependencies import async_db_dependency, current_user_dependency, require_roles
 from typing import Annotated
-from src.user.models import User, UserRole
-from src.user.service import UserServiceAdmin
 
+from fastapi import APIRouter, Depends, status
+
+from src.core.dependencies import (
+    async_db_dependency,
+    require_roles,
+)
+from src.user.models import User, UserRole
+from src.user.schemas import CreateUserAdmin, UserResponseAdmin
+from src.user.service import UserServiceAdmin
 
 router = APIRouter(
     prefix="/users",

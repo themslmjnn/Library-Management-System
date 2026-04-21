@@ -14,10 +14,6 @@ class CreateRefreshTokenRequest(BaseModel):
     family: str
 
 
-class LoginRequest(BaseModel):
-    identifier: str
-    password: str
-
 class LoginResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

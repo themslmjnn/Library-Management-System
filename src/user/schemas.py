@@ -38,9 +38,6 @@ class CreateUserAdmin(CreateUserBase):
     def validate_role(cls, field: UserRole) -> UserRole:
         return validate_role(field)
 
-class CreateUserStaff(CreateUserBase):
-    pass
-
 class CreateUserPublic(CreateUserBase):
     password: str
 
@@ -51,7 +48,6 @@ class CreateUserPublic(CreateUserBase):
     
 
 class UserResponseBase(BaseSchema):
-    id: int
     username: str | None = None
     first_name: str
     last_name: str
@@ -62,16 +58,10 @@ class UserResponseBase(BaseSchema):
     updated_at: datetime
 
 class UserResponseAdmin(UserResponseBase):
+    id: int
     role: UserRole
     is_active: bool
     created_by: int | None = None
-
-class UserResponseStaff(BaseSchema):
-    id: int
-    username: str | None = None
-    first_name: str
-    last_name: str
-    date_of_birth: date
 
 
 class UpdateUserBase(BaseModel):
@@ -96,8 +86,6 @@ class UpdateUserAdmin(UpdateUserBase):
     role: UserRole | None = None
     is_active: bool | None = None
 
-class UpdateUserPublic(UpdateUserBase):
-    pass
 
 class UpdateUserPasswordAdmin(BaseModel):
     new_password: str = Field(min_length=8)
@@ -128,6 +116,3 @@ class SearchUserAdmin(SearchUserBase):
     phone_number: str | None = None
     role: UserRole | None = None
     is_active: bool | None = None
-
-class SearchUserStaff(SearchUserBase):
-    pass

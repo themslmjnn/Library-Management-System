@@ -1,3 +1,5 @@
+import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -19,12 +21,28 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def generate_invite_token() -> tuple[str, str]:
     raw_invite_token = secrets.token_urlsafe(32)
-    hashed_invite_token = bcrypt_context.hash(raw_invite_token)
+    hashed_invite_token = hashlib.sha256(raw_invite_token.encode()).hexdigest()
 
     return raw_invite_token, hashed_invite_token
 
 def verify_invite_token(raw_invite_token: str, hashed_invite_token: str) -> bool:
-    return bcrypt_context.verify(raw_invite_token, hashed_invite_token)
+    return hmac.compare_digest(
+        hashlib.sha256(raw_invite_token.encode()).hexdigest(), 
+        hashed_invite_token,
+    )
+
+
+def generate_account_activation_code() -> tuple[str, str]:
+    raw_activation_code = secrets.token_hex(8)
+    hashed_activation_code = hashlib.sha256(raw_activation_code.encode()).hexdigest()
+
+    return raw_activation_code, hashed_activation_code
+
+def verify_account_activation_code(raw_activation_code: str, hashed_activation_code: str) -> bool:
+    return hmac.compare_digest(
+        hashlib.sha256(raw_activation_code.encode()).hexdigest(), 
+        hashed_activation_code,
+    )
 
 
 def create_access_token(payload: CreateAccessTokenRequest) -> str:
@@ -38,7 +56,11 @@ def create_access_token(payload: CreateAccessTokenRequest) -> str:
         ),
     }
 
-    return jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.ALGORITHM)
+    return jwt.encode(
+        payload, 
+        settings.JWT_SECRET_KEY, 
+        algorithm=settings.ALGORITHM,
+    )
 
 def decode_access_token(access_token: str) -> dict:
     try:
@@ -53,7 +75,7 @@ def decode_access_token(access_token: str) -> dict:
         
         return payload
     except JWTError:
-        raise ValueError(HTTP401.TOKEN_EXPIRED)
+        raise ValueError(HTTP401.EXPIRED_ACCESS_TOKEN)
     
 
 def create_refresh_token(payload: CreateRefreshTokenRequest) -> tuple[str, str]:
@@ -69,7 +91,7 @@ def create_refresh_token(payload: CreateRefreshTokenRequest) -> tuple[str, str]:
         algorithm=settings.ALGORITHM,
     )
 
-    hashed_refresh_token = bcrypt_context.hash(raw_refresh_token)
+    hashed_refresh_token =  hashlib.sha256(raw_refresh_token.encode()).hexdigest()
 
     return raw_refresh_token, hashed_refresh_token
 
@@ -87,17 +109,10 @@ def decode_refresh_token(refresh_token: str) -> dict:
         return payload
     
     except JWTError:
-        raise ValueError(HTTP401.REFRESH_TOKEN_EXPIRED)
+        raise ValueError(HTTP401.EXPIRED_REFRESH_TOKEN)
     
 def verify_refresh_token(raw_refresh_roken: str, hashed_refresh_token: str) -> bool:
-    return bcrypt_context.verify(raw_refresh_roken, hashed_refresh_token)
-
-
-def generate_account_activation_code() -> tuple[str, str]:
-    raw_activation_code = secrets.token_hex(8)
-    hashed_activation_code = bcrypt_context.hash(raw_activation_code)
-
-    return raw_activation_code, hashed_activation_code
-
-def verify_account_activation_code(raw_activation_code: str, hashed_activation_code: str) -> bool:
-    return bcrypt_context.verify(raw_activation_code, hashed_activation_code)
+    return hmac.compare_digest(
+        hashlib.sha256(raw_refresh_roken.encode()).hexdigest(), 
+        hashed_refresh_token,
+    )

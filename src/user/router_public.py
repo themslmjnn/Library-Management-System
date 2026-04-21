@@ -1,4 +1,5 @@
 from fastapi import APIRouter, status
+
 from src.core.dependencies import async_db_dependency
 from src.user.schemas import CreateUserPublic, UserResponseBase
 from src.user.service import UserServicePublic

@@ -2,21 +2,27 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Response, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.repository import AuthRepository
-from src.auth.schemas import ActivateAccountWithToken, ActivateAccountWithCode, LoginRequest, LoginResponse, CreateAccessTokenRequest, CreateRefreshTokenRequest
+from src.auth.schemas import (
+    ActivateAccountWithCode,
+    ActivateAccountWithToken,
+    CreateAccessTokenRequest,
+    CreateRefreshTokenRequest,
+    LoginResponse,
+)
 from src.core.config import settings
 from src.core.security import (
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
     hash_password,
+    verify_account_activation_code,
     verify_invite_token,
     verify_password,
     verify_refresh_token,
-    verify_account_activation_code,
-    generate_account_activation_code
 )
 from src.user.models import User
 from src.user.repository import UserRepository
@@ -57,7 +63,13 @@ class AuthService:
         await db.commit()
 
     @staticmethod
-    async def login(db: AsyncSession, response: Response, login_request: LoginRequest) -> LoginResponse:
+    async def login(db: AsyncSession, response: Response, login_request: OAuth2PasswordRequestForm) -> LoginResponse:
+        if login_request.username is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, 
+                detail="Username can not be empty",
+            )
+        
         user = await AuthRepository.get_by_login_identifier(db, login_request.username)
 
         if user is None:
