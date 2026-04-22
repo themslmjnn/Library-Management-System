@@ -31,12 +31,20 @@ from src.utils.email import send_account_activation_code, send_invite_email
 from src.utils.exception_constants import HTTP400, HTTP404
 from src.utils.exceptions import handle_user_integrity_error
 from src.utils.helpers import ensure_exists, update_object
+from src.core.logging import get_logger
 
+logger = get_logger(__name__)
 
 class UserServiceAdmin:
     @staticmethod
     async def create_account_admin(db: AsyncSession, user_request: CreateUserAdmin, current_user: User) -> User:
         if user_request.role == UserRole.system_admin:
+            logger.warning(
+                "create_user_denied",
+                reason="cannot_create_system_admin",
+                requested_by=current_user.id,
+            )
+
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Cannot create system_admin accounts through the API",
@@ -69,9 +77,23 @@ class UserServiceAdmin:
 
             send_invite_email(new_user.email, raw_invite_token)
 
+            logger.info(
+                "user_created",
+                new_user_id=new_user.id,
+                role=user_request.role,
+                created_by=current_user.id,
+            )
+
             return new_user
         
         except IntegrityError as e:
+            logger.error(
+                "user_creation_failed",
+                reason="integrity_error",
+                error=str(e.orig),
+                created_by=current_user.id,
+            )
+
             handle_user_integrity_error(e)
             raise
 
@@ -122,6 +144,11 @@ class UserServiceAdmin:
         user.refresh_token_expires_at = None
 
         await db.commit()
+        logger.info(
+            "user_deactivated",
+            target_user_id=user_id,
+            deactivated_by=current_user.id,
+        )
 
     @staticmethod
     async def activate_user_admin(db: AsyncSession, user_id: int) -> None:
@@ -132,6 +159,13 @@ class UserServiceAdmin:
         user.is_active = True
 
         await db.commit()
+
+        logger.info(
+            "user_activated",
+            target_user_id=user_id,
+            activated_by=current_user.id,
+        )
+
 
     @staticmethod
     async def update_user(db: AsyncSession, user_id: int, update_request: UpdateUserAdmin) -> User:
@@ -161,6 +195,14 @@ class UserServiceAdmin:
         user.password_hash = hash_password(password_request.new_password)
 
         await db.commit()
+
+        logger.info(
+            "password_changed",
+            target_user_id=user_id,
+            changed_by=current_user.id,
+            method="admin_reset",
+        )
+
 
 
 
@@ -260,9 +302,17 @@ class UserServicePublic:
 
             send_account_activation_code(new_user.email, raw_activation_code)
 
+            logger.info("user_registered", user_id=new_user.id)
+
             return new_user
         
         except IntegrityError as e:
+            logger.error(
+                "user_registration_failed",
+                reason="integrity_error",
+                error=str(e.orig),
+            )
+
             handle_user_integrity_error(e)
             raise
 
@@ -289,3 +339,9 @@ class UserServicePublic:
         current_user.password_hash = hash_password(password_request.new_password)
 
         await db.commit()
+
+        logger.info(
+            "password_changed",
+            user_id=current_user.id,
+            method="self_service",
+        )

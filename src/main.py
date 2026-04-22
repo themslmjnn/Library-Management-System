@@ -8,6 +8,9 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from src.core.limiter import ip_limiter
+from src.core.logging import setup_logging
+
+setup_logging()
 
 app = FastAPI(title="Library Management System")
 

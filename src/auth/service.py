@@ -27,6 +27,9 @@ from src.core.security import (
 from src.user.models import User
 from src.user.repository import UserRepositoryBase
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
+from src.core.logging import get_logger
+
+logger = get_logger(__name__)
 
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15
@@ -62,43 +65,79 @@ class AuthService:
 
         await db.commit()
 
+        logger.info(
+            "tokens_invalidated",
+            user_id=user.id,
+            reason="explicit_invalidation",
+        )
+
     @staticmethod
-    async def login(db: AsyncSession, response: Response, login_request: OAuth2PasswordRequestForm) -> LoginResponse:
-        if login_request.username is None:
+    async def login(db: AsyncSession, response: Response, form_data: OAuth2PasswordRequestForm) -> LoginResponse:
+        if form_data.username is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, 
                 detail="Username can not be empty",
             )
         
-        user = await AuthRepository.get_by_login_identifier(db, login_request.username)
+        user = await AuthRepository.get_by_login_identifier(db, form_data.username)
 
         if user is None:
+            logger.warning(
+                "login_failed",
+                reason="user_not_found",
+                identifier=form_data.username,
+            )
+
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=HTTP401.INVALID_CREDENTIALS,
             )
 
         if user.locked_until and datetime.now(timezone.utc) < user.locked_until:
+            logger.warning(
+                "login_blocked",
+                reason="account_locked",
+                user_id=user.id,
+                locked_until=user.locked_until.isoformat(),
+            )
+
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Account locked. Try again after {user.locked_until.strftime('%H:%M UTC')}",
             )
 
         if user.password_hash is None:
+            logger.warning(
+                "login_failed",
+                reason="no_password_set",
+                user_id=user.id,
+            )
+            
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=HTTP401.INVALID_CREDENTIALS,
             )
 
-        if not verify_password(login_request.password, user.password_hash):
+        if not verify_password(form_data.password, user.password_hash):
             user.failed_login_attempts += 1
 
             if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
-                user.locked_until = (
-                    datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
+                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
+                await db.commit()
+                logger.warning(
+                    "account_locked",
+                    user_id=user.id,
+                    failed_attempts=user.failed_login_attempts,
+                    locked_until=user.locked_until.isoformat(),
                 )
-
-            await db.commit()
+            else:
+                await db.commit()
+                logger.warning(
+                    "login_failed",
+                    reason="wrong_password",
+                    user_id=user.id,
+                    failed_attempts=user.failed_login_attempts,
+                )
 
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -106,6 +145,12 @@ class AuthService:
             )
 
         if not user.is_active:
+            logger.warning(
+                "login_failed",
+                reason="account_inactive",
+                user_id=user.id,
+            )
+
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=HTTP403.ACCOUNT_DEACTIVATED,
@@ -139,6 +184,12 @@ class AuthService:
 
         await db.commit()
 
+        logger.info(
+            "login_success",
+            user_id=user.id,
+            role=user.role,
+        )
+
         AuthService._set_refresh_cookie(response, raw_refresh_token)
 
         return {"access_token": access_token, "token_type": "bearer"}
@@ -148,18 +199,36 @@ class AuthService:
         user = await AuthRepository.get_by_login_identifier(db, request.email)
 
         if user is None or user.invite_token_hash is None:
+            logger.warning(
+                "activation_failed",
+                reason="invalid_token",
+                email=request.email,
+            )
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=HTTP400.INVALID_INVITE_TOKEN,
             )
 
         if datetime.now(timezone.utc) > user.invite_token_expires_at:
+            logger.warning(
+                "activation_failed",
+                reason="token_expired",
+                user_id=user.id,
+            )
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=HTTP400.EXPIRED_INVITE_TOKEN,
             )
 
         if not verify_invite_token(request.invite_token, user.invite_token_hash):
+            logger.warning(
+                "activation_failed",
+                reason="token_mismatch",
+                user_id=user.id,
+            )
+
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=HTTP400.INVALID_INVITE_TOKEN,
@@ -171,6 +240,8 @@ class AuthService:
         user.invite_token_expires_at = None
 
         await db.commit()
+
+        logger.info("account_activated", user_id=user.id, method="invite_token")
 
 
     @staticmethod
@@ -226,6 +297,12 @@ class AuthService:
         if token_family != user.refresh_token_family:
             await AuthService._invalidate_all_tokens(db, user)
 
+            logger.warning(
+                "refresh_token_reuse_detected",
+                user_id=user.id,
+                action="all_tokens_invalidated",
+            )
+            
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Security violation detected. Please log in again",
@@ -277,3 +354,5 @@ class AuthService:
         await AuthService._invalidate_all_tokens(db, current_user)
 
         AuthService._clear_refresh_cookie(response)
+
+        logger.info("logout", user_id=current_user.id)
