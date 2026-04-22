@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, status
 from src.core.dependencies import (
     async_db_dependency,
     require_roles,
+    pagination_dependency,
 )
 from src.user.models import User, UserRole
 from src.user.schemas import (
@@ -16,6 +17,7 @@ from src.user.schemas import (
 )
 from src.user.service import UserServiceAdmin
 from src.utils.exception_constants import path_param_int_ge1
+from src.pagination import PaginatedResponse
 
 router = APIRouter(
     prefix="/users",
@@ -31,12 +33,23 @@ async def create_account_admin(
     return await UserServiceAdmin.create_account_admin(db, user_request, current_user)
 
 
-@router.get("", response_model=list[UserResponseAdmin], status_code=status.HTTP_200_OK)
+@router.get("", response_model=PaginatedResponse[UserResponseAdmin], status_code=status.HTTP_200_OK)
 async def get_users_admin(
     db: async_db_dependency,
+    pagination: pagination_dependency,
+    filters: Annotated[SearchUser, Depends()],
     _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    sort_by: str = "created_at",
+    order_by: str = "desc",
 ):
-    return await UserServiceAdmin.get_users_admin(db)
+    return await UserServiceAdmin.get_users_admin(
+        db,
+        pagination.skip,
+        pagination.limit,
+        filters,
+        sort_by,
+        order_by,
+    )
 
 
 @router.get("/search", response_model=list[UserResponseAdmin], status_code=status.HTTP_200_OK)

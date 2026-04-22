@@ -1,4 +1,4 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, status, Request
 
 from src.core.dependencies import async_db_dependency, current_user_dependency
 from src.user.schemas import (
@@ -8,6 +8,7 @@ from src.user.schemas import (
     UserResponseBase,
 )
 from src.user.service import UserServicePublic
+from src.core.limiter import ip_limiter
 
 router = APIRouter(
     prefix="/users",
@@ -15,7 +16,9 @@ router = APIRouter(
 )
 
 @router.post("/me", response_model=UserResponseBase, status_code=status.HTTP_201_CREATED)
+@ip_limiter.limit("3/minute")
 async def create_account_public(
+    request: Request,
     db: async_db_dependency,
     user_request: CreateUserPublic,
 ):

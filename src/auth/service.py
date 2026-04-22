@@ -25,7 +25,7 @@ from src.core.security import (
     verify_refresh_token,
 )
 from src.user.models import User
-from src.user.repository import UserRepository
+from src.user.repository import UserRepositoryBase
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
 
 MAX_FAILED_ATTEMPTS = 5
@@ -215,7 +215,7 @@ class AuthService:
                 detail=HTTP401.INVALID_REFRESH_TOKEN,
             )
 
-        user = await UserRepository.get_user_by_id(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
         if user is None or user.refresh_token_hash is None:
             raise HTTPException(

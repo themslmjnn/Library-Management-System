@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from src.pagination import PaginatedResponse
 
 from src.core.security import (
     generate_account_activation_code,
@@ -75,10 +76,24 @@ class UserServiceAdmin:
             raise
 
     @staticmethod
-    async def get_users_admin(db: AsyncSession) -> list[User]:
-        users = await UserRepositoryAdmin.get_users_admin(db)
+    async def get_users_admin(
+        db: AsyncSession,
+        skip: int,
+        limit: int,
+        filters: SearchUser,
+        sort_by: str,
+        order_by: str,
+    ) -> PaginatedResponse:
+        users, total = await UserRepositoryAdmin.get_users_admin(db, skip, limit, filters, sort_by, order_by)
 
-        return users
+        return PaginatedResponse(
+            items=users,
+            total=total,
+            skip=skip,
+            limit=limit,
+            has_more=skip + limit < total,
+        )
+    
     
     @staticmethod
     async def search_users_admin(db: AsyncSession, search_request: SearchUser) -> list[User]:
