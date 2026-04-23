@@ -191,7 +191,7 @@ class AuthService:
         )
 
         AuthService._set_refresh_cookie(response, raw_refresh_token)
-
+        
         return {"access_token": access_token, "token_type": "bearer"}
 
     @staticmethod

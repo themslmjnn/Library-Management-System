@@ -1,7 +1,9 @@
 import logging
+
 import structlog
 
 from src.core.config import settings
+
 
 def setup_logging() -> None:
     log_level = logging.DEBUG if settings.ENVIRONMENT == "development" else logging.INFO
@@ -40,6 +42,7 @@ def setup_logging() -> None:
     root_logger = logging.getLogger()
     root_logger.handlers.clear()
     root_logger.addHandler(handler)
+    
 
 def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     return structlog.get_logger(name)

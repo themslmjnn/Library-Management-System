@@ -3,14 +3,15 @@ from datetime import datetime, timedelta, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.pagination import PaginatedResponse
 
+from src.core.logging import get_logger
 from src.core.security import (
     generate_account_activation_code,
     generate_invite_token,
     hash_password,
     verify_password,
 )
+from src.pagination import PaginatedResponse
 from src.user.models import User, UserRole
 from src.user.repository import (
     UserRepositoryAdmin,
@@ -31,9 +32,9 @@ from src.utils.email import send_account_activation_code, send_invite_email
 from src.utils.exception_constants import HTTP400, HTTP404
 from src.utils.exceptions import handle_user_integrity_error
 from src.utils.helpers import ensure_exists, update_object
-from src.core.logging import get_logger
 
 logger = get_logger(__name__)
+
 
 class UserServiceAdmin:
     @staticmethod
@@ -51,11 +52,9 @@ class UserServiceAdmin:
             ) 
         
         raw_invite_token, hashed_invite_token = generate_invite_token()
-        invite_token_expires_at = (
-            datetime.now(timezone.utc) + timedelta(days=2)
-        )
+        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=2)
 
-        new_user = User(\
+        new_user = User(
             username=user_request.username,
             first_name=user_request.first_name,
             last_name=user_request.last_name,
@@ -97,6 +96,7 @@ class UserServiceAdmin:
             handle_user_integrity_error(e)
             raise
 
+
     @staticmethod
     async def get_users_admin(
         db: AsyncSession,
@@ -106,6 +106,7 @@ class UserServiceAdmin:
         sort_by: str,
         order_by: str,
     ) -> PaginatedResponse:
+        
         users, total = await UserRepositoryAdmin.get_users_admin(db, skip, limit, filters, sort_by, order_by)
 
         return PaginatedResponse(
@@ -116,13 +117,7 @@ class UserServiceAdmin:
             has_more=skip + limit < total,
         )
     
-    
-    @staticmethod
-    async def search_users_admin(db: AsyncSession, search_request: SearchUser) -> list[User]:
-        users = await UserRepositoryAdmin.search_users_admin(db, search_request)
 
-        return users
-    
     @staticmethod
     async def get_user_by_id_admin(db: AsyncSession, user_id: int) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
@@ -131,8 +126,9 @@ class UserServiceAdmin:
 
         return user
     
+
     @staticmethod
-    async def deactivate_user_admin(db: AsyncSession, user_id: int) -> None:
+    async def deactivate_user_admin(db: AsyncSession, user_id: int, current_user: User) -> None:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
         ensure_exists(user, HTTP404.USER)
@@ -144,6 +140,7 @@ class UserServiceAdmin:
         user.refresh_token_expires_at = None
 
         await db.commit()
+
         logger.info(
             "user_deactivated",
             target_user_id=user_id,
@@ -151,7 +148,7 @@ class UserServiceAdmin:
         )
 
     @staticmethod
-    async def activate_user_admin(db: AsyncSession, user_id: int) -> None:
+    async def activate_user_admin(db: AsyncSession, user_id: int, current_user: User) -> None:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
         ensure_exists(user, HTTP404.USER)
@@ -168,7 +165,7 @@ class UserServiceAdmin:
 
 
     @staticmethod
-    async def update_user(db: AsyncSession, user_id: int, update_request: UpdateUserAdmin) -> User:
+    async def update_user_admin(db: AsyncSession, user_id: int, update_request: UpdateUserAdmin) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
         ensure_exists(user, HTTP404.USER)
@@ -187,7 +184,7 @@ class UserServiceAdmin:
 
 
     @staticmethod
-    async def update_password(db: AsyncSession, user_id: int, password_request: UpdateUserPasswordAdmin):
+    async def update_password_admin(db: AsyncSession, user_id: int, password_request: UpdateUserPasswordAdmin, current_user: User) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
         ensure_exists(user, HTTP404.USER)
@@ -204,15 +201,11 @@ class UserServiceAdmin:
         )
 
 
-
-
 class UserServiceStaff:
     @staticmethod
     async def create_account_staff(db: AsyncSession, user_request: CreateUserBase, current_user: User) -> User:
         raw_invite_token, invite_token_hash = generate_invite_token()
-        invite_token_expires_at = (
-            datetime.now(timezone.utc) + timedelta(days=2)
-        )
+        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=2)
 
         new_user = User(\
             username=user_request.username,
@@ -236,11 +229,26 @@ class UserServiceStaff:
 
             send_invite_email(new_user.email, raw_invite_token)
 
+            logger.info(
+                "user_created",
+                new_user_id=new_user.id,
+                role=current_user.role,
+                created_by=current_user.id,
+            )
+
             return new_user
         
         except IntegrityError as e:
+            logger.error(
+                "user_creation_failed",
+                reason="integrity_error",
+                error=str(e.orig),
+                created_by=current_user.id,
+            )
+
             handle_user_integrity_error(e)
             raise
+
 
     @staticmethod
     async def get_users_staff(db: AsyncSession, current_user: User) -> list[User]:
@@ -251,15 +259,7 @@ class UserServiceStaff:
 
         return users
     
-    @staticmethod
-    async def search_users_staff(db: AsyncSession, search_request: SearchUser, current_user: User) -> list[User]:
-        if current_user.role == UserRole.library_admin:
-            users = await UserRepositoryStaff.search_users_library_admin(db, search_request)
-        elif current_user.role == UserRole.receptionist:
-            users = await UserRepositoryStaff.search_users_receptionist(db, search_request)
 
-        return users
-    
     @staticmethod
     async def get_user_by_id_staff(db: AsyncSession, user_id: int, current_user: User) -> User:
         if current_user.role == UserRole.library_admin:
@@ -276,9 +276,7 @@ class UserServicePublic:
     @staticmethod
     async def create_account_public(db: AsyncSession, user_request: CreateUserPublic) -> User:
         raw_activation_code, hashed_activation_code = generate_account_activation_code()
-        account_activation_code_expires_at = (
-            datetime.now(timezone.utc) + timedelta(days=1)
-        )
+        account_activation_code_expires_at = datetime.now(timezone.utc) + timedelta(days=1)
 
         new_user = User(\
             username=user_request.username,
@@ -302,7 +300,10 @@ class UserServicePublic:
 
             send_account_activation_code(new_user.email, raw_activation_code)
 
-            logger.info("user_registered", user_id=new_user.id)
+            logger.info(
+                "user_registered", 
+                user_id=new_user.id,
+            )
 
             return new_user
         
@@ -334,7 +335,11 @@ class UserServicePublic:
 
     @staticmethod
     async def update_my_password(db: AsyncSession, password_request: UpdateUserPasswordPublic, current_user: User) -> None:
-        verify_password(password_request.old_password, current_user.password_hash, HTTP400.INCORRECT_PASSWORD)
+        if not verify_password(password_request.old_password, current_user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=HTTP400.INCORRECT_PASSWORD,
+            )
         
         current_user.password_hash = hash_password(password_request.new_password)
 

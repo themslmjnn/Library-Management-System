@@ -4,9 +4,10 @@ from fastapi import APIRouter, Depends, status
 
 from src.core.dependencies import (
     async_db_dependency,
-    require_roles,
     pagination_dependency,
+    require_roles,
 )
+from src.pagination import PaginatedResponse
 from src.user.models import User, UserRole
 from src.user.schemas import (
     CreateUserAdmin,
@@ -17,12 +18,12 @@ from src.user.schemas import (
 )
 from src.user.service import UserServiceAdmin
 from src.utils.exception_constants import path_param_int_ge1
-from src.pagination import PaginatedResponse
 
 router = APIRouter(
     prefix="/users",
     tags=["Users - Admin"],
 )
+
 
 @router.post("", response_model=UserResponseAdmin, status_code=status.HTTP_201_CREATED)
 async def create_account_admin(
@@ -38,9 +39,9 @@ async def get_users_admin(
     db: async_db_dependency,
     pagination: pagination_dependency,
     filters: Annotated[SearchUser, Depends()],
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    _: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
     sort_by: str = "created_at",
-    order_by: str = "desc",
+    order: str = "desc",
 ):
     return await UserServiceAdmin.get_users_admin(
         db,
@@ -48,43 +49,38 @@ async def get_users_admin(
         pagination.limit,
         filters,
         sort_by,
-        order_by,
+        order,
     )
 
-
-@router.get("/search", response_model=list[UserResponseAdmin], status_code=status.HTTP_200_OK)
-async def search_users_admin(
-    db: async_db_dependency,
-    search_request: Annotated[SearchUser, Depends()],
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
-):
-    return await UserServiceAdmin.search_users_admin(db, search_request)
 
 @router.get("/{user_id}", response_model=UserResponseAdmin, status_code=status.HTTP_200_OK)
 async def get_user_by_id_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    _: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
 ):
     return await UserServiceAdmin.get_user_by_id_admin(db, user_id)
 
-@router.put("/deactivate", status_code=status.HTTP_204_NO_CONTENT)
+
+@router.put("/{user_id}/deactivate", status_code=status.HTTP_204_NO_CONTENT)
 async def deactivate_user_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
 ):
-    return await UserServiceAdmin.deactivate_user_admin(db, user_id)
+    return await UserServiceAdmin.deactivate_user_admin(db, user_id, current_user)
 
-@router.put("/activate", status_code=status.HTTP_204_NO_CONTENT)
+
+@router.put("/{user_id}/activate", status_code=status.HTTP_204_NO_CONTENT)
 async def activate_user_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
 ):
-    return await UserServiceAdmin.activate_user_admin(db, user_id)
+    return await UserServiceAdmin.activate_user_admin(db, user_id, current_user)
 
-@router.patch("", response_model=UserResponseAdmin, status_code=status.HTTP_200_OK)
+
+@router.patch("/{user_id}", response_model=UserResponseAdmin, status_code=status.HTTP_200_OK)
 async def update_user_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
@@ -93,11 +89,12 @@ async def update_user_admin(
 ):
     return await UserServiceAdmin.update_user_admin(db, user_id, update_request)
 
+
 @router.put("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
 async def update_password_admin(
     db: async_db_dependency,
     user_id: int,
     password_request: UpdateUserPasswordAdmin,
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
 ):
-    await UserServiceAdmin.update_password(db, user_id, password_request)
+    await UserServiceAdmin.update_password_admin(db, user_id, password_request, current_user)

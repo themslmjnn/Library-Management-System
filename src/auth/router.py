@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Request, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from src.auth.schemas import (
@@ -10,13 +10,14 @@ from src.auth.schemas import (
 )
 from src.auth.service import AuthService
 from src.core.dependencies import async_db_dependency, current_user_dependency
-from src.utils.exception_constants import HTTP401
 from src.core.limiter import ip_limiter
+from src.utils.exception_constants import HTTP401
 
 router = APIRouter(
     prefix="/auth", 
     tags=["Auth"],
 )
+
 
 @router.post("/login", response_model=LoginResponse, status_code=status.HTTP_200_OK)
 @ip_limiter.limit("10/minute")
@@ -28,6 +29,7 @@ async def login(
 ):
     return await AuthService.login(db, response, form_data)
 
+
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
     db: async_db_dependency,
@@ -35,6 +37,7 @@ async def logout(
     current_user: current_user_dependency,
 ):
     await AuthService.logout(db, response, current_user)
+
 
 @router.post("/activate_with_token", status_code=status.HTTP_204_NO_CONTENT)
 @ip_limiter.limit("5/minute")
@@ -45,6 +48,7 @@ async def activate_with_token(
 ):
     await AuthService.activate_account_with_token(db, activation_request)
 
+
 @router.post("/activate_with_code", status_code=status.HTTP_204_NO_CONTENT)
 @ip_limiter.limit("5/minute")
 async def activate_with_code(
@@ -53,6 +57,7 @@ async def activate_with_code(
     activation_request: ActivateAccountWithCode,
 ):
     await AuthService.activate_account_with_code(db, activation_request)
+
 
 @router.post("/refresh_token", response_model=LoginResponse, status_code=status.HTTP_200_OK)
 @ip_limiter.limit("30/minute")

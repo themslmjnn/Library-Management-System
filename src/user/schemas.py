@@ -27,7 +27,7 @@ class CreateUserBase(BaseModel):
     
     @field_validator("email")
     @classmethod
-    def valdiate_email(cls, field: str) -> str:
+    def validate_email(cls, field: str) -> str:
         return validate_email(field)
 
 class CreateUserAdmin(CreateUserBase):
@@ -47,7 +47,7 @@ class CreateUserPublic(CreateUserBase):
         return validate_password(field)
     
 
-class UserResponseBase(BaseSchema):
+class UserResponseBase(BaseModel):
     username: str | None = None
     first_name: str
     last_name: str
@@ -57,11 +57,14 @@ class UserResponseBase(BaseSchema):
     created_at: datetime
     updated_at: datetime
 
-class UserResponseAdmin(UserResponseBase):
+class UserResponseAdmin(UserResponseBase, BaseSchema):
     id: int
     role: UserRole
     is_active: bool
     created_by: int | None = None
+
+class UserResponseStaff(UserResponseBase):
+    role: UserRole
 
 
 class UpdateUserBase(BaseModel):

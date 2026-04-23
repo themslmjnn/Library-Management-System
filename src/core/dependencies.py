@@ -1,7 +1,8 @@
 from typing import Annotated, AsyncGenerator
 
-from fastapi import Depends, HTTPException, status, Query
+from fastapi import Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordBearer
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.security import decode_access_token
@@ -9,7 +10,6 @@ from src.database import AsyncSessionLocal
 from src.user.models import User, UserRole
 from src.user.repository import UserRepositoryBase
 from src.utils.exception_constants import HTTP401, HTTP403
-from pydantic import BaseModel
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
@@ -27,7 +27,9 @@ async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_
         user_id = int(payload.get("sub"))
         token_version = int(payload.get("version"))
 
-    except (ValueError, TypeError):
+    except (ValueError, TypeError) as e:
+        print(str(e))
+        print("error")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=HTTP401.INVALID_ACCESS_TOKEN
@@ -42,6 +44,7 @@ async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_
         )
     
     if user.access_token_version != token_version:
+        print(user.access_token_version, token_version)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=HTTP401.INVALID_ACCESS_TOKEN
@@ -61,6 +64,7 @@ current_user_dependency = Annotated[User, Depends(get_current_user)]
 def require_roles(*roles: UserRole):
     def guard(current_user: current_user_dependency) -> User:
         if current_user.role not in roles:
+            print("error")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=HTTP403.ACCESS_DENIED,
