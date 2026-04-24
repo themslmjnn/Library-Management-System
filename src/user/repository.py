@@ -2,14 +2,19 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import User, UserRole
-from src.user.schemas import SearchUserAdmin, SearchUserBase
+from src.user.schemas import (
+    CreateUserAdmin,
+    CreateUserPublic,
+    SearchUserAdmin,
+    SearchUserBase,
+)
 
 ALLOWED_SORT_FIELDS_USER = {"created_at", "first_name", "last_name"}
 
 
 class UserRepositoryBase:
     @staticmethod
-    def add_user(db: AsyncSession, new_user: User) -> None:
+    def add_user(db: AsyncSession, new_user: CreateUserAdmin | CreateUserPublic) -> None:
         db.add(new_user)
 
     @staticmethod
@@ -101,6 +106,31 @@ class UserRepositoryAdmin:
 
 class UserRepositoryStaff:
     @staticmethod
+    def _apply_staff_filters(
+        base_query,
+        filters: SearchUserBase | None,
+    ):
+        if not filters:
+            return base_query
+
+        if filters.first_name:
+            base_query = base_query.filter(User.first_name.ilike('%' + filters.first_name + '%'))
+
+        if filters.last_name:
+            base_query = base_query.filter(User.last_name.ilike('%' + filters.last_name + '%'))
+
+        if filters.date_of_birth:
+            base_query = base_query.filter(User.date_of_birth == filters.date_of_birth)
+
+        if filters.email:
+            base_query = base_query.filter(User.email.ilike('%' + filters.email + '%'))
+
+        if filters.phone_number:
+            base_query = base_query.filter(User.phone_number.ilike('%' + filters.phone_number + '%'))
+
+        return base_query
+    
+    @staticmethod
     async def get_users_library_admin(
         db: AsyncSession,
         skip: int,
@@ -117,21 +147,7 @@ class UserRepositoryStaff:
             )
         )
 
-        if filters:
-            if filters.first_name:
-                base_query = base_query.filter(User.first_name.ilike('%' + filters.first_name + '%'))
-
-            if filters.last_name:
-                base_query = base_query.filter(User.last_name.ilike('%' + filters.last_name + '%'))
-
-            if filters.date_of_birth:
-                base_query = base_query.filter(User.date_of_birth == filters.date_of_birth)
-
-            if filters.email:
-                base_query = base_query.filter(User.email.ilike('%' + filters.email + '%'))
-
-            if filters.phone_number:
-                base_query = base_query.filter(User.phone_number.ilike('%' + filters.phone_number + '%'))
+        base_query = UserRepositoryStaff._apply_staff_filters(base_query, filters)
 
         if sort_by not in ALLOWED_SORT_FIELDS_USER:
             sort_by = "created_at"
@@ -189,21 +205,7 @@ class UserRepositoryStaff:
             )
         )
 
-        if filters:
-            if filters.first_name:
-                base_query = base_query.filter(User.first_name.ilike('%' + filters.first_name + '%'))
-
-            if filters.last_name:
-                base_query = base_query.filter(User.last_name.ilike('%' + filters.last_name + '%'))
-
-            if filters.date_of_birth:
-                base_query = base_query.filter(User.date_of_birth == filters.date_of_birth)
-
-            if filters.email:
-                base_query = base_query.filter(User.email.ilike('%' + filters.email + '%'))
-
-            if filters.phone_number:
-                base_query = base_query.filter(User.phone_number.ilike('%' + filters.phone_number + '%'))
+        base_query = UserRepositoryStaff._apply_staff_filters(base_query, filters)
 
         if sort_by not in ALLOWED_SORT_FIELDS_USER:
             sort_by = "created_at"

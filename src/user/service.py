@@ -258,6 +258,11 @@ class UserServiceAdmin:
 
         user.password_hash = hash_password(password_request.new_password)
 
+        user.access_token_version += 1
+        user.refresh_token_hash = None
+        user.refresh_token_family = None
+        user.refresh_token_expires_at = None
+
         await db.commit()
 
         logger.info(
@@ -435,6 +440,11 @@ class UserServicePublic:
             )
         
         current_user.password_hash = hash_password(password_request.new_password)
+
+        current_user.access_token_version += 1
+        current_user.refresh_token_hash = None
+        current_user.refresh_token_family = None
+        current_user.refresh_token_expires_at = None
 
         await db.commit()
 

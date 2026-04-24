@@ -70,3 +70,26 @@ class User(Base):
         foreign_keys="[User.created_by]",
         back_populates="creator"
     )
+
+    created_books: Mapped[list["Book"]] = relationship(
+        "Book", 
+        back_populates="book_creator",
+    )
+
+    loaned_records: Mapped[list["Loan"]] = relationship(
+        "Loan", 
+        foreign_keys="Loan.user_id", 
+        back_populates="user",
+    )
+
+    loan_creator: Mapped[list["Loan"]] = relationship(
+        "Loan", 
+        foreign_keys="Loan.created_by", 
+        back_populates="creator",
+    )
+
+    inventory_records_creator: Mapped[list["Inventory"]] = relationship(
+        "Inventory", 
+        foreign_keys="Inventory.added_by", 
+        back_populates="creator",
+    )

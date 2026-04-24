@@ -1,7 +1,5 @@
 from datetime import date
 
-from src.user.models import UserRole
-
 
 def validate_password(password: str) -> str:
     if not any(c.isupper() for c in password):
@@ -35,8 +33,10 @@ def validate_email(email: str) -> str:
     return email
 
 
-def validate_role(role: UserRole) -> UserRole:
-    if role == UserRole.system_admin:
-        raise ValueError("Cannot assign system_admin role")
-    
-    return role
+def validate_publishing_date(publishing_date: date) -> date:
+    today = date.today()
+
+    if publishing_date > today:
+        raise ValueError("Publishing date must be in the past")
+
+    return publishing_date

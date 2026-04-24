@@ -14,6 +14,7 @@ from src.auth.schemas import (
     LoginResponse,
 )
 from src.core.config import settings
+from src.core.logging import get_logger
 from src.core.security import (
     create_access_token,
     create_refresh_token,
@@ -27,7 +28,6 @@ from src.core.security import (
 from src.user.models import User
 from src.user.repository import UserRepositoryBase
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
-from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 

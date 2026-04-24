@@ -12,6 +12,7 @@ from src.utils.exception_constants import HTTP401
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+
 def hash_password(password: str) -> str:
     return bcrypt_context.hash(password)
 

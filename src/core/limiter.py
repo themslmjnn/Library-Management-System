@@ -1,6 +1,7 @@
+from fastapi import Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from fastapi import Request
+
 
 def get_user_identifier(request: Request) -> str:
     user = getattr(request.state, 'user', None)
@@ -10,5 +11,4 @@ def get_user_identifier(request: Request) -> str:
     return get_remote_address(request)
 
 ip_limiter = Limiter(key_func=get_remote_address)
-
 user_limiter = Limiter(key_func=get_user_identifier)

@@ -1,6 +1,6 @@
 from typing import Annotated, AsyncGenerator
 
-from fastapi import Depends, HTTPException, Query, Request, status
+from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +12,7 @@ from src.user.repository import UserRepositoryBase
 from src.utils.exception_constants import HTTP401, HTTP403
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:

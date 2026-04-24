@@ -8,7 +8,6 @@ from src.utils.validators import (
     validate_date_of_birth,
     validate_email,
     validate_password,
-    validate_role,
 )
 
 
@@ -33,10 +32,6 @@ class CreateUserBase(BaseModel):
 class CreateUserAdmin(CreateUserBase):
     role: UserRole
 
-    @field_validator("role")
-    @classmethod
-    def validate_role(cls, field: UserRole) -> UserRole:
-        return validate_role(field)
 
 class CreateUserPublic(CreateUserBase):
     password: str
@@ -47,7 +42,8 @@ class CreateUserPublic(CreateUserBase):
         return validate_password(field)
     
 
-class UserResponseBase(BaseModel):
+class UserResponseBase(BaseSchema):
+    id: int
     username: str | None = None
     first_name: str
     last_name: str
@@ -57,8 +53,7 @@ class UserResponseBase(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-class UserResponseAdmin(UserResponseBase, BaseSchema):
-    id: int
+class UserResponseAdmin(UserResponseBase):
     role: UserRole
     is_active: bool
     created_by: int | None = None

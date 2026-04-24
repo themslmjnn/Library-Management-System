@@ -35,6 +35,10 @@ class HTTP403:
 # --- HTTP 404 Not Found ---
 class HTTP404:
     USER = "User not found"
+    BOOK = "Book not found"
+    INVENTORY = "Inventory not found"
+    LOAN = "Loan not found"
+    BOOK_NOT_AVAILABLE = "Book is not availabe"
 
 
 # --- HTTP 409 Conflict ---
@@ -42,3 +46,5 @@ class HTTP409:
     USERNAME = "Username already taken"
     EMAIL = "Email already taken"
     PHONE_NUMBER = "Phone number already taken"
+    TITLE_OR_AUTHOR = "Book already exists"
+    LOAN = "Loan already exists"
