@@ -2,9 +2,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 
-from src.core.dependencies import async_db_dependency, require_roles
+from src.core.dependencies import (
+    async_db_dependency,
+    pagination_dependency,
+    require_roles,
+)
+from src.pagination import PaginatedResponse
 from src.user.models import User, UserRole
-from src.user.schemas import CreateUserBase, SearchUser, UserResponseBase
+from src.user.schemas import CreateUserBase, SearchUserBase, UserResponseBase
 from src.user.service import UserServiceStaff
 from src.utils.exception_constants import path_param_int_ge1
 
@@ -23,15 +28,27 @@ async def create_account_staff(
     return await UserServiceStaff.create_account_staff(db, user_request, current_user)
 
 
-@router.get("/staff", response_model=list[UserResponseBase], status_code=status.HTTP_200_OK)
+@router.get("/staff", response_model=PaginatedResponse[UserResponseBase], status_code=status.HTTP_200_OK)
 async def get_users_staff(
     db: async_db_dependency,
+    pagination: pagination_dependency,
+    filters: Annotated[SearchUserBase, Depends()],
     current_user: Annotated[User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))],
+    sort_by: str = "created_at",
+    order: str = "desc",
 ):
-    return await UserServiceStaff.get_users_staff(db, current_user)
+    return await UserServiceStaff.get_users_staff(
+        db,
+        pagination.skip,
+        pagination.limit,
+        filters,
+        current_user,
+        sort_by,
+        order,
+    )
 
 
-@router.get("/{user_id}/for_staff", response_model=UserResponseBase, status_code=status.HTTP_200_OK)
+@router.get("/{user_id}/staff", response_model=UserResponseBase, status_code=status.HTTP_200_OK)
 async def get_user_by_id_staff(
     db: async_db_dependency,
     user_id: path_param_int_ge1,

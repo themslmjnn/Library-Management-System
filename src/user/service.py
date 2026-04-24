@@ -22,7 +22,8 @@ from src.user.schemas import (
     CreateUserAdmin,
     CreateUserBase,
     CreateUserPublic,
-    SearchUser,
+    SearchUserAdmin,
+    SearchUserBase,
     UpdateUserAdmin,
     UpdateUserBase,
     UpdateUserPasswordAdmin,
@@ -102,12 +103,12 @@ class UserServiceAdmin:
         db: AsyncSession,
         skip: int,
         limit: int,
-        filters: SearchUser,
+        filters: SearchUserAdmin,
         sort_by: str,
-        order_by: str,
+        order: str,
     ) -> PaginatedResponse:
         
-        users, total = await UserRepositoryAdmin.get_users_admin(db, skip, limit, filters, sort_by, order_by)
+        users, total = await UserRepositoryAdmin.get_users_admin(db, skip, limit, filters, sort_by, order)
 
         return PaginatedResponse(
             items=users,
@@ -133,6 +134,19 @@ class UserServiceAdmin:
 
         ensure_exists(user, HTTP404.USER)
 
+        if not user.is_active:
+            logger.error(
+                "deactivating_user_failed",
+                target_user_id=user_id,
+                requested_by=current_user.id,
+                reason="user_is_already_deactivated",
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User is already deactivated",
+            )
+        
         user.is_active = False
         user.access_token_version += 1
         user.refresh_token_hash = None
@@ -147,11 +161,25 @@ class UserServiceAdmin:
             deactivated_by=current_user.id,
         )
 
+
     @staticmethod
     async def activate_user_admin(db: AsyncSession, user_id: int, current_user: User) -> None:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
         ensure_exists(user, HTTP404.USER)
+
+        if user.is_active:
+            logger.error(
+                "activating_user_failed",
+                target_user_id=user_id,
+                requested_by=current_user.id,
+                reason="user_is_already_activated",
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="User is already activated",
+            )
 
         user.is_active = True
 
@@ -165,10 +193,35 @@ class UserServiceAdmin:
 
 
     @staticmethod
-    async def update_user_admin(db: AsyncSession, user_id: int, update_request: UpdateUserAdmin) -> User:
+    async def update_user_admin(db: AsyncSession, user_id: int, update_request: UpdateUserAdmin, current_user: User) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
         ensure_exists(user, HTTP404.USER)
+
+        if update_request.role == UserRole.system_admin:
+            logger.error(
+                "update_user_denied",
+                reason="cannot_update_role_to_system_admin",
+                requested_by=current_user.id,
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot update role to system_admin",
+            ) 
+
+        if user.role in (UserRole.guest, UserRole.member) and update_request.role not in (UserRole.guest, UserRole.member):
+            logger.error(
+                "update_user_denied",
+                target_user_id=user_id,
+                requested_by=current_user.id,
+                reason="can_not_update_regular_user_role_a_system_role",
+            )
+
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Can not assign regular users a system role",
+            )
 
         try:
             update_object(user, update_request)
@@ -176,9 +229,23 @@ class UserServiceAdmin:
             await db.commit()
             await db.refresh(user)
 
+            logger.info(
+                "user_updated",
+                target_user_id=user_id,
+                changed_by=current_user.id,
+                method="admin_update",
+            )
+
             return user
         
         except IntegrityError as e:
+            logger.error(
+                "update_user_denied",
+                target_user_id=user_id,
+                requested_by=current_user.id,
+                reason=str(e.orig),
+            )
+
             handle_user_integrity_error(e)   
             raise
 
@@ -207,7 +274,7 @@ class UserServiceStaff:
         raw_invite_token, invite_token_hash = generate_invite_token()
         invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=2)
 
-        new_user = User(\
+        new_user = User(
             username=user_request.username,
             first_name=user_request.first_name,
             last_name=user_request.last_name,
@@ -251,13 +318,27 @@ class UserServiceStaff:
 
 
     @staticmethod
-    async def get_users_staff(db: AsyncSession, current_user: User) -> list[User]:
+    async def get_users_staff(db: AsyncSession,
+        skip: int,
+        limit: int,
+        filters: SearchUserBase,
+        current_user: User,
+        sort_by: str,
+        order: str,
+    ) -> PaginatedResponse:
+        
         if current_user.role == UserRole.library_admin:
-            users = await UserRepositoryStaff.get_users_library_admin(db)
+            users, total = await UserRepositoryStaff.get_users_library_admin(db, skip, limit, filters, sort_by, order)
         elif current_user.role == UserRole.receptionist:
-            users = await UserRepositoryStaff.get_users_receptionist(db)
+            users, total = await UserRepositoryStaff.get_users_receptionist(db, skip, limit, filters, sort_by, order)
 
-        return users
+        return PaginatedResponse(
+            items=users,
+            total=total,
+            skip=skip,
+            limit=limit,
+            has_more=skip + limit < total,
+        )
     
 
     @staticmethod
@@ -303,6 +384,7 @@ class UserServicePublic:
             logger.info(
                 "user_registered", 
                 user_id=new_user.id,
+                method="self-registered",
             )
 
             return new_user
@@ -326,10 +408,21 @@ class UserServicePublic:
             await db.commit()
             await db.refresh(current_user)
 
+            logger.info(
+                "user_updated",
+                target_user_id=current_user.id,
+                method="self_update",
+            )
+
             return current_user
         except IntegrityError as e:
+            logger.error(
+                "update_user_denied",
+                target_user_id=current_user.id,
+                reason=str(e.orig),
+            )
+
             handle_user_integrity_error(e)
-                
             raise
 
 

@@ -11,7 +11,7 @@ from src.pagination import PaginatedResponse
 from src.user.models import User, UserRole
 from src.user.schemas import (
     CreateUserAdmin,
-    SearchUser,
+    SearchUserAdmin,
     UpdateUserAdmin,
     UpdateUserPasswordAdmin,
     UserResponseAdmin,
@@ -38,8 +38,8 @@ async def create_account_admin(
 async def get_users_admin(
     db: async_db_dependency,
     pagination: pagination_dependency,
-    filters: Annotated[SearchUser, Depends()],
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
+    filters: Annotated[SearchUserAdmin, Depends()],
+    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
     sort_by: str = "created_at",
     order: str = "desc",
 ):
@@ -57,7 +57,7 @@ async def get_users_admin(
 async def get_user_by_id_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
+    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
 ):
     return await UserServiceAdmin.get_user_by_id_admin(db, user_id)
 
@@ -85,9 +85,9 @@ async def update_user_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
     update_request: UpdateUserAdmin,
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
 ):
-    return await UserServiceAdmin.update_user_admin(db, user_id, update_request)
+    return await UserServiceAdmin.update_user_admin(db, user_id, update_request, current_user)
 
 
 @router.put("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
