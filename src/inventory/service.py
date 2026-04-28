@@ -1,12 +1,14 @@
+from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import HTTPException, status
+
+from src.core.cache import get_cache, set_cache
 from src.core.logging import get_logger
 from src.inventory.models import Inventory
 from src.inventory.repository import InventoryRepository
-from src.inventory.schemas import CreateInventory, SearchInventory
+from src.inventory.schemas import CreateInventory, InventoryResponse, SearchInventory
 from src.pagination import PaginatedResponse
-from src.user.models import User
+from src.utils.cache_keys import inventory_detail_key
 from src.utils.exception_constants import HTTP404
 from src.utils.exceptions import check_added_by_fkey_error, check_book_id_fkey_error
 from src.utils.helpers import ensure_exists
@@ -80,11 +82,17 @@ class InventoryService:
 
     @staticmethod
     async def get_inventory_by_id(db: AsyncSession, inventory_id: int) -> Inventory:
-        inventory = await InventoryRepository.get_inventory_by_id(db, inventory_id)
-
-        ensure_exists(inventory, HTTP404.INVENTORY)
+        cached = await get_cache(inventory_detail_key(inventory_id))
+        if cached is not None:
+            return cached
         
-        return inventory
+        inventory = await InventoryRepository.get_inventory_by_id(db, inventory_id)
+        ensure_exists(inventory, HTTP404.INVENTORY)
+
+        serialized = InventoryResponse.model_validate(inventory).model_dump(mode="json")
+        await set_cache(inventory_detail_key(inventory_id), serialized, 120)
+        
+        return serialized
     
     
     @staticmethod

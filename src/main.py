@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -13,10 +15,29 @@ from src.loan.router_public import router as loan_router_public
 from src.user.router_admin import router as user_router_admin
 from src.user.router_public import router as user_router_public
 from src.user.router_staff import router as user_router_staff
+from src.core.logging import get_logger
+from src.core.cache import redis_client
 
 setup_logging()
 
+logger = get_logger(__name__)
+
 app = FastAPI(title="Library Management System")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # everything before yield runs on startup
+    try:
+        await redis_client.ping()
+        logger.info("redis_connected")
+    except Exception as e:
+        logger.warning("redis_unavailable", error=str(e))
+
+    yield  # app runs here
+
+    # everything after yield runs on shutdown
+    await redis_client.aclose()
+    logger.info("redis_disconnected")
 
 app.state.limiter = ip_limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

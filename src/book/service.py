@@ -3,10 +3,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.book.models import Book
 from src.book.repository import BookRepository
-from src.book.schemas import CreateBook, SearchBook, UpdateBook
+from src.book.schemas import BookResponse, CreateBook, SearchBook, UpdateBook
+from src.core.cache import get_cache, set_cache
 from src.core.logging import get_logger
 from src.pagination import PaginatedResponse
 from src.user.models import User
+from src.utils.cache_keys import book_detail_key
 from src.utils.exception_constants import HTTP404
 from src.utils.exceptions import check_unique_title_and_author
 from src.utils.helpers import ensure_exists, update_object
@@ -69,11 +71,18 @@ class BookService:
 
     @staticmethod
     async def get_book_by_id(db: AsyncSession, book_id: int) -> Book:
-        book = await BookRepository.get_book_by_id(db, book_id)
+        cached = await get_cache(book_detail_key(book_id))
+        if cached is not None:
+            return cached
+        
 
+        book = await BookRepository.get_book_by_id(db, book_id)
         ensure_exists(book, HTTP404.BOOK)
 
-        return book
+        serialized = BookResponse.model_validate(book).model_dump(mode="json")
+        await set_cache(book_detail_key(book_id), serialized, 600)
+
+        return serialized
     
 
     @staticmethod
