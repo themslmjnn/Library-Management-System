@@ -1,4 +1,4 @@
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.inventory.models import Inventory
@@ -32,13 +32,13 @@ class InventoryRepository:
             if filters.added_by is not None:
                 base_query = base_query.filter(Inventory.added_by == filters.added_by)
 
-            if filters.quantity_added is not None:
-                base_query = base_query.filter(Inventory.quantity_added == filters.quantity_added)
+            if filters.quantity is not None:
+                base_query = base_query.filter(Inventory.quantity == filters.quantity)
 
         if sort_by not in ALLOWED_SORT_FIELDS_INVENTORY:
             sort_by = "created_at"
 
-        sort_column = getattr(Inventory, sort_by, Inventory.created_at)
+        sort_column = getattr(Inventory, sort_by, Inventory.added_at)
         if order == "desc":
             base_query = base_query.order_by(sort_column.desc())
         else:
@@ -68,16 +68,20 @@ class InventoryRepository:
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
-    
+
     
     @staticmethod
-    async def get_quantity_added(db: AsyncSession, book_id: int) -> int:
+    async def get_available_inventories(db: AsyncSession, book_id: int) -> list[Inventory]:
         query = (
-            select(func.sum(Inventory.quantity_added))
-            .select_from(Inventory)
-            .filter(Inventory.book_id == book_id)
+            select(Inventory)
+            .filter(and_(
+                Inventory.quantity != 0,
+                Inventory.book_id == book_id,
+                )
+            )
+            .order_by(Inventory.added_at.asc())
         )
 
         result = await db.execute(query)
 
-        return result.scalar()
+        return result.scalars().all()

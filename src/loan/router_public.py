@@ -19,16 +19,16 @@ router = APIRouter(
 
 
 @router.post("/me", response_model=LoanResponse, status_code=status.HTTP_201_CREATED)
-async def loan_book_public(
+async def loan_book_me(
     db: async_db_dependency,
     loan_request: CreateLoanPublic,
     current_user: current_user_dependency,
 ):
-    return await LoanServicePublic.loan_book_public(db, loan_request, current_user)
+    return await LoanServicePublic.loan_book_me(db, loan_request, current_user.id)
 
 
-@router.get("", response_model=PaginatedResponse[LoanResponse], status_code=status.HTTP_200_OK)
-async def get_loans_public(
+@router.get("/me", response_model=PaginatedResponse[LoanResponse], status_code=status.HTTP_200_OK)
+async def get_loans_me(
     db: async_db_dependency,
     pagination: pagination_dependency,
     current_user: current_user_dependency,
@@ -36,20 +36,21 @@ async def get_loans_public(
     sort_by: str = "created_at",
     order: str = "desc",
 ):
-    return await LoanServicePublic.get_loans_public(
+    return await LoanServicePublic.get_loans_me(
         db,
         pagination.skip,
         pagination.limit,
-        current_user,
+        current_user.id,
         filters,
         sort_by,
         order
     )
 
-@router.get("/{loan_id}/public", response_model=LoanResponse, status_code=status.HTTP_200_OK)
-async def get_loan_by_id_public(
+
+@router.get("/{loan_id}/me", response_model=LoanResponse, status_code=status.HTTP_200_OK)
+async def get_loan_by_id_me(
     db: async_db_dependency, 
     current_user: current_user_dependency,
     loan_id: path_param_int_ge1,
 ):
-    return await LoanServicePublic.get_loan_by_id_public(db, current_user, loan_id)
+    return await LoanServicePublic.get_loan_by_id_me(db, current_user.id, loan_id)

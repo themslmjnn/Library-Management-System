@@ -8,7 +8,7 @@ from src.user.schemas import (
     UpdateUserPasswordPublic,
     UserResponseBase,
 )
-from src.user.service import UserServicePublic
+from src.user.service import UserServiceAdmin, UserServicePublic
 
 router = APIRouter(
     prefix="/users",
@@ -28,9 +28,10 @@ async def create_account_public(
 
 @router.get("/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK)
 async def get_me(
+    db: async_db_dependency,
     current_user: current_user_dependency,
 ):
-    return current_user
+    return await UserServiceAdmin.get_user_by_id_admin(db, current_user.id)
 
 
 @router.patch("/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK)
@@ -39,7 +40,7 @@ async def update_me(
     update_request: UpdateUserBase,
     current_user: current_user_dependency,
 ):
-    return await UserServicePublic.update_me(db, update_request, current_user)
+    return await UserServicePublic.update_me(db, update_request, current_user.id)
 
 
 @router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
@@ -48,4 +49,4 @@ async def update_my_password(
     password_request: UpdateUserPasswordPublic,
     current_user: current_user_dependency,
 ):
-    await UserServicePublic.update_my_password(db, password_request, current_user)
+    await UserServicePublic.update_my_password(db, password_request, current_user.id)

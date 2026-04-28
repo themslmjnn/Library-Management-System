@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Annotated, AsyncGenerator
 
 from fastapi import Depends, HTTPException, Query, status
@@ -21,16 +22,20 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async_db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
 
-async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_scheme)) -> User:
+@dataclass
+class CurrentUser:
+    id: int
+    role: UserRole
+    is_active: bool
+
+async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_scheme)) -> CurrentUser:
     try:
         payload = decode_access_token(token)
 
         user_id = int(payload.get("sub"))
         token_version = int(payload.get("version"))
 
-    except (ValueError, TypeError) as e:
-        print(str(e))
-        print("error")
+    except (ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=HTTP401.INVALID_ACCESS_TOKEN
@@ -44,8 +49,7 @@ async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_
             detail=HTTP401.INVALID_ACCESS_TOKEN
         )
     
-    if user.access_token_version != token_version:
-        print(user.access_token_version, token_version)
+    if user.access_token_version != token_version:      
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=HTTP401.INVALID_ACCESS_TOKEN
@@ -57,7 +61,7 @@ async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_
             detail=HTTP403.ACCOUNT_DEACTIVATED
         )
     
-    return user
+    return CurrentUser(id=user.id, role=user.role, is_active=user.is_active)
 
 current_user_dependency = Annotated[User, Depends(get_current_user)]
 
@@ -65,7 +69,6 @@ current_user_dependency = Annotated[User, Depends(get_current_user)]
 def require_roles(*roles: UserRole):
     def guard(current_user: current_user_dependency) -> User:
         if current_user.role not in roles:
-            print("error")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=HTTP403.ACCESS_DENIED,

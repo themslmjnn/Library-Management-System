@@ -29,7 +29,7 @@ async def add_inventory(
         current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
         inventory_request: CreateInventory):
 
-    return await InventoryService.add_inventory(db, current_user, inventory_request)
+    return await InventoryService.add_inventory(db, current_user.id, inventory_request)
 
 
 @router.get("", response_model=PaginatedResponse[InventoryResponse], status_code=status.HTTP_200_OK)
@@ -58,7 +58,7 @@ async def update_inventory(
         quantity: int, 
         inventory_id: path_param_int_ge1):
 
-    return await InventoryService.update_inventory(db, current_user, quantity, inventory_id)
+    return await InventoryService.update_inventory(db, current_user.id, quantity, inventory_id)
 
 
 @router.get("/{inventory_id}", response_model=InventoryResponse, status_code=status.HTTP_200_OK)

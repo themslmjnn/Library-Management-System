@@ -23,6 +23,11 @@ class Inventory(Base):
         back_populates="inventory_records",
     )
 
+    loan_records: Mapped[list["Loan"]] = relationship(
+        "Loan",
+        back_populates="inventory",
+    )
+    
     creator: Mapped["User"] = relationship(
         "User", 
         back_populates="inventory_records_creator",

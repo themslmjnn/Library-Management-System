@@ -56,9 +56,9 @@ async def get_book_by_id(
 
 @router.put("/{book_id}", response_model=BookResponse, status_code=status.HTTP_200_OK)
 async def update_book(
-        db: async_db_dependency, 
-        current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
-        update_request: UpdateBook, 
-        book_id: path_param_int_ge1):
-
-    return await BookService.update_book(db, current_user, update_request, book_id)
+    db: async_db_dependency, 
+    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
+    update_request: UpdateBook, 
+    book_id: path_param_int_ge1
+):
+    return await BookService.update_book(db, current_user.id, update_request, book_id)

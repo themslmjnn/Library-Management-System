@@ -20,7 +20,7 @@ class BookService:
         new_book = Book(**book_request.model_dump(), created_by=current_user.id)
 
         try:
-            BookRepository.add_item(db, new_book)
+            BookRepository.add_book(db, new_book)
 
             await db.commit()
             await db.refresh(new_book)
@@ -34,8 +34,10 @@ class BookService:
             return new_book
         
         except IntegrityError as error:
+            await db.rollback()
+
             logger.error(
-                "book_creation_failed",
+                "create_book_failed",
                 requested_by=current_user.id,
                 error=str(error.orig),
             )
@@ -75,7 +77,7 @@ class BookService:
     
 
     @staticmethod
-    async def update_book(db: AsyncSession, current_user: User, update_request: UpdateBook, book_id: int) -> Book:
+    async def update_book(db: AsyncSession, user_id: int, update_request: UpdateBook, book_id: int) -> Book:
         book = await BookRepository.get_book_by_id(db, book_id)
 
         ensure_exists(book, HTTP404.BOOK)
@@ -88,18 +90,20 @@ class BookService:
             logger.info(
                 "book_updated",
                 book_id=book.id,
-                updated_by=current_user.id,
+                updated_by=user_id,
             )
 
             return book
         
         except IntegrityError as error:
+            await db.rollback()
+
             logger.error(
-                "book_updating_failed",
+                "update_book_failed",
                 book_id=book.id,
-                requested_by=current_user.id,
+                requested_by=user_id,
                 error=str(error.orig),
             )
+            
             check_unique_title_and_author(error)
-
             raise

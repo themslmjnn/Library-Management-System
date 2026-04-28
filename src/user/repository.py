@@ -201,7 +201,7 @@ class UserRepositoryStaff:
         base_query = (
             select(User)
             .filter(
-                User.role.in_(UserRole.member, UserRole.guest)
+                User.role.in_([UserRole.member, UserRole.guest])
             )
         )
 
@@ -237,7 +237,7 @@ class UserRepositoryStaff:
             .filter(
                 and_(
                     User.id == user_id,
-                    User.role.in_(UserRole.member, UserRole.guest)
+                    User.role.in_([UserRole.member, UserRole.guest])
                 )
             )
         )

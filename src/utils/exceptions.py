@@ -30,10 +30,10 @@ def check_unique_title_and_author(error):
 
 
 def check_book_id_fkey_error(e):
-    if "book_inventories_book_id_fkey" in str(e.orig):
+    if "inventories_book_id_fkey" in str(e.orig):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=HTTP404.BOOK)
     
 
 def check_added_by_fkey_error(e):
-    if "book_inventories_added_by_fkey" in str(e.orig):
+    if "inventories_added_by_fkey" in str(e.orig):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=HTTP404.BOOK)

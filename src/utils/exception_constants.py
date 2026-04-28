@@ -38,7 +38,7 @@ class HTTP404:
     BOOK = "Book not found"
     INVENTORY = "Inventory not found"
     LOAN = "Loan not found"
-    BOOK_NOT_AVAILABLE = "Book is not availabe"
+    BOOK_NOT_AVAILABLE = "Book is not available"
 
 
 # --- HTTP 409 Conflict ---

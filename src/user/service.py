@@ -56,13 +56,7 @@ class UserServiceAdmin:
         invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=2)
 
         new_user = User(
-            username=user_request.username,
-            first_name=user_request.first_name,
-            last_name=user_request.last_name,
-            date_of_birth=user_request.date_of_birth,
-            email=user_request.email,
-            phone_number=user_request.phone_number,
-            role=user_request.role,
+            **user_request.model_dump(),
             is_active=False,
             invite_token_hash=hashed_invite_token,
             invite_token_expires_at=invite_token_expires_at,
@@ -87,11 +81,13 @@ class UserServiceAdmin:
             return new_user
         
         except IntegrityError as e:
+            await db.rollback()
+            
             logger.error(
-                "user_creation_failed",
+                "create_user_failed",
                 reason="integrity_error",
                 error=str(e.orig),
-                created_by=current_user.id,
+                requested_by=current_user.id,
             )
 
             handle_user_integrity_error(e)
@@ -136,7 +132,7 @@ class UserServiceAdmin:
 
         if not user.is_active:
             logger.error(
-                "deactivating_user_failed",
+                "deactivate_user_failed",
                 target_user_id=user_id,
                 requested_by=current_user.id,
                 reason="user_is_already_deactivated",
@@ -198,30 +194,31 @@ class UserServiceAdmin:
 
         ensure_exists(user, HTTP404.USER)
 
-        if update_request.role == UserRole.system_admin:
-            logger.error(
-                "update_user_denied",
-                reason="cannot_update_role_to_system_admin",
-                requested_by=current_user.id,
-            )
+        if update_request.role is not None:
+            if update_request.role == UserRole.system_admin:
+                logger.error(
+                    "update_user_denied",
+                    reason="cannot_update_role_to_system_admin",
+                    requested_by=current_user.id,
+                )
 
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot update role to system_admin",
-            ) 
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cannot update role to system_admin through the API",
+                ) 
 
-        if user.role in (UserRole.guest, UserRole.member) and update_request.role not in (UserRole.guest, UserRole.member):
-            logger.error(
-                "update_user_denied",
-                target_user_id=user_id,
-                requested_by=current_user.id,
-                reason="can_not_update_regular_user_role_a_system_role",
-            )
+            if user.role in (UserRole.guest, UserRole.member) and update_request.role not in (UserRole.guest, UserRole.member):
+                logger.error(
+                    "update_user_denied",
+                    target_user_id=user_id,
+                    requested_by=current_user.id,
+                    reason="can_not_assign_regular_user_role_a_system_role",
+                )
 
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Can not assign regular users a system role",
-            )
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Can not assign regular users a system role",
+                )
 
         try:
             update_object(user, update_request)
@@ -232,13 +229,15 @@ class UserServiceAdmin:
             logger.info(
                 "user_updated",
                 target_user_id=user_id,
-                changed_by=current_user.id,
+                updated_by=current_user.id,
                 method="admin_update",
             )
 
             return user
         
         except IntegrityError as e:
+            await db.rollback()
+
             logger.error(
                 "update_user_denied",
                 target_user_id=user_id,
@@ -311,6 +310,8 @@ class UserServiceStaff:
             return new_user
         
         except IntegrityError as e:
+            await db.rollback()
+            
             logger.error(
                 "user_creation_failed",
                 reason="integrity_error",
@@ -395,6 +396,8 @@ class UserServicePublic:
             return new_user
         
         except IntegrityError as e:
+            await db.rollback()
+
             logger.error(
                 "user_registration_failed",
                 reason="integrity_error",
@@ -404,26 +407,31 @@ class UserServicePublic:
             handle_user_integrity_error(e)
             raise
 
-
+    
     @staticmethod
-    async def update_me(db: AsyncSession, update_request: UpdateUserBase, current_user: User) -> User:
+    async def update_me(db: AsyncSession, update_request: UpdateUserBase, user_id: int) -> User:
+        user = await UserRepositoryBase.get_user_by_id(db, user_id)
+
         try:
-            update_object(current_user, update_request)
+            update_object(user, update_request)
 
             await db.commit()
-            await db.refresh(current_user)
+            await db.refresh(user)
 
             logger.info(
                 "user_updated",
-                target_user_id=current_user.id,
+                target_user_id=user.id,
                 method="self_update",
             )
 
-            return current_user
+            return user
+        
         except IntegrityError as e:
+            await db.rollback()
+
             logger.error(
                 "update_user_denied",
-                target_user_id=current_user.id,
+                target_user_id=user.id,
                 reason=str(e.orig),
             )
 
@@ -432,24 +440,26 @@ class UserServicePublic:
 
 
     @staticmethod
-    async def update_my_password(db: AsyncSession, password_request: UpdateUserPasswordPublic, current_user: User) -> None:
-        if not verify_password(password_request.old_password, current_user.password_hash):
+    async def update_my_password(db: AsyncSession, password_request: UpdateUserPasswordPublic, user_id: int) -> None:
+        user = await UserRepositoryBase.get_user_by_id(db, user_id)
+
+        if not verify_password(password_request.old_password, user.password_hash):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=HTTP400.INCORRECT_PASSWORD,
             )
         
-        current_user.password_hash = hash_password(password_request.new_password)
+        user.password_hash = hash_password(password_request.new_password)
 
-        current_user.access_token_version += 1
-        current_user.refresh_token_hash = None
-        current_user.refresh_token_family = None
-        current_user.refresh_token_expires_at = None
+        user.access_token_version += 1
+        user.refresh_token_hash = None
+        user.refresh_token_family = None
+        user.refresh_token_expires_at = None
 
         await db.commit()
 
         logger.info(
             "password_changed",
-            user_id=current_user.id,
-            method="self_service",
+            user_id=user.id,
+            method="self_update",
         )

@@ -19,6 +19,7 @@ class CreateLoanPublic(BaseModel):
 
 class LoanResponse(LoanBase, BaseSchema):
     id: int
+    inventory_id: int
     created_by: int
     loaned_at: datetime
     returned_at: datetime | None = None
