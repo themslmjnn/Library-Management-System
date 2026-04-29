@@ -33,7 +33,7 @@ def validate_date_of_birth(birth_date: date) -> date:
             "Date of birth must be in the past",
         )
 
-    age = today.year - birth_date.yearc- ((today.month, today.day) < (birth_date.month, birth_date.day))
+    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
 
     if age < 13:
         raise PydanticCustomError(

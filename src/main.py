@@ -47,9 +47,6 @@ setup_logging()
 
 logger = get_logger(__name__)
 
-app = FastAPI(title="Library Management System")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -62,6 +59,11 @@ async def lifespan(app: FastAPI):
 
     await redis_client.aclose()
     logger.info("redis_disconnected")
+
+app = FastAPI(
+    title="Library Management System",
+    lifespan=lifespan,
+)
 
 
 app.state.limiter = ip_limiter

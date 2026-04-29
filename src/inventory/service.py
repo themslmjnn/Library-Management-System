@@ -2,7 +2,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.cache import get_cache, set_cache
+from src.core.cache import delete_cache, get_cache, set_cache
 from src.core.logging import get_logger
 from src.inventory.models import Inventory
 from src.inventory.repository import InventoryRepository
@@ -100,6 +100,9 @@ class InventoryService:
         inventory.quantity = quantity
 
         await db.commit()
+
+        key = inventory_detail_key(inventory_id)
+        await delete_cache(key)
 
         logger.info(
             "inventory_updated",

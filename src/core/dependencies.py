@@ -63,7 +63,7 @@ async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_
     
     return CurrentUser(id=user.id, role=user.role, is_active=user.is_active)
 
-current_user_dependency = Annotated[User, Depends(get_current_user)]
+current_user_dependency = Annotated[CurrentUser, Depends(get_current_user)]
 
 
 def require_roles(*roles: UserRole):

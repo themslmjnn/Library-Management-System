@@ -46,11 +46,8 @@ class LoanService:
             
         book_available = await InventoryRepository.get_available_inventories(db, loan_request.book_id)
         
-        if not isinstance(book_available, list) or len(book_available) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail=HTTP404.BOOK_NOT_AVAILABLE,
-            )
+        if not book_available:
+            raise BookNotAvailableError(HTTP404.BOOK_NOT_AVAILABLE)
         
         new_loan = Loan(
             **loan_request.model_dump(),
@@ -129,7 +126,7 @@ class LoanService:
     
 
     @staticmethod
-    async def return_loan(db: AsyncSession, current_user: User, loan_id: int) -> Loan:         
+    async def return_loan(db: AsyncSession, current_user_id: int, loan_id: int) -> Loan:         
         loan = await LoanRepository.get_loan_by_id(db, loan_id)
         ensure_exists(loan, LoanNotFoundError(HTTP404.LOAN))
             
@@ -137,7 +134,7 @@ class LoanService:
             logger.warning(
                 "return_loan_failed",
                 loan_id=loan_id,
-                requested_by=current_user.id,
+                requested_by=current_user_id,
                 reason="loan_is_already_returned"
             )
 
@@ -155,23 +152,19 @@ class LoanService:
 
 class LoanServicePublic:
     @staticmethod
-    async def loan_book_me(db: AsyncSession, loan_request: CreateLoanPublic, user_id: int) -> Loan:
-        user = await UserRepositoryBase.get_user_by_id(db, user_id)
-        ensure_exists(user, UserNotFoundError(HTTP404.USER))
-            
+    async def loan_book_me(db: AsyncSession, loan_request: CreateLoanPublic, user_id: int) -> Loan:            
         book = await BookRepository.get_book_by_id(db, loan_request.book_id)
         ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
         
         book_available = await InventoryRepository.get_available_inventories(db, loan_request.book_id)
         
-        if not isinstance(book_available, list) or len(book_available) == 0:
+        if not book_available:
             raise BookNotAvailableError(HTTP404.BOOK_NOT_AVAILABLE)
         
         new_loan = Loan(
             **loan_request.model_dump(),
             user_id=user_id,
             inventory_id=book_available[0].id,
-            created_by=user_id,
         )
         
         try:

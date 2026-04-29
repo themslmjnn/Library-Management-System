@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.inventory.models import Inventory
 from src.inventory.schemas import CreateInventory, SearchInventory
 
-ALLOWED_SORT_FIELDS_INVENTORY = {"created_at", "book_id", "added_by"}
+ALLOWED_SORT_FIELDS_INVENTORY = {"added_at", "book_id", "added_by"}
 
 
 class InventoryRepository:    
@@ -19,7 +19,7 @@ class InventoryRepository:
         skip: int,
         limit: int,
         filters: SearchInventory | None = None,
-        sort_by: str = "created_at",
+        sort_by: str = "added_at",
         order: str = "desc",
     ) -> tuple[list[Inventory], int]:
         
@@ -36,7 +36,7 @@ class InventoryRepository:
                 base_query = base_query.filter(Inventory.quantity == filters.quantity)
 
         if sort_by not in ALLOWED_SORT_FIELDS_INVENTORY:
-            sort_by = "created_at"
+            sort_by = "added_at"
 
         sort_column = getattr(Inventory, sort_by, Inventory.added_at)
 

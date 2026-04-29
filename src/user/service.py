@@ -136,7 +136,7 @@ class UserServiceAdmin:
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseAdmin.model_validate(user).model_dump(mode="json")
-        await set_cache(key, serialized, user)
+        await set_cache(key, serialized, 600)
 
         return serialized
     
@@ -278,6 +278,9 @@ class UserServiceAdmin:
 
         await db.commit()
 
+        key = user_detail_key(user_id)
+        await delete_cache(key)
+        
         logger.info(
             "password_changed",
             target_user_id=user_id,
@@ -341,17 +344,10 @@ class UserServiceStaff:
         order: str,
     ) -> PaginatedResponse:
         
-        repositories = (
-            UserRepositoryStaff.get_users_library_admin(db, skip, limit, filters, sort_by, order),
-            UserRepositoryStaff.get_users_receptionist(db, skip, limit, filters, sort_by, order),
-        )
-
         if current_user.role == UserRole.library_admin:
-            repository = repositories[0]
+            users, total = await UserRepositoryStaff.get_users_library_admin(db, skip, limit, filters, sort_by, order)
         elif current_user.role == UserRole.receptionist:
-            repository = repositories[1]
-
-        users, total = await repository
+            users, total = await UserRepositoryStaff.get_users_receptionist(db, skip, limit, filters, sort_by, order)
 
         return PaginatedResponse(
             items=users,
@@ -364,22 +360,16 @@ class UserServiceStaff:
 
     @staticmethod
     async def get_user_by_id_staff(db: AsyncSession, user_id: int, current_user: User) -> UserResponseStaff:
-        repositories = (
-            UserRepositoryStaff.get_user_by_id_library_admin(db, user_id),
-            UserRepositoryStaff.get_user_by_id_receptionist(db, user_id),
-        )
-
         if current_user.role == UserRole.library_admin:
-            repository = repositories[0]
+            user = await UserRepositoryStaff.get_user_by_id_library_admin(db, user_id)
         elif current_user.role == UserRole.receptionist:
-            repository = repositories[1]
+            user = await UserRepositoryStaff.get_user_by_id_receptionist(db, user_id)
 
         key = user_detail_key(user_id)
         cached = await get_cache(key)
         if cached is not None:
             return cached
         
-        user = await repository
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseStaff.model_validate(user).model_dump(mode="json")
@@ -447,7 +437,7 @@ class UserServicePublic:
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseBase.model_validate(user).model_dump(mode="json")
-        await set_cache(key, serialized, user)
+        await set_cache(key, serialized, 600)
 
         return serialized
     
@@ -463,7 +453,7 @@ class UserServicePublic:
             await db.refresh(user)
 
             key = user_detail_key(user_id)
-            delete_cache(key)
+            await delete_cache(key)
 
             logger.info(
                 "user_updated",
@@ -499,6 +489,9 @@ class UserServicePublic:
         user.refresh_token_expires_at = None
 
         await db.commit()
+
+        key = user_detail_key(user_id)
+        await delete_cache(key)
 
         logger.info(
             "password_changed",

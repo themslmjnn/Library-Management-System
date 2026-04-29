@@ -13,13 +13,14 @@ class LoanBase(BaseModel):
 
 class CreateLoanPublic(BaseModel):
     book_id: int = Field(ge=1)
+    inventory_id: int = Field(ge=1)
     due_at: date
 
 
 class LoanResponse(LoanBase, BaseSchema):
     id: int
     inventory_id: int
-    created_by: int
+    created_by: int | None = None
     loaned_at: datetime
     returned_at: datetime | None = None
 

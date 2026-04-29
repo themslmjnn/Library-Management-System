@@ -62,4 +62,4 @@ async def return_loan(
     current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin, UserRole.receptionist))],
     loan_id: path_param_int_ge1,
 ):    
-    return await LoanService.return_loan(db, current_user, loan_id)
+    return await LoanService.return_loan(db, current_user.id, loan_id)

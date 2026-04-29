@@ -6,7 +6,7 @@ from src.user.models import UserRole
 from src.utils.base_schema import BaseSchema
 from src.utils.validators import (
     validate_date_of_birth,
-    validate_email,
+    validate_phone_number,
     validate_password,
 )
 
@@ -17,17 +17,17 @@ class CreateUserBase(BaseModel):
     last_name: str = Field(min_length=2, max_length=20)
     date_of_birth: date
     email: EmailStr
-    phone_number: str = Field(min_length=10, max_length=20)
+    phone_number: str
 
     @field_validator("date_of_birth")
     @classmethod
     def validate_date_of_birth(cls, field: date) -> date:
         return validate_date_of_birth(field)
     
-    @field_validator("email")
+    @field_validator("phone_number")
     @classmethod
-    def validate_email(cls, field: str) -> str:
-        return validate_email(field)
+    def validate_phone_number(cls, field: date) -> date:
+        return validate_phone_number(field)
 
 class CreateUserAdmin(CreateUserBase):
     role: UserRole
@@ -74,10 +74,11 @@ class UpdateUserBase(BaseModel):
     def validate_date_of_birth(cls, field: date) -> date:
         return validate_date_of_birth(field)
     
-    @field_validator("email")
+    @field_validator("phone_number")
     @classmethod
-    def validate_email(cls, field: str) -> str:
-        return validate_email(field)
+    def validate_phone_number(cls, field: date) -> date:
+        return validate_phone_number(field)
+    
 
 class UpdateUserAdmin(UpdateUserBase):
     role: UserRole | None = None

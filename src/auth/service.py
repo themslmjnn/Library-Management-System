@@ -30,6 +30,7 @@ from src.user.repository import UserRepositoryBase
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
 from src.utils.exceptions import (
     AccountInactiveError,
+    AccountLockedError,
     ExpiredActivationCodeError,
     ExpiredInviteTokenError,
     ExpiredRefreshTokenError,
@@ -111,9 +112,8 @@ class AuthService:
                 locked_until=user.locked_until.isoformat(),
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Account locked. Try again after {user.locked_until.strftime('%H:%M UTC')}",
+            raise AccountLockedError(
+                f"Account locked. Try again after {user.locked_until.strftime('%H:%M UTC')}"
             )
 
         if user.password_hash is None:
