@@ -5,14 +5,22 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.book.repository import BookRepository
+from src.core.cache import get_cache, set_cache
 from src.core.logging import get_logger
 from src.inventory.repository import InventoryRepository
 from src.loan.models import Loan
 from src.loan.repository import LoanRepository, LoanRepositoryPublic
-from src.loan.schemas import CreateLoanPublic, LoanBase, SearchLoan, SearchLoanPublic
+from src.loan.schemas import (
+    CreateLoanPublic,
+    LoanBase,
+    LoanResponse,
+    SearchLoan,
+    SearchLoanPublic,
+)
 from src.pagination import PaginatedResponse
 from src.user.models import User
 from src.user.repository import UserRepositoryBase
+from src.utils.cache_keys import loan_detail_key
 from src.utils.exception_constants import HTTP404, HTTP409
 from src.utils.helpers import ensure_exists
 
@@ -21,12 +29,8 @@ logger = get_logger(__name__)
     
 class LoanService:
     @staticmethod
-    async def loan_book(
-        db: AsyncSession,
-        current_user: User,
-        loan_request: LoanBase,
-    ) -> Loan:
-        
+    async def loan_book(db: AsyncSession, current_user_id: int, loan_request: LoanBase) -> Loan:
+     
         user = await UserRepositoryBase.get_user_by_id(db, loan_request.user_id)
         ensure_exists(user, HTTP404.USER)
             
@@ -44,7 +48,7 @@ class LoanService:
         new_loan = Loan(
             **loan_request.model_dump(),
             inventory_id=book_available[0].id,
-            created_by=current_user.id,
+            created_by=current_user_id,
         )
 
         try:
@@ -60,7 +64,7 @@ class LoanService:
                 "loan_created",
                 loan_id=new_loan.id,
                 user_id=new_loan.user_id,
-                created_by=current_user.id,
+                created_by=current_user_id,
             )
 
             return new_loan
@@ -70,7 +74,7 @@ class LoanService:
             logger.error(
                 "create_loan_failed",
                 user_id=new_loan.user_id,
-                requested_by=current_user.id,
+                requested_by=current_user_id,
                 error=str(e.orig),
             )
 
@@ -102,11 +106,19 @@ class LoanService:
     
 
     @staticmethod
-    async def get_loan_by_id(db: AsyncSession, loan_id: int) -> Loan:
+    async def get_loan_by_id(db: AsyncSession, loan_id: int) -> LoanResponse:
+        key = loan_detail_key(loan_id)
+        cached = await get_cache(key)
+        if cached is not None:
+            return cached
+        
         loan = await LoanRepository.get_loan_by_id(db, loan_id)
         ensure_exists(loan, HTTP404.LOAN)
+
+        serialized = LoanResponse.model_validate(loan).model_dump(mode="json")
+        await set_cache(key, serialized, 600)
         
-        return loan
+        return serialized
     
 
     @staticmethod
@@ -139,12 +151,7 @@ class LoanService:
 
 class LoanServicePublic:
     @staticmethod
-    async def loan_book_me(
-        db: AsyncSession,
-        loan_request: CreateLoanPublic,
-        user_id: int,
-    ) -> Loan:
-
+    async def loan_book_me(db: AsyncSession, loan_request: CreateLoanPublic, user_id: int) -> Loan:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
         ensure_exists(user, HTTP404.USER)
             
@@ -222,8 +229,16 @@ class LoanServicePublic:
     
 
     @staticmethod
-    async def get_loan_by_id_me(db: AsyncSession, user_id: int, loan_id: int) -> Loan:        
+    async def get_loan_by_id_me(db: AsyncSession, user_id: int, loan_id: int) -> LoanResponse:
+        key = loan_detail_key(loan_id)
+        cached = await get_cache(key)
+        if cached is not None:
+            return cached
+                
         loan = await LoanRepositoryPublic.get_loan_by_id_me(db, user_id, loan_id)
         ensure_exists(loan, HTTP404.LOAN)
+
+        serialized = LoanResponse.model_validate(loan).model_dump(mode="json")
+        await set_cache(key, serialized, 600)
         
-        return loan
+        return serialized

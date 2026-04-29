@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field
 
@@ -26,19 +25,19 @@ class LoanResponse(LoanBase, BaseSchema):
 
 
 class SearchLoan(BaseModel):
-    book_id: Optional[int] = None
-    user_id: Optional[int] = None
-    created_by: Optional[int] = None
-    due_at: Optional[date] = None
-    returned_at: Optional[date] = None
+    book_id: int | None = None
+    user_id: int | None = None
+    created_by: int | None = None
+    due_at: date | None = None
+    returned_at: date | None = None
 
 class SearchLoanPublic(BaseModel):
-    book_id: Optional[int] = None
-    due_at: Optional[date] = None
-    returned_at: Optional[date] = None
+    book_id: int | None = None
+    due_at: date | None = None
+    returned_at: date | None = None
 
 
 class UpdateLoan(BaseModel):
-    book_id: Optional[int] = None
-    user_id: Optional[int] = None
-    due_at: Optional[date] = None
+    book_id: int | None = None
+    user_id: int | None = None
+    due_at: date | None = None

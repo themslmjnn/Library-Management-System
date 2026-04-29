@@ -8,3 +8,7 @@ def inventory_detail_key(inventory_id: int) -> str:
 
 def user_detail_key(user_id: int) -> str:
     return f"users:detail:{user_id}"
+
+
+def loan_detail_key(loan_id: int) -> str:
+    return f"loans:detail:{loan_id}"

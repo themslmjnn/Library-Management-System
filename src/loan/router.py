@@ -53,7 +53,7 @@ async def loan_book(
     current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin, UserRole.receptionist))],
     loan_request: LoanBase
 ):
-    return await LoanService.loan_book(db, current_user, loan_request)
+    return await LoanService.loan_book(db, current_user.id, loan_request)
 
 
 @router.put("/{loan_id}/return", response_model=LoanResponse, status_code=status.HTTP_200_OK)

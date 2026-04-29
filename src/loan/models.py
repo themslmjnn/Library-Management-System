@@ -34,8 +34,8 @@ class Loan(Base):
         back_populates="loaned_records",
     )
 
-    creator = relationship(
-        "User", 
-        foreign_keys=[created_by], 
+    creator: Mapped["User | None"] = relationship(
+        "User",
+        foreign_keys=[created_by],
         back_populates="loan_creator",
     )
