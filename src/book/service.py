@@ -4,10 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.book.models import Book
 from src.book.repository import BookRepository
 from src.book.schemas import BookResponse, CreateBook, SearchBook, UpdateBook
-from src.core.cache import get_cache, set_cache
+from src.core.cache import delete_cache, get_cache, set_cache
 from src.core.logging import get_logger
 from src.pagination import PaginatedResponse
-from src.user.models import User
 from src.utils.cache_keys import book_detail_key
 from src.utils.exception_constants import HTTP404
 from src.utils.exceptions import check_unique_title_and_author
@@ -18,8 +17,11 @@ logger = get_logger(__name__)
 
 class BookService:
     @staticmethod
-    async def add_book(db: AsyncSession, book_request: CreateBook, current_user: User):
-        new_book = Book(**book_request.model_dump(), created_by=current_user.id)
+    async def add_book(db: AsyncSession, book_request: CreateBook, current_user_id: int) -> Book:
+        new_book = Book(
+            **book_request.model_dump(), 
+            created_by=current_user_id,
+        )
 
         try:
             BookRepository.add_book(db, new_book)
@@ -30,17 +32,16 @@ class BookService:
             logger.info(
                 "book_created",
                 book_id=new_book.id,
-                created_by=current_user.id,
+                created_by=current_user_id,
             )
 
             return new_book
-        
         except IntegrityError as error:
             await db.rollback()
 
             logger.error(
                 "create_book_failed",
-                requested_by=current_user.id,
+                requested_by=current_user_id,
                 error=str(error.orig),
             )
 
@@ -70,8 +71,9 @@ class BookService:
     
 
     @staticmethod
-    async def get_book_by_id(db: AsyncSession, book_id: int) -> Book:
-        cached = await get_cache(book_detail_key(book_id))
+    async def get_book_by_id(db: AsyncSession, book_id: int) -> BookResponse:
+        key = book_detail_key(book_id)
+        cached = await get_cache(key)
         if cached is not None:
             return cached
 
@@ -79,7 +81,7 @@ class BookService:
         ensure_exists(book, HTTP404.BOOK)
 
         serialized = BookResponse.model_validate(book).model_dump(mode="json")
-        await set_cache(book_detail_key(book_id), serialized, 600)
+        await set_cache(key, serialized, 600)
 
         return serialized
     
@@ -87,7 +89,6 @@ class BookService:
     @staticmethod
     async def update_book(db: AsyncSession, user_id: int, update_request: UpdateBook, book_id: int) -> Book:
         book = await BookRepository.get_book_by_id(db, book_id)
-
         ensure_exists(book, HTTP404.BOOK)
 
         try:
@@ -101,8 +102,10 @@ class BookService:
                 updated_by=user_id,
             )
 
+            key = book_detail_key(book_id)
+            await delete_cache(key)
+
             return book
-        
         except IntegrityError as error:
             await db.rollback()
 

@@ -25,7 +25,7 @@ async def add_book(
     book_request: CreateBook,
     current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
 ):
-    return await BookService.add_book(db, book_request, current_user)
+    return await BookService.add_book(db, book_request, current_user.id)
 
 
 @router.get("", response_model=PaginatedResponse[BookResponse], status_code=status.HTTP_200_OK)

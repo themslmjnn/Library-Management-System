@@ -55,6 +55,7 @@ class BookRepository:
 
         return result.scalars().all(), total
 
+
     @staticmethod
     async def get_book_by_id(db: AsyncSession, book_id: int) -> Book | None:
         query = (
