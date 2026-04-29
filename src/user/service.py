@@ -36,7 +36,13 @@ from src.user.schemas import (
 from src.utils.cache_keys import user_detail_key
 from src.utils.email import send_account_activation_code, send_invite_email
 from src.utils.exception_constants import HTTP400, HTTP404
-from src.utils.exceptions import handle_user_integrity_error
+from src.utils.exceptions import (
+    IncorrectPasswordError,
+    UserAlreadyActiveError,
+    UserAlreadyInactiveError,
+    UserNotFoundError,
+    handle_user_integrity_error,
+)
 from src.utils.helpers import ensure_exists, update_object
 
 logger = get_logger(__name__)
@@ -127,7 +133,7 @@ class UserServiceAdmin:
             return cached
         
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
-        ensure_exists(user, HTTP404.USER)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseAdmin.model_validate(user).model_dump(mode="json")
         await set_cache(key, serialized, user)
@@ -138,7 +144,7 @@ class UserServiceAdmin:
     @staticmethod
     async def deactivate_user_admin(db: AsyncSession, user_id: int, current_user_id: int) -> None:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
-        ensure_exists(user, HTTP404.USER)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if not user.is_active:
             logger.error(
@@ -148,10 +154,7 @@ class UserServiceAdmin:
                 reason="user_is_already_deactivated",
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User is already deactivated",
-            )
+            raise UserAlreadyInactiveError("User is already deactivated")
         
         user.is_active = False
         user.access_token_version += 1
@@ -174,7 +177,7 @@ class UserServiceAdmin:
     @staticmethod
     async def activate_user_admin(db: AsyncSession, user_id: int, current_user_id: int) -> None:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
-        ensure_exists(user, HTTP404.USER)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if user.is_active:
             logger.error(
@@ -184,10 +187,7 @@ class UserServiceAdmin:
                 reason="user_is_already_activated",
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="User is already activated",
-            )
+            raise UserAlreadyActiveError("User is already activated")
 
         user.is_active = True
 
@@ -206,7 +206,7 @@ class UserServiceAdmin:
     @staticmethod
     async def update_user_admin(db: AsyncSession, user_id: int, update_request: UpdateUserAdmin, current_user_id: int) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
-        ensure_exists(user, HTTP404.USER)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if update_request.role is not None:
             if update_request.role == UserRole.system_admin:
@@ -268,7 +268,7 @@ class UserServiceAdmin:
     @staticmethod
     async def update_password_admin(db: AsyncSession, user_id: int, password_request: UpdateUserPasswordAdmin, current_user_id: int) -> None:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
-        ensure_exists(user, HTTP404.USER)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         user.password_hash = hash_password(password_request.new_password)
         user.access_token_version += 1
@@ -380,7 +380,7 @@ class UserServiceStaff:
             return cached
         
         user = await repository
-        ensure_exists(user, HTTP404.USER)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseStaff.model_validate(user).model_dump(mode="json")
         await set_cache(key, serialized, 600)
@@ -444,7 +444,7 @@ class UserServicePublic:
             return cached
         
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
-        ensure_exists(user, HTTP404.USER)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseBase.model_validate(user).model_dump(mode="json")
         await set_cache(key, serialized, user)
@@ -490,10 +490,7 @@ class UserServicePublic:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
         if not verify_password(password_request.old_password, user.password_hash):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=HTTP400.INCORRECT_PASSWORD,
-            )
+            raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)
         
         user.password_hash = hash_password(password_request.new_password)
         user.access_token_version += 1

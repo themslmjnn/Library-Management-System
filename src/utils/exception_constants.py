@@ -11,8 +11,8 @@ class HTTP400:
     INVITE_TOKEN_USED = "Account already activated or was never invited"
     EXPIRED_INVITE_TOKEN = "Invite token has expired"
     INVALID_INVITE_TOKEN = "Invalid invite token"
-    INVALID_ACTIVATION_CODE = "Invalid activation code"
     EXPIRED_ACTIVATION_CODE = "Expired activation code"
+    INVALID_ACTIVATION_CODE = "Invalid activation code"
 
 
 # --- HTTP 401 Unauthorized ---

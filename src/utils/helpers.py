@@ -1,9 +1,9 @@
-from fastapi import HTTPException, status
+from src.utils.exceptions import AppException
 
 
-def ensure_exists(object, message) -> None:
-    if object is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=message)
+def ensure_exists(obj, exception: AppException) -> None:
+    if obj is None:
+        raise exception
      
 
 def update_object(instance, request) -> None:

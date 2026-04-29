@@ -1,8 +1,10 @@
-from src.core.logging import get_logger
-import redis
-from src.core.config import settings
-from typing import Optional, Any
 import json
+from typing import Any, Optional
+
+import redis
+
+from src.core.config import settings
+from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
@@ -17,7 +19,6 @@ redis_client = redis.asyncio.Redis(
 async def get_cache(key: str) -> Optional[Any]:
     try:
         value = await redis_client.get(key)
-
         if value is None:
             return None
         

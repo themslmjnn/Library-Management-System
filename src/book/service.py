@@ -9,7 +9,7 @@ from src.core.logging import get_logger
 from src.pagination import PaginatedResponse
 from src.utils.cache_keys import book_detail_key
 from src.utils.exception_constants import HTTP404
-from src.utils.exceptions import check_unique_title_and_author
+from src.utils.exceptions import BookNotFoundError, check_unique_title_and_author
 from src.utils.helpers import ensure_exists, update_object
 
 logger = get_logger(__name__)
@@ -78,7 +78,7 @@ class BookService:
             return cached
 
         book = await BookRepository.get_book_by_id(db, book_id)
-        ensure_exists(book, HTTP404.BOOK)
+        ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
 
         serialized = BookResponse.model_validate(book).model_dump(mode="json")
         await set_cache(key, serialized, 600)
@@ -89,7 +89,7 @@ class BookService:
     @staticmethod
     async def update_book(db: AsyncSession, user_id: int, update_request: UpdateBook, book_id: int) -> Book:
         book = await BookRepository.get_book_by_id(db, book_id)
-        ensure_exists(book, HTTP404.BOOK)
+        ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
 
         try:
             update_object(book, update_request)

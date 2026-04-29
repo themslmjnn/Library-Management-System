@@ -10,7 +10,7 @@ from src.inventory.schemas import CreateInventory, InventoryResponse, SearchInve
 from src.pagination import PaginatedResponse
 from src.utils.cache_keys import inventory_detail_key
 from src.utils.exception_constants import HTTP404
-from src.utils.exceptions import check_book_id_fkey_error
+from src.utils.exceptions import InventoryNotFoundError, check_book_id_fkey_error
 from src.utils.helpers import ensure_exists
 
 logger = get_logger(__name__)
@@ -84,7 +84,7 @@ class InventoryService:
             return cached
         
         inventory = await InventoryRepository.get_inventory_by_id(db, inventory_id)
-        ensure_exists(inventory, HTTP404.INVENTORY)
+        ensure_exists(inventory, InventoryNotFoundError(HTTP404.INVENTORY))
 
         serialized = InventoryResponse.model_validate(inventory).model_dump(mode="json")
         await set_cache(inventory_detail_key(inventory_id), serialized, 120)
@@ -95,7 +95,7 @@ class InventoryService:
     @staticmethod
     async def update_inventory(db: AsyncSession, user_id: int, quantity: int, inventory_id: int) -> Inventory:
         inventory = await InventoryRepository.get_inventory_by_id(db, inventory_id)
-        ensure_exists(inventory, HTTP404.INVENTORY)
+        ensure_exists(inventory, InventoryNotFoundError(HTTP404.INVENTORY))
         
         inventory.quantity = quantity
 

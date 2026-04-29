@@ -22,6 +22,13 @@ from src.user.models import User
 from src.user.repository import UserRepositoryBase
 from src.utils.cache_keys import loan_detail_key
 from src.utils.exception_constants import HTTP404, HTTP409
+from src.utils.exceptions import (
+    BookNotAvailableError,
+    BookNotFoundError,
+    LoanAlreadyReturnedError,
+    LoanNotFoundError,
+    UserNotFoundError,
+)
 from src.utils.helpers import ensure_exists
 
 logger = get_logger(__name__)
@@ -32,10 +39,10 @@ class LoanService:
     async def loan_book(db: AsyncSession, current_user_id: int, loan_request: LoanBase) -> Loan:
      
         user = await UserRepositoryBase.get_user_by_id(db, loan_request.user_id)
-        ensure_exists(user, HTTP404.USER)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
             
         book = await BookRepository.get_book_by_id(db, loan_request.book_id)
-        ensure_exists(book, HTTP404.BOOK)
+        ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
             
         book_available = await InventoryRepository.get_available_inventories(db, loan_request.book_id)
         
@@ -113,7 +120,7 @@ class LoanService:
             return cached
         
         loan = await LoanRepository.get_loan_by_id(db, loan_id)
-        ensure_exists(loan, HTTP404.LOAN)
+        ensure_exists(loan, LoanNotFoundError(HTTP404.LOAN))
 
         serialized = LoanResponse.model_validate(loan).model_dump(mode="json")
         await set_cache(key, serialized, 600)
@@ -124,7 +131,7 @@ class LoanService:
     @staticmethod
     async def return_loan(db: AsyncSession, current_user: User, loan_id: int) -> Loan:         
         loan = await LoanRepository.get_loan_by_id(db, loan_id)
-        ensure_exists(loan, HTTP404.LOAN)
+        ensure_exists(loan, LoanNotFoundError(HTTP404.LOAN))
             
         if loan.returned_at is not None:
             logger.warning(
@@ -134,10 +141,7 @@ class LoanService:
                 reason="loan_is_already_returned"
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
-                detail="Loan is already returned",
-            )
+            raise LoanAlreadyReturnedError("Loan is already returned")
             
         loan.returned_at = datetime.now(timezone.utc)
 
@@ -153,18 +157,15 @@ class LoanServicePublic:
     @staticmethod
     async def loan_book_me(db: AsyncSession, loan_request: CreateLoanPublic, user_id: int) -> Loan:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
-        ensure_exists(user, HTTP404.USER)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
             
         book = await BookRepository.get_book_by_id(db, loan_request.book_id)
-        ensure_exists(book, HTTP404.BOOK)
+        ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
         
         book_available = await InventoryRepository.get_available_inventories(db, loan_request.book_id)
         
         if not isinstance(book_available, list) or len(book_available) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail=HTTP404.BOOK_NOT_AVAILABLE,
-            )
+            raise BookNotAvailableError(HTTP404.BOOK_NOT_AVAILABLE)
         
         new_loan = Loan(
             **loan_request.model_dump(),
@@ -236,7 +237,7 @@ class LoanServicePublic:
             return cached
                 
         loan = await LoanRepositoryPublic.get_loan_by_id_me(db, user_id, loan_id)
-        ensure_exists(loan, HTTP404.LOAN)
+        ensure_exists(loan, LoanNotFoundError(HTTP404.LOAN))
 
         serialized = LoanResponse.model_validate(loan).model_dump(mode="json")
         await set_cache(key, serialized, 600)
