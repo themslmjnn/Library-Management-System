@@ -74,7 +74,6 @@ class BookService:
         cached = await get_cache(book_detail_key(book_id))
         if cached is not None:
             return cached
-        
 
         book = await BookRepository.get_book_by_id(db, book_id)
         ensure_exists(book, HTTP404.BOOK)

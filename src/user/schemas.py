@@ -32,7 +32,6 @@ class CreateUserBase(BaseModel):
 class CreateUserAdmin(CreateUserBase):
     role: UserRole
 
-
 class CreateUserPublic(CreateUserBase):
     password: str
 

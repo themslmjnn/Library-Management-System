@@ -8,7 +8,7 @@ from src.user.schemas import (
     UpdateUserPasswordPublic,
     UserResponseBase,
 )
-from src.user.service import UserServiceAdmin, UserServicePublic
+from src.user.service import UserServicePublic
 
 router = APIRouter(
     prefix="/users",
@@ -31,7 +31,7 @@ async def get_me(
     db: async_db_dependency,
     current_user: current_user_dependency,
 ):
-    return await UserServiceAdmin.get_user_by_id_admin(db, current_user.id)
+    return await UserServicePublic.get_me(db, current_user.id)
 
 
 @router.patch("/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK)

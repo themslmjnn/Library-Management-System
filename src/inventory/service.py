@@ -55,7 +55,6 @@ class InventoryService:
             )
 
             check_book_id_fkey_error(e)
-            check_added_by_fkey_error(e)
             raise
 
     

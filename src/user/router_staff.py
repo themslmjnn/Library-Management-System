@@ -25,7 +25,7 @@ async def create_account_staff(
     user_request: CreateUserBase,
     current_user: Annotated[User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))],
 ):
-    return await UserServiceStaff.create_account_staff(db, user_request, current_user)
+    return await UserServiceStaff.create_account_staff(db, user_request, current_user.id)
 
 
 @router.get("/staff", response_model=PaginatedResponse[UserResponseBase], status_code=status.HTTP_200_OK)
