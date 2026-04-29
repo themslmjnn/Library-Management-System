@@ -78,18 +78,18 @@ class User(Base):
 
     loaned_records: Mapped[list["Loan"]] = relationship(
         "Loan", 
-        foreign_keys="Loan.user_id", 
+        foreign_keys="[Loan.user_id]", 
         back_populates="user",
     )
 
     loan_creator: Mapped[list["Loan"]] = relationship(
         "Loan", 
-        foreign_keys="Loan.created_by", 
+        foreign_keys="[Loan.created_by]", 
         back_populates="creator",
     )
 
     inventory_records_creator: Mapped[list["Inventory"]] = relationship(
         "Inventory", 
-        foreign_keys="Inventory.added_by", 
+        foreign_keys="[Inventory.added_by]", 
         back_populates="creator",
     )

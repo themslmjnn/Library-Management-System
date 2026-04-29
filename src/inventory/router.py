@@ -25,19 +25,19 @@ router = APIRouter(
 
 @router.post("", response_model=InventoryResponse, status_code=status.HTTP_201_CREATED)
 async def add_inventory(
-        db: async_db_dependency, 
-        current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
-        inventory_request: CreateInventory):
+    db: async_db_dependency, 
+    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
+    inventory_request: CreateInventory):
 
     return await InventoryService.add_inventory(db, current_user.id, inventory_request)
 
 
 @router.get("", response_model=PaginatedResponse[InventoryResponse], status_code=status.HTTP_200_OK)
 async def get_inventories(
-        db: async_db_dependency,
-        pagination: pagination_dependency,
-        _: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
-        filters: Annotated[SearchInventory, Depends()],
+    db: async_db_dependency,
+    pagination: pagination_dependency,
+    _: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
+    filters: Annotated[SearchInventory, Depends()],
     sort_by: str = "created_at",
     order: str = "desc",
 ):
@@ -53,18 +53,18 @@ async def get_inventories(
 
 @router.put("/{inventory_id}", response_model=InventoryResponse, status_code=status.HTTP_200_OK)
 async def update_inventory(
-        db: async_db_dependency, 
-        current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
-        quantity: int, 
-        inventory_id: path_param_int_ge1):
-
+    db: async_db_dependency, 
+    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
+    quantity: int, 
+    inventory_id: path_param_int_ge1
+):
     return await InventoryService.update_inventory(db, current_user.id, quantity, inventory_id)
 
 
 @router.get("/{inventory_id}", response_model=InventoryResponse, status_code=status.HTTP_200_OK)
 async def get_inventory_by_id(
-        db: async_db_dependency, 
-        _: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
-        inventory_id: path_param_int_ge1):
-
+    db: async_db_dependency, 
+    _: Annotated[User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))],
+    inventory_id: path_param_int_ge1
+):
     return await InventoryService.get_inventory_by_id(db, inventory_id)

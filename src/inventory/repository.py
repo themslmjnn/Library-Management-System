@@ -39,6 +39,7 @@ class InventoryRepository:
             sort_by = "created_at"
 
         sort_column = getattr(Inventory, sort_by, Inventory.added_at)
+
         if order == "desc":
             base_query = base_query.order_by(sort_column.desc())
         else:

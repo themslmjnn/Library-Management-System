@@ -10,7 +10,7 @@ from src.inventory.schemas import CreateInventory, InventoryResponse, SearchInve
 from src.pagination import PaginatedResponse
 from src.utils.cache_keys import inventory_detail_key
 from src.utils.exception_constants import HTTP404
-from src.utils.exceptions import check_added_by_fkey_error, check_book_id_fkey_error
+from src.utils.exceptions import check_book_id_fkey_error
 from src.utils.helpers import ensure_exists
 
 logger = get_logger(__name__)
@@ -26,9 +26,8 @@ class InventoryService:
             )
         
         new_inventory = Inventory(
-            book_id=inventory_request.book_id,
+            **inventory_request.model_dump(),
             added_by=user_id,
-            quantity=inventory_request.quantity
         )
 
         try:
@@ -44,7 +43,6 @@ class InventoryService:
             )
 
             return new_inventory
-        
         except IntegrityError as e:
             await db.rollback()
 
@@ -80,7 +78,7 @@ class InventoryService:
     
 
     @staticmethod
-    async def get_inventory_by_id(db: AsyncSession, inventory_id: int) -> Inventory:
+    async def get_inventory_by_id(db: AsyncSession, inventory_id: int) -> InventoryResponse:
         cached = await get_cache(inventory_detail_key(inventory_id))
         if cached is not None:
             return cached
@@ -97,7 +95,6 @@ class InventoryService:
     @staticmethod
     async def update_inventory(db: AsyncSession, user_id: int, quantity: int, inventory_id: int) -> Inventory:
         inventory = await InventoryRepository.get_inventory_by_id(db, inventory_id)
-
         ensure_exists(inventory, HTTP404.INVENTORY)
         
         inventory.quantity = quantity
