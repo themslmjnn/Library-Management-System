@@ -6,6 +6,7 @@ from src.user.schemas import CreateUserAdmin
 from src.user.models import UserRole
 from src.utils.exceptions import (
     CannotCreateSystemAdminError,
+    UserAlreadyActiveError,
     UserAlreadyInactiveError,
     UserNotFoundError,
 )
@@ -94,3 +95,20 @@ class TestDeactivateUserAdmin:
     async def test_raises_if_user_not_found(self, test_db, system_admin):
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.deactivate_user_admin(test_db, 99999, system_admin.id)
+
+
+class TestActivateUserAdmin:
+
+    async def test_activates_inactive_user(self, test_db, system_admin):
+        user = await make_member(test_db, is_active=False)
+
+        await UserServiceAdmin.activate_user_admin(test_db, user.id, system_admin.id)
+
+        await test_db.refresh(user)
+        assert user.is_active is True
+
+    async def test_raises_if_already_active(self, test_db, system_admin):
+        user = await make_member(test_db, is_active=True)
+
+        with pytest.raises(UserAlreadyActiveError):
+            await UserServiceAdmin.activate_user_admin(test_db, user.id, system_admin.id)
