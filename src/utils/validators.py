@@ -1,7 +1,7 @@
 import re
 from datetime import date
 
-from pydantic import PydanticCustomError
+from pydantic_core import PydanticCustomError
 
 
 def validate_password(password: str) -> str:

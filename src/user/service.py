@@ -42,6 +42,7 @@ from src.utils.exceptions import (
     UserAlreadyInactiveError,
     UserNotFoundError,
     handle_user_integrity_error,
+    CannotCreateSystemAdminError,
 )
 from src.utils.helpers import ensure_exists, update_object
 
@@ -58,10 +59,7 @@ class UserServiceAdmin:
                 requested_by=current_user_id,
             )
 
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot create system_admin accounts through the API",
-            ) 
+            raise CannotCreateSystemAdminError("Cannot create system_admin accounts through the API") 
         
         raw_invite_token, hashed_invite_token = generate_invite_token()
         invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=1)
