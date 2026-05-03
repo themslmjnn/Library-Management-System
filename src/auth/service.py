@@ -5,6 +5,7 @@ from fastapi import HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.dependencies import CurrentUser
 from src.auth.repository import AuthRepository
 from src.auth.schemas import (
     ActivateAccountWithCode,
@@ -70,7 +71,9 @@ class AuthService:
 
 
     @staticmethod
-    async def _invalidate_all_tokens(db: AsyncSession, user: User) -> None:
+    async def _invalidate_all_tokens(db: AsyncSession, current_user: CurrentUser) -> None:
+        user = await UserRepositoryBase.get_user_by_id(db, current_user.id)
+
         user.access_token_version += 1
         user.refresh_token_hash = None
         user.refresh_token_family = None
