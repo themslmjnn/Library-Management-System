@@ -123,3 +123,161 @@ class TestLogout:
         # original token embedded old version — any endpoint should reject it
         response = await client.get("/users/me", headers=headers)
         assert response.status_code == 401
+
+class TestActivateWithToken:
+
+    async def test_activation_succeeds(self, client: AsyncClient, test_db):
+        user, raw_token = await make_invited_user(test_db, role=UserRole.member)
+
+        response = await client.post("/auth/activate_with_token", json={
+            "email": user.email,
+            "invite_token": raw_token,
+            "password": "NewPass123!",
+        })
+
+        assert response.status_code == 204
+        await test_db.refresh(user)
+        assert user.is_active is True
+
+    async def test_activation_fails_wrong_token(self, client: AsyncClient, test_db):
+        user, _ = await make_invited_user(test_db)
+
+        response = await client.post("/auth/activate_with_token", json={
+            "email": user.email,
+            "invite_token": "completelyWrongToken",
+            "password": "NewPass123!",
+        })
+
+        assert response.status_code == 400
+
+    async def test_activation_fails_bad_password(self, client: AsyncClient, test_db):
+        user, raw_token = await make_invited_user(test_db)
+
+        response = await client.post("/auth/activate_with_token", json={
+            "email": user.email,
+            "invite_token": raw_token,
+            "password": "weak",  # fails password validator
+        })
+
+        assert response.status_code == 422
+
+    async def test_token_cannot_be_used_twice(self, client: AsyncClient, test_db):
+        user, raw_token = await make_invited_user(test_db)
+
+        payload = {
+            "email": user.email,
+            "invite_token": raw_token,
+            "password": "NewPass123!",
+        }
+
+        r1 = await client.post("/auth/activate_with_token", json=payload)
+        r2 = await client.post("/auth/activate_with_token", json=payload)
+
+        assert r1.status_code == 204
+        assert r2.status_code == 400
+
+
+class TestActivateWithCode:
+
+    async def test_activation_succeeds(self, client: AsyncClient, test_db):
+        user, raw_code = await make_user_with_activation_code(test_db)
+
+        response = await client.post("/auth/activate_with_code", json={
+            "email": user.email,
+            "code": raw_code,
+        })
+
+        assert response.status_code == 204
+        await test_db.refresh(user)
+        assert user.is_active is True
+
+    async def test_activation_fails_wrong_code(self, client: AsyncClient, test_db):
+        user, _ = await make_user_with_activation_code(test_db)
+
+        response = await client.post("/auth/activate_with_code", json={
+            "email": user.email,
+            "code": "000000ff",
+        })
+
+        assert response.status_code == 400
+
+    async def test_code_cannot_be_used_twice(self, client: AsyncClient, test_db):
+        user, raw_code = await make_user_with_activation_code(test_db)
+        payload = {"email": user.email, "code": raw_code}
+
+        r1 = await client.post("/auth/activate_with_code", json=payload)
+        r2 = await client.post("/auth/activate_with_code", json=payload)
+
+        assert r1.status_code == 204
+        assert r2.status_code == 400
+
+
+class TestRefreshToken:
+
+    async def test_refresh_returns_new_access_token(self, client: AsyncClient, test_db):
+        user = await make_member(test_db, password="Valid123!")
+
+        login_response = await client.post("/auth/login", data={
+            "username": user.email,
+            "password": "Valid123!",
+        })
+        assert login_response.status_code == 200
+        old_cookie = client.cookies.get("refresh_token")
+
+        response = await client.post("/auth/refresh_token")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "access_token" in data
+        assert data["token_type"] == "bearer"
+
+        # the real assertion — refresh token was rotated
+        new_cookie = client.cookies.get("refresh_token")
+        assert new_cookie is not None
+        assert new_cookie != old_cookie
+
+    async def test_refresh_fails_without_cookie(self, client: AsyncClient):
+        # no login — no cookie
+        response = await client.post("/auth/refresh_token")
+        assert response.status_code == 401
+
+    async def test_refresh_rotates_cookie(self, client: AsyncClient, test_db):
+        user = await make_member(test_db, password="Valid123!")
+
+        await client.post("/auth/login", data={
+            "username": user.email,
+            "password": "Valid123!",
+        })
+        old_cookie = client.cookies.get("refresh_token")
+
+        await client.post("/auth/refresh_token")
+        new_cookie = client.cookies.get("refresh_token")
+
+        assert old_cookie != new_cookie
+
+    async def test_reused_refresh_token_invalidates_all_sessions(
+        self, client: AsyncClient, test_db
+    ):
+        user = await make_member(test_db, password="Valid123!")
+
+        await client.post("/auth/login", data={
+            "username": user.email,
+            "password": "Valid123!",
+        })
+
+        old_cookie = client.cookies.get("refresh_token")
+
+        # first refresh — legitimate rotation
+        await client.post("/auth/refresh_token")
+
+        # manually restore the old cookie to simulate reuse
+        client.cookies.set("refresh_token", old_cookie)
+
+        response = await client.post("/auth/refresh_token")
+
+        # reuse detected — all tokens invalidated
+        assert response.status_code == 401
+
+        await test_db.refresh(user)
+        assert user.refresh_token_hash is None
+        assert user.refresh_token_family is None
