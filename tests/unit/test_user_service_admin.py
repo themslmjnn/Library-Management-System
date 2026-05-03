@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.service import UserServiceAdmin
-from src.user.schemas import CreateUserAdmin
+from src.user.schemas import CreateUserAdmin, UpdateUserPasswordAdmin
 from src.user.models import UserRole
 from src.utils.exceptions import (
     CannotCreateSystemAdminError,
@@ -112,3 +112,21 @@ class TestActivateUserAdmin:
 
         with pytest.raises(UserAlreadyActiveError):
             await UserServiceAdmin.activate_user_admin(test_db, user.id, system_admin.id)
+
+class TestUpdatePasswordAdmin:
+
+    async def test_changes_password_and_invalidates_tokens(self, test_db, system_admin):
+        user = await make_member(test_db, password="OldPass123!")
+        user.refresh_token_hash = "some_token"
+        user.refresh_token_family = "some_family"
+        await test_db.commit()
+
+        original_version = user.access_token_version
+        request = UpdateUserPasswordAdmin(new_password="NewPass456!")
+
+        await UserServiceAdmin.update_password_admin(test_db, user.id, request, system_admin.id)
+
+        await test_db.refresh(user)
+        assert user.access_token_version == original_version + 1
+        assert user.refresh_token_hash is None
+        assert user.refresh_token_family is None
