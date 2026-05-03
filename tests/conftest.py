@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 from sqlalchemy import NullPool
 
 from src.auth.schemas import CreateAccessTokenRequest
@@ -103,3 +105,13 @@ async def member(test_db):
 @pytest_asyncio.fixture
 async def guest(test_db):
     return await make_user(test_db, role=UserRole.guest)
+
+@pytest.fixture
+def mock_response():
+    """
+    Stand-in for FastAPI's Response object.
+    AuthService calls response.set_cookie() and response.delete_cookie() —
+    we don't need real cookie behavior in unit tests, just something that
+    won't crash.
+    """
+    return MagicMock()

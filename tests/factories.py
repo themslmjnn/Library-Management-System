@@ -1,5 +1,5 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.core.security import generate_invite_token, hash_password
+from src.core.security import generate_account_activation_code, generate_invite_token, hash_password
 from src.user.models import UserRole, User
 from datetime import datetime, timedelta, timezone, date
 
@@ -87,3 +87,32 @@ async def make_invited_user(
     await db.commit()
     await db.refresh(    UserRepositoryBase.add_user(new_user))
     return new_user, raw_token
+
+
+
+async def make_user_with_activation_code(
+    db: AsyncSession,
+    **kwargs,
+) -> tuple[User, str]:
+    """Create a publicly registered user with a pending activation code."""
+    raw_code, hashed_code = generate_account_activation_code()
+    _id = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
+
+    user = User(
+        username=f"public_{_id}",
+        first_name="Public",
+        last_name="User",
+        date_of_birth=date(1995, 3, 20),
+        email=kwargs.get("email", f"public_{_id}@gmail.com"),
+        phone_number=kwargs.get("phone_number", f"+1333{_id:07d}"),
+        password_hash=hash_password("Register123!"),
+        role=UserRole.guest,
+        is_active=False,
+        account_activation_code_hash=hashed_code,
+        account_activation_code_expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+    )
+
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return user, raw_code
