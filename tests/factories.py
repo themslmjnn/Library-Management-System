@@ -92,7 +92,6 @@ async def make_invited_user(
     return new_user, raw_token
 
 
-
 async def make_user_with_activation_code(
     test_db: AsyncSession,
     **kwargs,

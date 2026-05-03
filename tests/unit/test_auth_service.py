@@ -35,10 +35,13 @@ from tests.factories import (
     make_user,
     make_user_with_activation_code,
 )
+from src.core.dependencies import CurrentUser
 
 DEFAULT_PASSWORD = "Valid123!"
 CORRECT_PASSWORD = "Correct123!"
 WRONG_PASSWORD = "Wrong123!"
+NEW_PASSWORD = "NewPassword123!"
+
 
 # LOGIN
 class TestLogin:
@@ -245,130 +248,134 @@ class TestLogin:
         assert user.locked_until is None
 
 
+# LOGOUT
 class TestLogout:
-    async def test_logout_clears_refresh_token(self, test_db, mock_response):
+    async def test_logout_clears_refresh_token(self, test_db: AsyncSession) -> None:
         user = await make_member(test_db)
+
         user.refresh_token_hash = "some_hash"
         user.refresh_token_family = "some_family"
         user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+
         await test_db.commit()
 
-        from dataclasses import dataclass
-
-        @dataclass
-        class CurrentUser:
-            id: int
-            role: UserRole
-            is_active: bool
-
-        current_user = CurrentUser(id=user.id, role=user.role, is_active=user.is_active)
-
-        # patch _invalidate_all_tokens to use the real user object
         user_obj = await test_db.get(type(user), user.id)
+
         await AuthService._invalidate_all_tokens(test_db, user_obj)
 
         await test_db.refresh(user)
+
         assert user.refresh_token_hash is None
         assert user.refresh_token_family is None
         assert user.refresh_token_expires_at is None
 
-    async def test_logout_increments_token_version(self, test_db):
+
+    async def test_logout_increments_token_version(self, test_db: AsyncSession) -> None:
         user = await make_member(test_db)
+
         original_version = user.access_token_version
 
         await AuthService._invalidate_all_tokens(test_db, user)
 
         await test_db.refresh(user)
+
         assert user.access_token_version == original_version + 1
 
-# ── ACTIVATE WITH TOKEN ─────────────────────────────────────────────────────────
 
+# ACTIVATE WITH TOKEN
 class TestActivateAccountWithToken:
-
-    async def test_activation_succeeds(self, test_db):
-        user, raw_token = await make_invited_user(test_db, role=UserRole.member)
+    async def test_activation_succeeds(self, test_db: AsyncSession) -> None:
+        user, raw_token = await make_invited_user(
+            test_db, 
+            role=UserRole.member,
+        )
 
         request = ActivateAccountWithToken(
             email=user.email,
             invite_token=raw_token,
-            password="NewPass123!",
+            password=NEW_PASSWORD,
         )
 
         await AuthService.activate_account_with_token(test_db, request)
 
         await test_db.refresh(user)
+
         assert user.is_active is True
         assert user.password_hash is not None
         assert user.invite_token_hash is None
         assert user.invite_token_expires_at is None
 
-    async def test_activation_fails_wrong_token(self, test_db):
+
+    async def test_activation_fails_wrong_token(self, test_db: AsyncSession) -> None:
         user, _ = await make_invited_user(test_db)
 
         request = ActivateAccountWithToken(
             email=user.email,
             invite_token="wrong_token_value",
-            password="NewPass123!",
+            password=NEW_PASSWORD,
         )
 
         with pytest.raises(InvalidInviteTokenError):
             await AuthService.activate_account_with_token(test_db, request)
 
-    async def test_activation_fails_expired_token(self, test_db):
+
+    async def test_activation_fails_expired_token(self, test_db: AsyncSession) -> None:
         user, raw_token = await make_invited_user(test_db)
-        user.invite_token_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+
+        user.invite_token_expires_at = datetime.now(timezone.utc) - timedelta(days=1)
+
         await test_db.commit()
 
         request = ActivateAccountWithToken(
             email=user.email,
             invite_token=raw_token,
-            password="NewPass123!",
+            password=NEW_PASSWORD,
         )
 
         with pytest.raises(ExpiredInviteTokenError):
             await AuthService.activate_account_with_token(test_db, request)
 
-    async def test_activation_fails_user_not_found(self, test_db):
+
+    async def test_activation_fails_user_not_found(self, test_db: AsyncSession) -> None:
         request = ActivateAccountWithToken(
             email="nobody@gmail.com",
             invite_token="any_token",
-            password="NewPass123!",
+            password=NEW_PASSWORD,
         )
 
         with pytest.raises(InvalidInviteTokenError):
             await AuthService.activate_account_with_token(test_db, request)
 
+
     async def test_activation_fails_no_pending_token(self, test_db):
-        # already activated user — no invite token
         user = await make_member(test_db)
 
         request = ActivateAccountWithToken(
             email=user.email,
             invite_token="any_token",
-            password="NewPass123!",
+            password=NEW_PASSWORD,
         )
 
         with pytest.raises(InvalidInviteTokenError):
             await AuthService.activate_account_with_token(test_db, request)
 
-    async def test_token_is_single_use(self, test_db):
+
+    async def test_token_is_single_use(self, test_db: AsyncSession) -> None:
         user, raw_token = await make_invited_user(test_db)
 
         request = ActivateAccountWithToken(
             email=user.email,
             invite_token=raw_token,
-            password="NewPass123!",
+            password=NEW_PASSWORD,
         )
 
         await AuthService.activate_account_with_token(test_db, request)
 
-        # second activation attempt must fail
         with pytest.raises(InvalidInviteTokenError):
             await AuthService.activate_account_with_token(test_db, request)
 
 
 # ── ACTIVATE WITH CODE ──────────────────────────────────────────────────────────
-
 class TestActivateAccountWithCode:
 
     async def test_activation_succeeds(self, test_db):
