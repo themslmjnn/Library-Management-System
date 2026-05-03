@@ -149,6 +149,41 @@ class TestLogin:
         await test_db.refresh(user)
         assert user.access_token_version == original_version
 
+class TestLogout:
+    async def test_logout_clears_refresh_token(self, test_db, mock_response):
+        user = await make_member(test_db)
+        user.refresh_token_hash = "some_hash"
+        user.refresh_token_family = "some_family"
+        user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        await test_db.commit()
+
+        from dataclasses import dataclass
+
+        @dataclass
+        class CurrentUser:
+            id: int
+            role: UserRole
+            is_active: bool
+
+        current_user = CurrentUser(id=user.id, role=user.role, is_active=user.is_active)
+
+        # patch _invalidate_all_tokens to use the real user object
+        user_obj = await test_db.get(type(user), user.id)
+        await AuthService._invalidate_all_tokens(test_db, user_obj)
+
+        await test_db.refresh(user)
+        assert user.refresh_token_hash is None
+        assert user.refresh_token_family is None
+        assert user.refresh_token_expires_at is None
+
+    async def test_logout_increments_token_version(self, test_db):
+        user = await make_member(test_db)
+        original_version = user.access_token_version
+
+        await AuthService._invalidate_all_tokens(test_db, user)
+
+        await test_db.refresh(user)
+        assert user.access_token_version == original_version + 1
 
 
 class _MockForm:
