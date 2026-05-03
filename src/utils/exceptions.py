@@ -58,6 +58,9 @@ class CannotAssignSystemRoleError(AppException):
 class IncorrectPasswordError(AppException):
     pass
 
+class EmailAlreadyTakenError(AppException):
+    pass
+
 
 # BOOK
 class BookNotFoundError(AppException):
@@ -94,7 +97,7 @@ def handle_user_integrity_error(error: IntegrityError) -> None:
         raise AppException(HTTP409.USERNAME)
     
     if "users_email_key" in error_str:
-        raise AppException(HTTP409.EMAIL)
+        raise EmailAlreadyTakenError(HTTP409.EMAIL)
     
     if "users_phone_number_key" in error_str:
         raise AppException(HTTP409.PHONE_NUMBER)

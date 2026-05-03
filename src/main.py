@@ -41,6 +41,7 @@ from src.utils.exceptions import (
     UserAlreadyHasActiveLoanError,
     UserAlreadyInactiveError,
     UserNotFoundError,
+    EmailAlreadyTakenError,
 )
 
 setup_logging()
@@ -104,6 +105,7 @@ EXCEPTION_STATUS_MAP = {
     CannotCreateSystemAdminError:   403,
     CannotAssignSystemRoleError:    403,
     IncorrectPasswordError:         400,
+    EmailAlreadyTakenError: 409,
 }
 
 @app.exception_handler(AppException)

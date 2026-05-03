@@ -87,3 +87,55 @@ class TestDeactivateUserAdmin:
         response = await client.put(f"/users/{user.id}/deactivate", headers=headers)
 
         assert response.status_code == 403
+
+
+class TestCreateAccountAdmin:
+
+    async def test_creates_user_with_invite_token(self, client: AsyncClient, system_admin):
+        headers = make_auth_header(system_admin)
+        payload = {
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "email": "jane@gmail.com",
+            "phone_number": "+15550001234",
+            "date_of_birth": "1990-05-15",
+            "role": "library_admin",
+        }
+
+        response = await client.post("/users", json=payload, headers=headers)
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["role"] == "library_admin"
+        assert data["is_active"] is False
+
+    async def test_rejects_system_admin_role(self, client: AsyncClient, system_admin):
+        headers = make_auth_header(system_admin)
+        payload = {
+            "first_name": "Evil",
+            "last_name": "Actor",
+            "email": "evil@gmail.com",
+            "phone_number": "+15550009999",
+            "date_of_birth": "1990-01-01",
+            "role": "system_admin",
+        }
+
+        response = await client.post("/users", json=payload, headers=headers)
+
+        assert response.status_code == 403
+
+    async def test_rejects_duplicate_email(self, client: AsyncClient, system_admin, test_db):
+        await make_member(test_db, email="duplicate@gmail.com")
+        headers = make_auth_header(system_admin)
+        payload = {
+            "first_name": "Copy",
+            "last_name": "Cat",
+            "email": "duplicate@gmail.com",
+            "phone_number": "+15550008888",
+            "date_of_birth": "1990-01-01",
+            "role": "member",
+        }
+
+        response = await client.post("/users", json=payload, headers=headers)
+
+        assert response.status_code == 409
