@@ -61,6 +61,9 @@ class IncorrectPasswordError(AppException):
 class EmailAlreadyTakenError(AppException):
     pass
 
+class UsernameCannotBeEmptyError(AppException):
+    pass
+
 
 # BOOK
 class BookNotFoundError(AppException):

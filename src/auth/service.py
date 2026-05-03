@@ -39,6 +39,7 @@ from src.utils.exceptions import (
     InvalidCredentialsError,
     InvalidInviteTokenError,
     InvalidRefreshTokenError,
+    UsernameCannotBeEmptyError,
 )
 
 logger = get_logger(__name__)
@@ -91,10 +92,7 @@ class AuthService:
     @staticmethod
     async def login(db: AsyncSession, response: Response, form_data: OAuth2PasswordRequestForm) -> LoginResponse:
         if form_data.username is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, 
-                detail="Username can not be empty",
-            )
+            raise UsernameCannotBeEmptyError("Username can not be empty")
         
         user = await AuthRepository.get_by_login_identifier(db, form_data.username)
 
@@ -198,7 +196,10 @@ class AuthService:
 
         AuthService._set_refresh_cookie(response, raw_refresh_token)
         
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {
+            "access_token": access_token, 
+            "token_type": "bearer",
+        }
 
 
     @staticmethod

@@ -42,6 +42,7 @@ from src.utils.exceptions import (
     UserAlreadyInactiveError,
     UserNotFoundError,
     EmailAlreadyTakenError,
+    UsernameCannotBeEmptyError
 )
 
 setup_logging()
@@ -106,6 +107,7 @@ EXCEPTION_STATUS_MAP = {
     CannotAssignSystemRoleError:    403,
     IncorrectPasswordError:         400,
     EmailAlreadyTakenError: 409,
+    UsernameCannotBeEmptyError: 400,
 }
 
 @app.exception_handler(AppException)

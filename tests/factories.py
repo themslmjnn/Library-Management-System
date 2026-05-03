@@ -23,11 +23,11 @@ async def make_user(
 
     new_user = User(
         username=username or f"user_{_id}",
-        first_name="Test",
-        last_name="User",
-        date_of_birth=date(1990, 1, 1),
+        first_name="test_fname",
+        last_name="test_lname",
+        date_of_birth=date(2000, 1, 1),
         email=email or f"user_{_id}@gmail.com",
-        phone_number=phone_number or f"+1555{_id:07d}",
+        phone_number=phone_number or f"+992 000 {_id:07d}",
         password_hash=hash_password(password) if has_password else None,
         role=role,
         is_active=is_active,
@@ -40,6 +40,7 @@ async def make_user(
     await db.refresh(new_user)
 
     return new_user
+
 
 async def make_system_admin(db: AsyncSession, **kwargs) -> User:
     return await make_user(db, role=UserRole.system_admin, **kwargs)
@@ -84,8 +85,10 @@ async def make_invited_user(
     )
 
     UserRepositoryBase.add_user(db, new_user)
+
     await db.commit()
     await db.refresh(new_user)
+
     return new_user, raw_token
 
 
