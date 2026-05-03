@@ -185,6 +185,205 @@ class TestLogout:
         await test_db.refresh(user)
         assert user.access_token_version == original_version + 1
 
+# ── ACTIVATE WITH TOKEN ─────────────────────────────────────────────────────────
+
+class TestActivateAccountWithToken:
+
+    async def test_activation_succeeds(self, test_db):
+        user, raw_token = await make_invited_user(test_db, role=UserRole.member)
+
+        request = ActivateAccountWithToken(
+            email=user.email,
+            invite_token=raw_token,
+            password="NewPass123!",
+        )
+
+        await AuthService.activate_account_with_token(test_db, request)
+
+        await test_db.refresh(user)
+        assert user.is_active is True
+        assert user.password_hash is not None
+        assert user.invite_token_hash is None
+        assert user.invite_token_expires_at is None
+
+    async def test_activation_fails_wrong_token(self, test_db):
+        user, _ = await make_invited_user(test_db)
+
+        request = ActivateAccountWithToken(
+            email=user.email,
+            invite_token="wrong_token_value",
+            password="NewPass123!",
+        )
+
+        with pytest.raises(InvalidInviteTokenError):
+            await AuthService.activate_account_with_token(test_db, request)
+
+    async def test_activation_fails_expired_token(self, test_db):
+        user, raw_token = await make_invited_user(test_db)
+        user.invite_token_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        await test_db.commit()
+
+        request = ActivateAccountWithToken(
+            email=user.email,
+            invite_token=raw_token,
+            password="NewPass123!",
+        )
+
+        with pytest.raises(ExpiredInviteTokenError):
+            await AuthService.activate_account_with_token(test_db, request)
+
+    async def test_activation_fails_user_not_found(self, test_db):
+        request = ActivateAccountWithToken(
+            email="nobody@gmail.com",
+            invite_token="any_token",
+            password="NewPass123!",
+        )
+
+        with pytest.raises(InvalidInviteTokenError):
+            await AuthService.activate_account_with_token(test_db, request)
+
+    async def test_activation_fails_no_pending_token(self, test_db):
+        # already activated user — no invite token
+        user = await make_member(test_db)
+
+        request = ActivateAccountWithToken(
+            email=user.email,
+            invite_token="any_token",
+            password="NewPass123!",
+        )
+
+        with pytest.raises(InvalidInviteTokenError):
+            await AuthService.activate_account_with_token(test_db, request)
+
+    async def test_token_is_single_use(self, test_db):
+        user, raw_token = await make_invited_user(test_db)
+
+        request = ActivateAccountWithToken(
+            email=user.email,
+            invite_token=raw_token,
+            password="NewPass123!",
+        )
+
+        await AuthService.activate_account_with_token(test_db, request)
+
+        # second activation attempt must fail
+        with pytest.raises(InvalidInviteTokenError):
+            await AuthService.activate_account_with_token(test_db, request)
+
+
+# ── ACTIVATE WITH CODE ──────────────────────────────────────────────────────────
+
+class TestActivateAccountWithCode:
+
+    async def test_activation_succeeds(self, test_db):
+        user, raw_code = await make_user_with_activation_code(test_db)
+
+        request = ActivateAccountWithCode(email=user.email, code=raw_code)
+
+        await AuthService.activate_account_with_code(test_db)
+
+        await test_db.refresh(user)
+        assert user.is_active is True
+        assert user.account_activation_code_hash is None
+        assert user.account_activation_code_expires_at is None
+
+    async def test_activation_fails_wrong_code(self, test_db):
+        user, _ = await make_user_with_activation_code(test_db)
+
+        request = ActivateAccountWithCode(email=user.email, code="wrongcode")
+
+        with pytest.raises(InvalidActivationCodeError):
+            await AuthService.activate_account_with_code(test_db, request)
+
+    async def test_activation_fails_expired_code(self, test_db):
+        user, raw_code = await make_user_with_activation_code(test_db)
+        user.account_activation_code_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        await test_db.commit()
+
+        request = ActivateAccountWithCode(email=user.email, code=raw_code)
+
+        with pytest.raises(ExpiredActivationCodeError):
+            await AuthService.activate_account_with_code(test_db, request)
+
+    async def test_code_is_single_use(self, test_db):
+        user, raw_code = await make_user_with_activation_code(test_db)
+
+        request = ActivateAccountWithCode(email=user.email, code=raw_code)
+        await AuthService.activate_account_with_code(test_db, request)
+
+        with pytest.raises(InvalidActivationCodeError):
+            await AuthService.activate_account_with_code(test_db, request)
+
+
+# ── REFRESH TOKEN ───────────────────────────────────────────────────────────────
+
+class TestRefreshToken:
+
+    async def test_refresh_issues_new_access_token(self, test_db, mock_response):
+        user, raw_refresh = await make_user_with_refresh_token(test_db)
+
+        result = await AuthService.refresh_token(test_db, mock_response, raw_refresh)
+
+        assert "access_token" in result
+        assert result["token_type"] == "bearer"
+
+    async def test_refresh_rotates_refresh_token(self, test_db, mock_response):
+        user, raw_refresh = await make_user_with_refresh_token(test_db)
+        old_hash = user.refresh_token_hash
+        old_family = user.refresh_token_family
+
+        await AuthService.refresh_token(test_db, mock_response, raw_refresh)
+
+        await test_db.refresh(user)
+        assert user.refresh_token_hash != old_hash
+        assert user.refresh_token_family != old_family
+
+    async def test_refresh_fails_invalid_jwt(self, test_db, mock_response):
+        with pytest.raises(InvalidRefreshTokenError):
+            await AuthService.refresh_token(test_db, mock_response, "not.a.valid.jwt")
+
+    async def test_refresh_fails_expired_token(self, test_db, mock_response):
+        user, raw_refresh = await make_user_with_refresh_token(test_db)
+        user.refresh_token_expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        await test_db.commit()
+
+        with pytest.raises(ExpiredRefreshTokenError):
+            await AuthService.refresh_token(test_db, mock_response, raw_refresh)
+
+    async def test_refresh_fails_no_stored_hash(self, test_db, mock_response):
+        user, raw_refresh = await make_user_with_refresh_token(test_db)
+        user.refresh_token_hash = None
+        await test_db.commit()
+
+        with pytest.raises(InvalidRefreshTokenError):
+            await AuthService.refresh_token(test_db, mock_response, raw_refresh)
+
+    async def test_reuse_detection_invalidates_all_tokens(self, test_db, mock_response):
+        user, raw_refresh = await make_user_with_refresh_token(test_db)
+        original_version = user.access_token_version
+
+        # rotate once — old token is now stale
+        await AuthService.refresh_token(test_db, mock_response, raw_refresh)
+
+        # use the old token again — reuse detected
+        with pytest.raises(Exception):
+            await AuthService.refresh_token(test_db, mock_response, raw_refresh)
+
+        await test_db.refresh(user)
+        # all tokens must be invalidated
+        assert user.access_token_version == original_version + 1
+        assert user.refresh_token_hash is None
+        assert user.refresh_token_family is None
+
+    async def test_refresh_does_not_increment_token_version(self, test_db, mock_response):
+        user, raw_refresh = await make_user_with_refresh_token(test_db)
+        original_version = user.access_token_version
+
+        await AuthService.refresh_token(test_db, mock_response, raw_refresh)
+
+        await test_db.refresh(user)
+        assert user.access_token_version == original_version
+
 
 class _MockForm:
     """Minimal stand-in for OAuth2PasswordRequestForm."""

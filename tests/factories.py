@@ -85,13 +85,13 @@ async def make_invited_user(
 
     UserRepositoryBase.add_user(db, new_user)
     await db.commit()
-    await db.refresh(    UserRepositoryBase.add_user(new_user))
+    await db.refresh(new_user)
     return new_user, raw_token
 
 
 
 async def make_user_with_activation_code(
-    db: AsyncSession,
+    test_db: AsyncSession,
     **kwargs,
 ) -> tuple[User, str]:
     """Create a publicly registered user with a pending activation code."""
@@ -112,7 +112,7 @@ async def make_user_with_activation_code(
         account_activation_code_expires_at=datetime.now(timezone.utc) + timedelta(days=1),
     )
 
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
+    UserRepositoryBase.add_user(test_db, user)
+    await test_db.commit()
+    await test_db.refresh(user)
     return user, raw_code
