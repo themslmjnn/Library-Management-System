@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,15 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.schemas import (
     ActivateAccountWithCode,
     ActivateAccountWithToken,
-    CreateRefreshTokenRequest,
 )
 from src.auth.service import AuthService
-from src.core.security import (
-    create_refresh_token,
-    generate_account_activation_code,
-    generate_invite_token,
-    hash_password,
-)
 from src.user.models import UserRole
 from src.utils.exceptions import (
     AccountInactiveError,
@@ -32,15 +24,26 @@ from src.utils.exceptions import (
 from tests.factories import (
     make_invited_user,
     make_member,
-    make_user,
     make_user_with_activation_code,
+    make_user_with_refresh_token,
 )
-from src.core.dependencies import CurrentUser
+from src.auth.schemas import CreateRefreshTokenRequest
+from src.core.security import create_refresh_token, decode_access_token
 
 DEFAULT_PASSWORD = "Valid123!"
 CORRECT_PASSWORD = "Correct123!"
 WRONG_PASSWORD = "Wrong123!"
 NEW_PASSWORD = "NewPassword123!"
+
+# HELPERS
+class _MockForm:
+    def __init__(self, username: str, password: str):
+        self.username = username
+        self.password = password
+
+
+def _form(username: str, password: str) -> _MockForm:
+    return _MockForm(username, password)
 
 
 # LOGIN
@@ -259,15 +262,23 @@ class TestLogout:
 
         await test_db.commit()
 
-        user_obj = await test_db.get(type(user), user.id)
-
-        await AuthService._invalidate_all_tokens(test_db, user_obj)
+        await AuthService._invalidate_all_tokens(test_db, user)
 
         await test_db.refresh(user)
 
         assert user.refresh_token_hash is None
         assert user.refresh_token_family is None
         assert user.refresh_token_expires_at is None
+
+    
+    async def test_invalidate_user_with_no_refresh_token(self, test_db):
+        user = await make_member(test_db)
+        
+        await AuthService._invalidate_all_tokens(test_db, user)
+
+        await test_db.refresh(user)
+
+        assert user.refresh_token_hash is None
 
 
     async def test_logout_increments_token_version(self, test_db: AsyncSession) -> None:
@@ -311,7 +322,7 @@ class TestActivateAccountWithToken:
 
         request = ActivateAccountWithToken(
             email=user.email,
-            invite_token="wrong_token_value",
+            invite_token="2787daa7fed0ac356ac8ce76c0e37079a033e47cdc929b04a2bbb195ea4361d5",
             password=NEW_PASSWORD,
         )
 
@@ -322,7 +333,7 @@ class TestActivateAccountWithToken:
     async def test_activation_fails_expired_token(self, test_db: AsyncSession) -> None:
         user, raw_token = await make_invited_user(test_db)
 
-        user.invite_token_expires_at = datetime.now(timezone.utc) - timedelta(days=1)
+        user.invite_token_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
 
         await test_db.commit()
 
@@ -374,143 +385,177 @@ class TestActivateAccountWithToken:
         with pytest.raises(InvalidInviteTokenError):
             await AuthService.activate_account_with_token(test_db, request)
 
+        assert user.is_active is True
 
-# ── ACTIVATE WITH CODE ──────────────────────────────────────────────────────────
+
+# ACTIVATE WITH CODE
 class TestActivateAccountWithCode:
-
-    async def test_activation_succeeds(self, test_db):
+    async def test_activation_succeeds(self, test_db: AsyncSession) -> None:
         user, raw_code = await make_user_with_activation_code(test_db)
 
-        request = ActivateAccountWithCode(email=user.email, code=raw_code)
+        request = ActivateAccountWithCode(
+            email=user.email, 
+            code=raw_code,
+        )
 
-        await AuthService.activate_account_with_code(test_db)
+        await AuthService.activate_account_with_code(test_db, request)
 
         await test_db.refresh(user)
+
         assert user.is_active is True
         assert user.account_activation_code_hash is None
         assert user.account_activation_code_expires_at is None
 
-    async def test_activation_fails_wrong_code(self, test_db):
+
+    async def test_activation_fails_wrong_code(self, test_db: AsyncSession) -> None:
         user, _ = await make_user_with_activation_code(test_db)
 
-        request = ActivateAccountWithCode(email=user.email, code="wrongcode")
+        request = ActivateAccountWithCode(
+            email=user.email, 
+            code="wrongcode",
+        )
 
         with pytest.raises(InvalidActivationCodeError):
             await AuthService.activate_account_with_code(test_db, request)
 
-    async def test_activation_fails_expired_code(self, test_db):
+    async def test_activation_fails_user_not_found(self, test_db):
+        request = ActivateAccountWithCode(
+            email="nobody@gmail.com",
+            code="anycode",
+        )
+
+        with pytest.raises(InvalidActivationCodeError):
+            await AuthService.activate_account_with_code(test_db, request)
+
+
+    async def test_activation_fails_expired_code(self, test_db: AsyncSession) -> None:
         user, raw_code = await make_user_with_activation_code(test_db)
+
         user.account_activation_code_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+
         await test_db.commit()
 
-        request = ActivateAccountWithCode(email=user.email, code=raw_code)
+        request = ActivateAccountWithCode(
+            email=user.email, 
+            code=raw_code,
+        )
 
         with pytest.raises(ExpiredActivationCodeError):
             await AuthService.activate_account_with_code(test_db, request)
 
+
     async def test_code_is_single_use(self, test_db):
         user, raw_code = await make_user_with_activation_code(test_db)
 
-        request = ActivateAccountWithCode(email=user.email, code=raw_code)
+        request = ActivateAccountWithCode(
+            email=user.email,
+            code=raw_code,
+        )
+
         await AuthService.activate_account_with_code(test_db, request)
 
         with pytest.raises(InvalidActivationCodeError):
             await AuthService.activate_account_with_code(test_db, request)
 
 
-# ── REFRESH TOKEN ───────────────────────────────────────────────────────────────
-
+# REFRESH TOKEN
 class TestRefreshToken:
-
-    async def test_refresh_issues_new_access_token(self, test_db, mock_response):
-        user, raw_refresh = await make_user_with_refresh_token(test_db)
+    async def test_refresh_issues_new_access_token(self, test_db: AsyncSession, mock_response: Any) -> None:
+        _, raw_refresh = await make_user_with_refresh_token(test_db)
 
         result = await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
         assert "access_token" in result
         assert result["token_type"] == "bearer"
 
-    async def test_refresh_rotates_refresh_token(self, test_db, mock_response):
+
+    async def test_refresh_rotates_refresh_token(self, test_db: AsyncSession, mock_response: Any) -> None:
         user, raw_refresh = await make_user_with_refresh_token(test_db)
+
         old_hash = user.refresh_token_hash
         old_family = user.refresh_token_family
 
         await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
         await test_db.refresh(user)
+
         assert user.refresh_token_hash != old_hash
         assert user.refresh_token_family != old_family
+    
 
-    async def test_refresh_fails_invalid_jwt(self, test_db, mock_response):
+    async def test_refresh_fails_invalid_jwt(self, test_db: AsyncSession, mock_response: Any) -> None:
         with pytest.raises(InvalidRefreshTokenError):
             await AuthService.refresh_token(test_db, mock_response, "not.a.valid.jwt")
 
-    async def test_refresh_fails_expired_token(self, test_db, mock_response):
+
+    async def test_refresh_fails_expired_token(self, test_db: AsyncSession, mock_response: Any) -> None:
         user, raw_refresh = await make_user_with_refresh_token(test_db)
+
         user.refresh_token_expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+
         await test_db.commit()
 
         with pytest.raises(ExpiredRefreshTokenError):
             await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
+
     async def test_refresh_fails_no_stored_hash(self, test_db, mock_response):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
+
         user.refresh_token_hash = None
+
         await test_db.commit()
 
         with pytest.raises(InvalidRefreshTokenError):
             await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
+
     async def test_reuse_detection_invalidates_all_tokens(self, test_db, mock_response):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
+
         original_version = user.access_token_version
 
-        # rotate once — old token is now stale
         await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
-        # use the old token again — reuse detected
-        with pytest.raises(Exception):
+        with pytest.raises(InvalidRefreshTokenError):
             await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
         await test_db.refresh(user)
-        # all tokens must be invalidated
+
         assert user.access_token_version == original_version + 1
         assert user.refresh_token_hash is None
         assert user.refresh_token_family is None
 
+
     async def test_refresh_does_not_increment_token_version(self, test_db, mock_response):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
+
         original_version = user.access_token_version
 
         await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
         await test_db.refresh(user)
+
         assert user.access_token_version == original_version
 
 
-class _MockForm:
-    def __init__(self, username: str, password: str):
-        self.username = username
-        self.password = password
-
-def _form(username: str, password: str) -> _MockForm:
-    return _MockForm(username, password)
-
-
-async def make_user_with_refresh_token(test_db: AsyncSession):
-    """Create a member with a valid refresh token already stored."""
-    user = await make_member(test_db, password="Valid123!")
-
-    raw_refresh, hashed_refresh = create_refresh_token(
-        CreateRefreshTokenRequest(
-            user_id=user.id,
-            family="test_family_abc",
+    async def test_refresh_fails_user_not_found(self, test_db, mock_response):
+        raw_refresh, _ = create_refresh_token(
+            CreateRefreshTokenRequest(
+                user_id=99999, 
+                family="test_family",
+            )
         )
-    )
 
-    user.refresh_token_hash = hashed_refresh
-    user.refresh_token_family = "test_family_abc"
-    user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
-    await test_db.commit()
+        with pytest.raises(InvalidRefreshTokenError):
+            await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
-    return user, raw_refresh
+
+    async def test_refresh_embeds_correct_token_version(self, test_db, mock_response):
+        user, raw_refresh = await make_user_with_refresh_token(test_db)
+
+        result = await AuthService.refresh_token(test_db, mock_response, raw_refresh)
+
+        payload = decode_access_token(result["access_token"])
+
+        assert payload["version"] == user.access_token_version

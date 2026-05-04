@@ -1,20 +1,25 @@
 from unittest.mock import MagicMock
 
-from sqlalchemy import NullPool
-
-from src.auth.schemas import CreateAccessTokenRequest
-from src.core.security import create_access_token
-from src.core.config import settings
-from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession, create_async_engine
 import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import NullPool
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
+from src.auth.schemas import CreateAccessTokenRequest
+from src.core.config import settings
+from src.core.dependencies import get_db
+from src.core.security import create_access_token
 from src.database import Base
 from src.main import app
-from src.core.dependencies import get_db
-from httpx import AsyncClient, ASGITransport
-
-from tests.factories import make_system_admin, make_library_admin, make_receptionist, make_member, make_user
 from src.user.models import User, UserRole
+from tests.factories import (
+    make_library_admin,
+    make_member,
+    make_receptionist,
+    make_system_admin,
+    make_user,
+)
 
 TEST_DB_URL = (
     f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
@@ -40,6 +45,7 @@ async def create_tables():
 
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
 
 @pytest_asyncio.fixture(scope="function")
 async def test_db():
@@ -72,17 +78,16 @@ async def client(test_db):
     ) as async_client:
         yield async_client
 
+
 def make_auth_header(user: User) -> dict:
-    """
-    Create an Authorization header for a given user.
-    Bypasses the login endpoint — directly mints a valid token.
-    This is faster and doesn't depend on the login endpoint working.
-    """
-    token = create_access_token(CreateAccessTokenRequest(
-        user_id=user.id,
-        role=user.role,
-        access_token_version=user.access_token_version,
-    ))
+    token = create_access_token(
+        CreateAccessTokenRequest(
+            user_id=user.id,
+            role=user.role,
+            access_token_version=user.access_token_version,
+        )
+    )
+
     return {"Authorization": f"Bearer {token}"}
 
 
@@ -90,17 +95,21 @@ def make_auth_header(user: User) -> dict:
 async def system_admin(test_db):
     return await make_system_admin(test_db)
 
+
 @pytest_asyncio.fixture
 async def library_admin(test_db):
     return await make_library_admin(test_db)
+
 
 @pytest_asyncio.fixture
 async def receptionist(test_db):
     return await make_receptionist(test_db)
 
+
 @pytest_asyncio.fixture
 async def member(test_db):
     return await make_member(test_db)
+
 
 @pytest_asyncio.fixture
 async def guest(test_db):
