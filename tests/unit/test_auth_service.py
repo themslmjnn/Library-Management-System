@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,8 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.schemas import (
     ActivateAccountWithCode,
     ActivateAccountWithToken,
+    CreateRefreshTokenRequest,
 )
 from src.auth.service import AuthService
+from src.core.security import create_refresh_token, decode_access_token
 from src.user.models import UserRole
 from src.utils.exceptions import (
     AccountInactiveError,
@@ -27,13 +29,12 @@ from tests.factories import (
     make_user_with_activation_code,
     make_user_with_refresh_token,
 )
-from src.auth.schemas import CreateRefreshTokenRequest
-from src.core.security import create_refresh_token, decode_access_token
 
 DEFAULT_PASSWORD = "Valid123!"
 CORRECT_PASSWORD = "Correct123!"
 WRONG_PASSWORD = "Wrong123!"
 NEW_PASSWORD = "NewPassword123!"
+
 
 # HELPERS
 class _MockForm:
@@ -48,7 +49,7 @@ def _form(username: str, password: str) -> _MockForm:
 
 # LOGIN
 class TestLogin:
-    async def test_successful_login_with_email(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_successful_login_with_email(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             email="test@gmail.com", 
@@ -64,7 +65,7 @@ class TestLogin:
         assert user.refresh_token_family is not None
 
 
-    async def test_successful_login_with_username(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_successful_login_with_username(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             username="testuser", 
@@ -80,7 +81,7 @@ class TestLogin:
         assert user.refresh_token_family is not None
 
 
-    async def test_successful_login_with_phone_number(self, test_db, mock_response):
+    async def test_successful_login_with_phone_number(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             phone_number="+992 000 111 222", 
@@ -97,7 +98,7 @@ class TestLogin:
 
 
     async def test_login_error_message_is_identical_for_unknown_and_wrong_password(
-        self, test_db, mock_response
+        self, test_db: AsyncSession, mock_response: MagicMock
     ):
         await make_member(test_db, email="exists@gmail.com", password=CORRECT_PASSWORD)
 
@@ -114,12 +115,12 @@ class TestLogin:
         assert known_email_error == unknown_email_error
 
 
-    async def test_login_fails_user_not_found(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_login_fails_user_not_found(self, test_db: AsyncSession, mock_response: MagicMock):
         with pytest.raises(InvalidCredentialsError):
             await AuthService.login(test_db, mock_response, _form("nobody@gmail.com", "pass"))
 
 
-    async def test_login_fails_wrong_password(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_login_fails_wrong_password(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             password=CORRECT_PASSWORD,
@@ -129,7 +130,7 @@ class TestLogin:
             await AuthService.login(test_db, mock_response, _form(user.email, WRONG_PASSWORD))
 
 
-    async def test_login_increments_failed_attempts(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_login_increments_failed_attempts(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             password=CORRECT_PASSWORD,
@@ -143,7 +144,7 @@ class TestLogin:
         assert user.failed_login_attempts == 1
 
 
-    async def test_login_locks_account_after_max_attempts(self, test_db, mock_response):
+    async def test_login_locks_account_after_max_attempts(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             password=CORRECT_PASSWORD,
@@ -163,7 +164,7 @@ class TestLogin:
         assert user.locked_until > datetime.now(timezone.utc)
 
 
-    async def test_login_blocked_when_account_locked(self, test_db, mock_response):
+    async def test_login_blocked_when_account_locked(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             password=CORRECT_PASSWORD,
@@ -177,7 +178,7 @@ class TestLogin:
             await AuthService.login(test_db, mock_response, _form(user.email, CORRECT_PASSWORD))
 
 
-    async def test_reset_failed_attempts_on_successful_login(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_reset_failed_attempts_on_successful_login(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             password=DEFAULT_PASSWORD,
@@ -195,7 +196,7 @@ class TestLogin:
         assert user.locked_until is None
 
 
-    async def test_login_fails_no_password_set(self, test_db, mock_response):
+    async def test_login_fails_no_password_set(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             has_password=False, 
@@ -206,7 +207,7 @@ class TestLogin:
             await AuthService.login(test_db, mock_response, _form(user.email, DEFAULT_PASSWORD))
 
 
-    async def test_login_fails_inactive_account(self, test_db, mock_response):
+    async def test_login_fails_inactive_account(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             is_active=False, 
@@ -217,7 +218,7 @@ class TestLogin:
             await AuthService.login(test_db, mock_response, _form(user.email, CORRECT_PASSWORD))
 
 
-    async def test_login_does_not_increment_token_version(self, test_db, mock_response):
+    async def test_login_does_not_increment_token_version(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             password=CORRECT_PASSWORD,
@@ -232,7 +233,7 @@ class TestLogin:
         assert user.access_token_version == original_version
 
 
-    async def test_locked_account_allows_login_after_expiry(self, test_db, mock_response):
+    async def test_locked_account_allows_login_after_expiry(self, test_db: AsyncSession, mock_response: MagicMock):
         user = await make_member(
             test_db, 
             password=CORRECT_PASSWORD,
@@ -253,7 +254,7 @@ class TestLogin:
 
 # LOGOUT
 class TestLogout:
-    async def test_logout_clears_refresh_token(self, test_db: AsyncSession) -> None:
+    async def test_logout_clears_refresh_token(self, test_db: AsyncSession):
         user = await make_member(test_db)
 
         user.refresh_token_hash = "some_hash"
@@ -281,7 +282,7 @@ class TestLogout:
         assert user.refresh_token_hash is None
 
 
-    async def test_logout_increments_token_version(self, test_db: AsyncSession) -> None:
+    async def test_logout_increments_token_version(self, test_db: AsyncSession):
         user = await make_member(test_db)
 
         original_version = user.access_token_version
@@ -295,7 +296,7 @@ class TestLogout:
 
 # ACTIVATE WITH TOKEN
 class TestActivateAccountWithToken:
-    async def test_activation_succeeds(self, test_db: AsyncSession) -> None:
+    async def test_activation_succeeds(self, test_db: AsyncSession):
         user, raw_token = await make_invited_user(
             test_db, 
             role=UserRole.member,
@@ -317,7 +318,7 @@ class TestActivateAccountWithToken:
         assert user.invite_token_expires_at is None
 
 
-    async def test_activation_fails_wrong_token(self, test_db: AsyncSession) -> None:
+    async def test_activation_fails_wrong_token(self, test_db: AsyncSession):
         user, _ = await make_invited_user(test_db)
 
         request = ActivateAccountWithToken(
@@ -330,7 +331,7 @@ class TestActivateAccountWithToken:
             await AuthService.activate_account_with_token(test_db, request)
 
 
-    async def test_activation_fails_expired_token(self, test_db: AsyncSession) -> None:
+    async def test_activation_fails_expired_token(self, test_db: AsyncSession):
         user, raw_token = await make_invited_user(test_db)
 
         user.invite_token_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
@@ -347,10 +348,10 @@ class TestActivateAccountWithToken:
             await AuthService.activate_account_with_token(test_db, request)
 
 
-    async def test_activation_fails_user_not_found(self, test_db: AsyncSession) -> None:
+    async def test_activation_fails_user_not_found(self, test_db: AsyncSession):
         request = ActivateAccountWithToken(
             email="nobody@gmail.com",
-            invite_token="any_token",
+            invite_token="MagicMock_token",
             password=NEW_PASSWORD,
         )
 
@@ -363,7 +364,7 @@ class TestActivateAccountWithToken:
 
         request = ActivateAccountWithToken(
             email=user.email,
-            invite_token="any_token",
+            invite_token="MagicMock_token",
             password=NEW_PASSWORD,
         )
 
@@ -371,7 +372,7 @@ class TestActivateAccountWithToken:
             await AuthService.activate_account_with_token(test_db, request)
 
 
-    async def test_token_is_single_use(self, test_db: AsyncSession) -> None:
+    async def test_token_is_single_use(self, test_db: AsyncSession):
         user, raw_token = await make_invited_user(test_db)
 
         request = ActivateAccountWithToken(
@@ -390,7 +391,7 @@ class TestActivateAccountWithToken:
 
 # ACTIVATE WITH CODE
 class TestActivateAccountWithCode:
-    async def test_activation_succeeds(self, test_db: AsyncSession) -> None:
+    async def test_activation_succeeds(self, test_db: AsyncSession):
         user, raw_code = await make_user_with_activation_code(test_db)
 
         request = ActivateAccountWithCode(
@@ -407,7 +408,7 @@ class TestActivateAccountWithCode:
         assert user.account_activation_code_expires_at is None
 
 
-    async def test_activation_fails_wrong_code(self, test_db: AsyncSession) -> None:
+    async def test_activation_fails_wrong_code(self, test_db: AsyncSession):
         user, _ = await make_user_with_activation_code(test_db)
 
         request = ActivateAccountWithCode(
@@ -418,17 +419,18 @@ class TestActivateAccountWithCode:
         with pytest.raises(InvalidActivationCodeError):
             await AuthService.activate_account_with_code(test_db, request)
 
+
     async def test_activation_fails_user_not_found(self, test_db):
         request = ActivateAccountWithCode(
             email="nobody@gmail.com",
-            code="anycode",
+            code="MagicMockcode",
         )
 
         with pytest.raises(InvalidActivationCodeError):
             await AuthService.activate_account_with_code(test_db, request)
 
 
-    async def test_activation_fails_expired_code(self, test_db: AsyncSession) -> None:
+    async def test_activation_fails_expired_code(self, test_db: AsyncSession):
         user, raw_code = await make_user_with_activation_code(test_db)
 
         user.account_activation_code_expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
@@ -460,7 +462,7 @@ class TestActivateAccountWithCode:
 
 # REFRESH TOKEN
 class TestRefreshToken:
-    async def test_refresh_issues_new_access_token(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_refresh_issues_new_access_token(self, test_db: AsyncSession, mock_response: MagicMock):
         _, raw_refresh = await make_user_with_refresh_token(test_db)
 
         result = await AuthService.refresh_token(test_db, mock_response, raw_refresh)
@@ -469,7 +471,7 @@ class TestRefreshToken:
         assert result["token_type"] == "bearer"
 
 
-    async def test_refresh_rotates_refresh_token(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_refresh_rotates_refresh_token(self, test_db: AsyncSession, mock_response: MagicMock):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
 
         old_hash = user.refresh_token_hash
@@ -483,12 +485,12 @@ class TestRefreshToken:
         assert user.refresh_token_family != old_family
     
 
-    async def test_refresh_fails_invalid_jwt(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_refresh_fails_invalid_jwt(self, test_db: AsyncSession, mock_response: MagicMock):
         with pytest.raises(InvalidRefreshTokenError):
             await AuthService.refresh_token(test_db, mock_response, "not.a.valid.jwt")
 
 
-    async def test_refresh_fails_expired_token(self, test_db: AsyncSession, mock_response: Any) -> None:
+    async def test_refresh_fails_expired_token(self, test_db: AsyncSession, mock_response: MagicMock):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
 
         user.refresh_token_expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
@@ -499,7 +501,7 @@ class TestRefreshToken:
             await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
 
-    async def test_refresh_fails_no_stored_hash(self, test_db, mock_response):
+    async def test_refresh_fails_no_stored_hash(self, test_db: AsyncSession, mock_response: MagicMock):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
 
         user.refresh_token_hash = None
@@ -510,7 +512,7 @@ class TestRefreshToken:
             await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
 
-    async def test_reuse_detection_invalidates_all_tokens(self, test_db, mock_response):
+    async def test_reuse_detection_invalidates_all_tokens(self, test_db: AsyncSession, mock_response: MagicMock):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
 
         original_version = user.access_token_version
@@ -527,7 +529,7 @@ class TestRefreshToken:
         assert user.refresh_token_family is None
 
 
-    async def test_refresh_does_not_increment_token_version(self, test_db, mock_response):
+    async def test_refresh_does_not_increment_token_version(self, test_db: AsyncSession, mock_response: MagicMock):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
 
         original_version = user.access_token_version
@@ -539,7 +541,7 @@ class TestRefreshToken:
         assert user.access_token_version == original_version
 
 
-    async def test_refresh_fails_user_not_found(self, test_db, mock_response):
+    async def test_refresh_fails_user_not_found(self, test_db: AsyncSession, mock_response: MagicMock):
         raw_refresh, _ = create_refresh_token(
             CreateRefreshTokenRequest(
                 user_id=99999, 
@@ -551,7 +553,7 @@ class TestRefreshToken:
             await AuthService.refresh_token(test_db, mock_response, raw_refresh)
 
 
-    async def test_refresh_embeds_correct_token_version(self, test_db, mock_response):
+    async def test_refresh_embeds_correct_token_version(self, test_db: AsyncSession, mock_response: MagicMock):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
 
         result = await AuthService.refresh_token(test_db, mock_response, raw_refresh)
