@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,13 +36,13 @@ from src.utils.cache_keys import user_detail_key
 from src.utils.email import send_account_activation_code, send_invite_email
 from src.utils.exception_constants import HTTP400, HTTP404
 from src.utils.exceptions import (
+    CannotAssignSystemRoleError,
+    CannotCreateSystemAdminError,
     IncorrectPasswordError,
     UserAlreadyActiveError,
     UserAlreadyInactiveError,
     UserNotFoundError,
     handle_user_integrity_error,
-    CannotCreateSystemAdminError,
-    CannotAssignSystemRoleError,
 )
 from src.utils.helpers import ensure_exists, update_object
 

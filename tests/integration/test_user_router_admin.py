@@ -1,8 +1,10 @@
-from src.user.models import UserRole
-from tests.factories import make_user, make_member, make_system_admin
-from tests.conftest import make_auth_header
 import pytest
 from httpx import AsyncClient
+
+from src.user.models import UserRole
+from tests.conftest import make_auth_header
+from tests.factories import make_member, make_system_admin, make_user
+
 
 class TestGetUsersAdmin:
 
