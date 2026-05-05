@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from src.auth.schemas import CreateAccessTokenRequest
 from src.core.config import settings
 from src.core.dependencies import get_db
+from src.core.limiter import ip_limiter
 from src.core.security import create_access_token
 from src.database import Base
 from src.main import app
@@ -119,3 +120,10 @@ async def guest(test_db):
 @pytest.fixture
 def mock_response():
     return MagicMock()
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    ip_limiter._storage.reset()
+
+    yield
