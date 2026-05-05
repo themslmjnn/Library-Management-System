@@ -449,7 +449,7 @@ class UserServicePublic:
 
             logger.info(
                 "user_updated",
-                target_user_id=user.id,
+                target_user_id=user_id,
                 method="self_update",
             )
 
@@ -459,7 +459,7 @@ class UserServicePublic:
 
             logger.error(
                 "update_user_denied",
-                target_user_id=user.id,
+                target_user_id=user_id,
                 reason=str(e.orig),
             )
 
