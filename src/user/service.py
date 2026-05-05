@@ -43,6 +43,7 @@ from src.utils.exceptions import (
     UserNotFoundError,
     handle_user_integrity_error,
     CannotCreateSystemAdminError,
+    CannotAssignSystemRoleError,
 )
 from src.utils.helpers import ensure_exists, update_object
 
@@ -214,10 +215,7 @@ class UserServiceAdmin:
                     requested_by=current_user_id,
                 )
 
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Cannot update role to system_admin through the API",
-                ) 
+                raise CannotCreateSystemAdminError("Cannot update role to system_admin through the API") 
 
             if user.role in (UserRole.guest, UserRole.member) and update_request.role not in (UserRole.guest, UserRole.member):
                 logger.error(
@@ -227,10 +225,7 @@ class UserServiceAdmin:
                     reason="can_not_assign_regular_user_role_a_system_role",
                 )
 
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Can not assign regular users a system role",
-                )
+                raise CannotAssignSystemRoleError("Can not assign regular users a system role")
 
         try:
             update_object(user, update_request)

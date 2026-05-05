@@ -2,10 +2,11 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.service import UserServiceAdmin
-from src.user.schemas import CreateUserAdmin, UpdateUserPasswordAdmin
+from src.user.schemas import CreateUserAdmin, UpdateUserPasswordAdmin, UpdateUserAdmin
 from src.user.models import User, UserRole
 from src.utils.exceptions import (
     CannotCreateSystemAdminError,
+    CannotAssignSystemRoleError,
     EmailAlreadyTakenError,
     UserAlreadyActiveError,
     UserAlreadyInactiveError,
@@ -13,7 +14,7 @@ from src.utils.exceptions import (
     PhonenumberAlreadyTakenError,
     UsernameAlreadyTakenError,
 )
-from tests.factories import make_member, make_user
+from tests.factories import make_library_admin, make_member, make_user
 
 
 class TestCreateAccountAdmin:
@@ -154,20 +155,139 @@ class TestDeactivateUserAdmin:
 
 
 class TestActivateUserAdmin:
-
-    async def test_activates_inactive_user(self, test_db, system_admin):
-        user = await make_member(test_db, is_active=False)
+    async def test_activates_inactive_user(self, test_db: AsyncSession, system_admin: User):
+        user = await make_member(
+            test_db, 
+            is_active=False,
+        )
 
         await UserServiceAdmin.activate_user_admin(test_db, user.id, system_admin.id)
 
         await test_db.refresh(user)
+
         assert user.is_active is True
 
-    async def test_raises_if_already_active(self, test_db, system_admin):
-        user = await make_member(test_db, is_active=True)
+
+    async def test_raises_if_already_active(self, test_db: AsyncSession, system_admin: User):
+        user = await make_member(
+            test_db, 
+            is_active=True,
+        )
 
         with pytest.raises(UserAlreadyActiveError):
             await UserServiceAdmin.activate_user_admin(test_db, user.id, system_admin.id)
+
+
+    async def test_raises_if_user_not_found(self, test_db: AsyncSession, system_admin: User):
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.activate_user_admin(test_db, 99999, system_admin.id)
+
+
+class TestUpdateAdmin:
+    async def test_updates_user_successfully(self, test_db: AsyncSession, system_admin: User):
+        user = await make_library_admin(test_db)
+
+        request = UpdateUserAdmin(
+            first_name="User_name",
+            last_name="User_surname",
+        )
+
+
+        await UserServiceAdmin.update_user_admin(test_db, user.id, request, system_admin.id)
+
+        assert user.first_name == "User_name"
+        assert user.last_name == "User_surname"
+
+
+    async def test_cannot_create_system_admin(self, test_db: AsyncSession, system_admin: User):
+        user = await make_library_admin(test_db)
+
+        request = UpdateUserAdmin(
+            role=UserRole.system_admin,
+        )
+
+        with pytest.raises(CannotCreateSystemAdminError):
+            await UserServiceAdmin.update_user_admin(test_db, user.id, request, system_admin.id)
+
+
+    async def test_cannot_assign_system_role(self, test_db: AsyncSession, system_admin: User):
+        user = await make_member(test_db)
+
+        request = UpdateUserAdmin(
+            role=UserRole.library_admin,
+        )
+
+        with pytest.raises(CannotAssignSystemRoleError):
+            await UserServiceAdmin.update_user_admin(test_db, user.id, request, system_admin.id)
+
+        
+    async def test_update_user_not_found(self, test_db: AsyncSession, system_admin: User):
+        await make_member(test_db)
+
+        request = UpdateUserAdmin(
+            email="user_email@gmail.com",
+        )
+
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.update_user_admin(test_db, 9999999, request, system_admin.id)
+
+    
+    async def test_update_email_taken(self, test_db: AsyncSession, system_admin: User):
+        await make_member(
+            test_db,
+            email="taken@gmail.com",
+        )
+
+        user2 = await make_member(
+            test_db,
+            email="other@gmail.com",
+        )
+
+        request = UpdateUserAdmin(
+            email="taken@gmail.com",
+        )
+
+        with pytest.raises(EmailAlreadyTakenError):
+            await UserServiceAdmin.update_user_admin(test_db, user2.id, request, system_admin.id)
+
+
+    async def test_update_username_taken(self, test_db: AsyncSession, system_admin: User):
+        await make_member(
+            test_db,
+            username="test_user",
+        )
+
+        user2 = await make_member(
+            test_db,
+            username="test_user2",
+        )
+
+        request = UpdateUserAdmin(
+           username="test_user",
+        )
+
+        with pytest.raises(UsernameAlreadyTakenError):
+            await UserServiceAdmin.update_user_admin(test_db, user2.id, request, system_admin.id)
+
+    
+    async def test_update_phone_number_taken(self, test_db: AsyncSession, system_admin: User):
+        await make_member(
+            test_db,
+            phone_number="+992 000 111 222",
+        )
+
+        user2 = await make_member(
+            test_db,
+            phone_number="+992 000 111 333",
+        )
+
+        request = UpdateUserAdmin(
+           phone_number="+992 000 111 222",
+        )
+
+        with pytest.raises(PhonenumberAlreadyTakenError):
+            await UserServiceAdmin.update_user_admin(test_db, user2.id, request, system_admin.id)
+
 
 class TestUpdatePasswordAdmin:
     async def test_changes_password_and_invalidates_tokens(self, test_db, system_admin):
