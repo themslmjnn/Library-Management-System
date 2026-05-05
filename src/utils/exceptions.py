@@ -61,8 +61,16 @@ class IncorrectPasswordError(AppException):
 class EmailAlreadyTakenError(AppException):
     pass
 
+class UsernameAlreadyTakenError(AppException):
+    pass
+
+class PhonenumberAlreadyTakenError(AppException):
+    pass
+
 class UsernameCannotBeEmptyError(AppException):
     pass
+
+
 
 
 # BOOK
@@ -97,13 +105,13 @@ def handle_user_integrity_error(error: IntegrityError) -> None:
     error_str = str(error.orig)
 
     if "users_username_key" in error_str:
-        raise AppException(HTTP409.USERNAME)
+        raise UsernameAlreadyTakenError(HTTP409.USERNAME)
     
     if "users_email_key" in error_str:
         raise EmailAlreadyTakenError(HTTP409.EMAIL)
     
     if "users_phone_number_key" in error_str:
-        raise AppException(HTTP409.PHONE_NUMBER)
+        raise PhonenumberAlreadyTakenError(HTTP409.PHONE_NUMBER)
     
 
 def check_unique_title_and_author(error: IntegrityError) -> None:

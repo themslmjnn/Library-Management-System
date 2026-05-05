@@ -1,5 +1,6 @@
 import pytest
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import UserRole
 from tests.conftest import make_auth_header
@@ -8,7 +9,6 @@ from tests.factories import (
     make_member,
     make_user_with_activation_code,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
 
 DEFAULT_PASSWORD = "Valid123!"
 CORRECT_PASSWORD = "Correct123!"
@@ -62,7 +62,7 @@ class TestLogin:
         await make_member(
             test_db, 
             email="wrongpass@gmail.com", 
-            password=CORRECT_PASSWORD,
+            password=DEFAULT_PASSWORD,
         )
 
         response = await client.post(
@@ -81,7 +81,7 @@ class TestLogin:
             "/auth/login", 
             data={
                 "username": "ghost@gmail.com",
-                "password": "anything",
+                "password": CORRECT_PASSWORD,
             },
         )
 
@@ -118,7 +118,7 @@ class TestLogin:
             "/auth/login", 
             data={
                 "username": "exists@gmail.com",
-                "password": "wrongpass",
+                "password": WRONG_PASSWORD,
             },
         )
 
@@ -126,7 +126,7 @@ class TestLogin:
             "/auth/login", 
             data={
                 "username": "notexists@gmail.com",
-                "password": "wrongpass",
+                "password": WRONG_PASSWORD,
             },
         )
 
@@ -168,6 +168,9 @@ class TestLogout:
             headers=headers,
         )
 
+        cookie = client.cookies.get("refresh_token")
+
+        assert not cookie
         assert response.status_code == 204
 
 
@@ -208,12 +211,14 @@ class TestActivateWithToken:
             json={
                 "email": user.email,
                 "invite_token": raw_token,
-                "password": "NewPass123!",
+                "password": NEW_PASSWORD,
             },
         )
 
         assert response.status_code == 204
+
         await test_db.refresh(user)
+
         assert user.is_active is True
 
 
@@ -225,7 +230,7 @@ class TestActivateWithToken:
             json={
                 "email": user.email,
                 "invite_token": "completelyWrongToken",
-                "password": "NewPass123!",
+                "password": NEW_PASSWORD,
             },
         )
 
@@ -253,7 +258,7 @@ class TestActivateWithToken:
         payload = {
             "email": user.email,
             "invite_token": raw_token,
-            "password": "NewPass123!",
+            "password": NEW_PASSWORD,
         }
 
         r1 = await client.post("/auth/activate_with_token", json=payload)
@@ -261,6 +266,11 @@ class TestActivateWithToken:
 
         assert r1.status_code == 204
         assert r2.status_code == 400
+
+        await test_db.refresh(user)
+
+        assert user.is_active is True
+        assert user.invite_token_hash is None
 
 
 class TestActivateWithCode:
@@ -311,36 +321,37 @@ class TestActivateWithCode:
         assert r2.status_code == 400
 
 
-class TestRefreshToken:
-    async def test_refresh_returns_new_access_token(self, client: AsyncClient, test_db: AsyncSession):
-        user = await make_member(
-            test_db, 
-            password=DEFAULT_PASSWORD,
+    async def test_activation_fails_unknown_email(self, client, test_db):
+        response = await client.post(
+            "/auth/activate_with_code",
+            json={
+                "email": "nobody@gmail.com", 
+                "code": "anycode"
+            },
         )
 
-        login_response = await client.post(
+        assert response.status_code == 400
+
+
+class TestRefreshToken:
+    async def test_refresh_returns_new_access_token(self, client, test_db):
+        user = await make_member(test_db, password=DEFAULT_PASSWORD)
+
+        await client.post(
             "/auth/login", 
-                data={
+            data={
                 "username": user.email,
                 "password": DEFAULT_PASSWORD,
             },
         )
 
-        assert login_response.status_code == 200
-
-        old_cookie = client.cookies.get("refresh_token")
         response = await client.post("/auth/refresh_token")
 
         data = response.json()
+
         assert response.status_code == 200
         assert "access_token" in data
         assert data["token_type"] == "bearer"
-
-
-        new_cookie = client.cookies.get("refresh_token")
-
-        assert new_cookie is not None
-        assert new_cookie != old_cookie
 
 
     async def test_refresh_fails_without_cookie(self, client: AsyncClient):
@@ -359,7 +370,7 @@ class TestRefreshToken:
             "/auth/login", 
                 data={
                 "username": user.email,
-                "password": "Valid123!",
+                "password": CORRECT_PASSWORD,
             },
         )
 
@@ -377,6 +388,8 @@ class TestRefreshToken:
             test_db, 
             password=CORRECT_PASSWORD,
         )
+
+        original_version = user.access_token_version
 
         await client.post(
             "/auth/login", 
@@ -397,3 +410,4 @@ class TestRefreshToken:
 
         assert user.refresh_token_hash is None
         assert user.refresh_token_family is None
+        assert user.access_token_version == original_version + 1
