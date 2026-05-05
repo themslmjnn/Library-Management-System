@@ -1,10 +1,17 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
-from src.user.service import UserServicePublic
-from src.user.schemas import CreateUserPublic, UpdateUserBase, UpdateUserPasswordPublic
+
 from src.user.models import UserRole
+from src.user.schemas import CreateUserPublic, UpdateUserBase, UpdateUserPasswordPublic
+from src.user.service import UserServicePublic
+from src.utils.exceptions import (
+    EmailAlreadyTakenError,
+    IncorrectPasswordError,
+    PhonenumberAlreadyTakenError,
+    UsernameAlreadyTakenError,
+)
 from tests.factories import make_user
-from src.utils.exceptions import EmailAlreadyTakenError, PhonenumberAlreadyTakenError, UsernameAlreadyTakenError
+
 
 class TestCreateAccountPublic:
     async def test_creates_user_successfully(self, test_db: AsyncSession):
@@ -142,3 +149,55 @@ class TestUpdateMe:
 
         with pytest.raises(EmailAlreadyTakenError):
             await UserServicePublic.update_me(test_db, request, user2.id)
+
+
+class TestUpdateMyPassword:
+    async def test_updates_password_successfully(self, test_db: AsyncSession):
+        create_request = CreateUserPublic(
+            first_name="Test_fname",
+            last_name="Test_lname",
+            email="just_email@gmail.com",
+            phone_number="+992 000 000 000",
+            date_of_birth="1990-01-01",
+            password="Valid123!",
+        )
+
+        user = await UserServicePublic.create_account_public(test_db, create_request)
+
+        old_password_hash = user.password_hash
+        old_access_token_version = user.access_token_version
+
+        update_request = UpdateUserPasswordPublic(
+            old_password=create_request.password,
+            new_password="NewPassword123!",
+        )
+
+        await UserServicePublic.update_my_password(test_db, update_request, user.id)
+        await test_db.refresh(user)
+
+        assert old_password_hash != user.password_hash
+        assert user.access_token_version == old_access_token_version + 1
+        assert user.refresh_token_hash is None
+        assert user.refresh_token_family is None
+        assert user.refresh_token_expires_at is None
+
+
+    async def test_incorrect_old_password(self, test_db: AsyncSession):
+        create_request = CreateUserPublic(
+            first_name="Test_fname",
+            last_name="Test_lname",
+            email="just_email@gmail.com",
+            phone_number="+992 000 000 000",
+            date_of_birth="1990-01-01",
+            password="Valid123!",
+        )
+
+        user = await UserServicePublic.create_account_public(test_db, create_request)
+
+        update_request = UpdateUserPasswordPublic(
+            old_password="Incorrect_password1",
+            new_password="NewPassword123!",
+        )
+
+        with pytest.raises(IncorrectPasswordError):
+            await UserServicePublic.update_my_password(test_db, update_request, user.id)

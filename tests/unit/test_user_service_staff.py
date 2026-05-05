@@ -1,10 +1,15 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.user.models import UserRole, User
+from src.user.models import User, UserRole
 from src.user.service import UserServiceStaff
-from tests.factories import make_library_admin, make_member, make_receptionist, make_system_admin
 from src.utils.exceptions import UserNotFoundError
+from tests.factories import (
+    make_library_admin,
+    make_member,
+    make_receptionist,
+    make_system_admin,
+)
 
 
 class TestGetUsersStaff:
