@@ -292,7 +292,7 @@ class TestUpdateUserAdmin:
         assert response.status_code == 403
 
 
-class TestUpdatePasswordAdmin:
+class TestUpdateUserPasswordAdmin:
     async def test_successfully_updates_password(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         user = await make_member(test_db)
 
