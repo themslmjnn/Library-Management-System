@@ -29,6 +29,8 @@ class BookService:
             await db.commit()
             await db.refresh(new_book)
 
+            await delete_cache(book_detail_key(new_book.id))
+
             logger.info(
                 "book_created",
                 book_id=new_book.id,
@@ -111,7 +113,7 @@ class BookService:
 
             logger.error(
                 "update_book_failed",
-                book_id=book.id,
+                book_id=book_id,
                 requested_by=user_id,
                 error=str(error.orig),
             )

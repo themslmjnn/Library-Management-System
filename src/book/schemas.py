@@ -24,6 +24,7 @@ class CreateBook(BookBase):
 
 class BookResponse(BookBase, BaseSchema):
     id: int
+    created_by: int
     created_at: datetime
     updated_at: datetime
 
