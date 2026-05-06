@@ -24,8 +24,9 @@ from src.utils.exceptions import (
     BookAlreadyExistsError,
     BookNotAvailableError,
     BookNotFoundError,
+    CannotAssignSystemAdminRoleError,
     CannotAssignSystemRoleError,
-    CannotCreateSystemAdminError,
+    EmailAlreadyTakenError,
     ExpiredActivationCodeError,
     ExpiredInviteTokenError,
     ExpiredRefreshTokenError,
@@ -40,9 +41,8 @@ from src.utils.exceptions import (
     UserAlreadyActiveError,
     UserAlreadyHasActiveLoanError,
     UserAlreadyInactiveError,
+    UsernameCannotBeEmptyError,
     UserNotFoundError,
-    EmailAlreadyTakenError,
-    UsernameCannotBeEmptyError
 )
 
 setup_logging()
@@ -103,7 +103,7 @@ EXCEPTION_STATUS_MAP = {
     ExpiredActivationCodeError:     400,
     AccountLockedError:             403,
     AccountInactiveError:           403,
-    CannotCreateSystemAdminError:   403,
+    CannotAssignSystemAdminRoleError:   403,
     CannotAssignSystemRoleError:    403,
     IncorrectPasswordError:         400,
     EmailAlreadyTakenError: 409,

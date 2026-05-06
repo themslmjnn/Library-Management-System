@@ -29,6 +29,18 @@ class UserRepositoryBase:
 
         return result.scalar_one_or_none()
     
+    @staticmethod
+    async def get_the_biggest_id(db: AsyncSession) -> int:
+        query = (
+            select(User.id)
+            .order_by(User.id.desc())
+            .limit(1)
+        )
+
+        result = await db.execute(query)
+
+        return result.scalar()
+    
 
 class UserRepositoryAdmin:
     @staticmethod

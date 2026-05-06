@@ -49,7 +49,7 @@ class UserAlreadyActiveError(AppException):
 class UserAlreadyInactiveError(AppException):
     pass
 
-class CannotCreateSystemAdminError(AppException):
+class CannotAssignSystemAdminRoleError(AppException):
     pass
 
 class CannotAssignSystemRoleError(AppException):

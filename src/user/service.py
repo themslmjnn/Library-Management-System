@@ -37,7 +37,7 @@ from src.utils.email import send_account_activation_code, send_invite_email
 from src.utils.exception_constants import HTTP400, HTTP404
 from src.utils.exceptions import (
     CannotAssignSystemRoleError,
-    CannotCreateSystemAdminError,
+    CannotAssignSystemAdminRoleError,
     IncorrectPasswordError,
     UserAlreadyActiveError,
     UserAlreadyInactiveError,
@@ -55,11 +55,11 @@ class UserServiceAdmin:
         if user_request.role == UserRole.system_admin:
             logger.warning(
                 "create_user_denied",
-                reason="cannot_create_system_admin",
+                reason="cannot_assign_system_admin",
                 requested_by=current_user_id,
             )
 
-            raise CannotCreateSystemAdminError("Cannot create system_admin accounts through the API") 
+            raise CannotAssignSystemAdminRoleError("Cannot assign system_admin accounts through the API") 
         
         raw_invite_token, hashed_invite_token = generate_invite_token()
         invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=1)
@@ -214,7 +214,7 @@ class UserServiceAdmin:
                     requested_by=current_user_id,
                 )
 
-                raise CannotCreateSystemAdminError("Cannot update role to system_admin through the API") 
+                raise CannotAssignSystemAdminRoleError("Cannot update role to system_admin through the API") 
 
             if user.role in (UserRole.guest, UserRole.member) and update_request.role not in (UserRole.guest, UserRole.member):
                 logger.error(
@@ -258,7 +258,7 @@ class UserServiceAdmin:
 
 
     @staticmethod
-    async def update_password_admin(db: AsyncSession, user_id: int, password_request: UpdateUserPasswordAdmin, current_user_id: int) -> None:
+    async def update_user_password_admin(db: AsyncSession, user_id: int, password_request: UpdateUserPasswordAdmin, current_user_id: int) -> None:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 

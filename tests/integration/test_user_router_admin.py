@@ -1,14 +1,13 @@
-import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.user.models import User, UserRole
 from tests.conftest import make_auth_header
-from tests.factories import make_member, make_system_admin, make_user
-from user.schemas import UpdateUserAdmin
+from tests.factories import make_member
 
 
 class TestGetUsersAdmin:
-    async def test_returns_paginated_users(self, client: AsyncClient, system_admin, test_db):
+    async def test_returns_paginated_users(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         await make_member(test_db)
         await make_member(test_db)
 
@@ -25,7 +24,7 @@ class TestGetUsersAdmin:
         assert data["total"] >= 2
 
 
-    async def test_requires_system_admin_role(self, client: AsyncClient, library_admin):
+    async def test_requires_system_admin_role(self, client: AsyncClient, library_admin: User):
         headers = make_auth_header(library_admin)
         response = await client.get("/users", headers=headers)
 
@@ -34,10 +33,11 @@ class TestGetUsersAdmin:
 
     async def test_unauthenticated_request_returns_401(self, client: AsyncClient):
         response = await client.get("/users")
+
         assert response.status_code == 401
 
 
-    async def test_pagination_works(self, client: AsyncClient, system_admin, test_db):
+    async def test_pagination_works(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         for _ in range(5):
             await make_member(test_db)
 
@@ -45,6 +45,7 @@ class TestGetUsersAdmin:
         response = await client.get("/users?skip=0&limit=2", headers=headers)
 
         data = response.json()
+
         assert len(data["items"]) == 2
         assert data["has_more"] is True
 
@@ -62,29 +63,34 @@ class TestGetUsersAdmin:
 
 
 class TestGetUserByIdAdmin:
-    async def test_returns_user_detail(self, client: AsyncClient, system_admin, test_db):
+    async def test_returns_user_detail(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         user = await make_member(test_db)
         headers = make_auth_header(system_admin)
 
         response = await client.get(f"/users/{user.id}", headers=headers)
 
-        assert response.status_code == 200
         data = response.json()
+
+        assert response.status_code == 200
         assert data["id"] == user.id
         assert data["email"] == user.email
         assert data["role"] == UserRole.member
 
 
-    async def test_returns_404_for_unknown_id(self, client: AsyncClient, system_admin):
+    async def test_returns_404_for_unknown_id(self, client: AsyncClient, system_admin: User):
         headers = make_auth_header(system_admin)
-        response = await client.get("/users/99999", headers=headers)
+        response = await client.get("/users/999999", headers=headers)
+
         assert response.status_code == 404
 
+
     async def test_unauthenticated_request_returns_401(self, client: AsyncClient):
-        response = await client.get("/users/2")
+        response = await client.get("/users/999999")
+
         assert response.status_code == 401
 
-    async def test_returns_403_for_non_admin(self, client: AsyncClient, library_admin, test_db):
+
+    async def test_returns_403_for_non_admin(self, test_db: AsyncSession, client: AsyncClient, library_admin: User):
         user = await make_member(test_db)
         headers = make_auth_header(library_admin)
 
@@ -94,17 +100,20 @@ class TestGetUserByIdAdmin:
 
 
 class TestDeactivateUserAdmin:
-    async def test_deactivates_user(self, client: AsyncClient, system_admin, test_db):
+    async def test_deactivates_user(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         user = await make_member(test_db)
         headers = make_auth_header(system_admin)
 
         response = await client.put(f"/users/{user.id}/deactivate", headers=headers)
 
         assert response.status_code == 204
+
         await test_db.refresh(user)
+
         assert user.is_active is False
 
-    async def test_returns_409_if_already_inactive(self, client: AsyncClient, system_admin, test_db):
+
+    async def test_returns_409_if_already_inactive(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         user = await make_member(test_db, is_active=False)
         headers = make_auth_header(system_admin)
 
@@ -112,7 +121,8 @@ class TestDeactivateUserAdmin:
 
         assert response.status_code == 409
 
-    async def test_receptionist_cannot_deactivate(self, client: AsyncClient, receptionist, test_db):
+
+    async def test_receptionist_cannot_deactivate(self, test_db: AsyncSession, client: AsyncClient, receptionist: User):
         user = await make_member(test_db)
         headers = make_auth_header(receptionist)
 
@@ -122,19 +132,23 @@ class TestDeactivateUserAdmin:
 
 
 class TestActivateUserAdmin:
-    async def test_activates_user(self, client: AsyncClient, system_admin, test_db):
-        user = await make_member(test_db)
+    async def test_activate_user(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
+        user = await make_member(
+            test_db,
+            is_active=False,
+        )
         headers = make_auth_header(system_admin)
-
-        user.is_active = False
 
         response = await client.put(f"/users/{user.id}/activate", headers=headers)
 
         assert response.status_code == 204
+
         await test_db.refresh(user)
+
         assert user.is_active is True
 
-    async def test_returns_409_if_already_active(self, client: AsyncClient, system_admin, test_db):
+
+    async def test_returns_409_if_already_active(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         user = await make_member(test_db, is_active=True)
         headers = make_auth_header(system_admin)
 
@@ -142,7 +156,8 @@ class TestActivateUserAdmin:
 
         assert response.status_code == 409
 
-    async def test_receptionist_cannot_activate(self, client: AsyncClient, receptionist, test_db):
+
+    async def test_receptionist_cannot_activate(self, test_db: AsyncSession, client: AsyncClient, receptionist: User):
         user = await make_member(test_db)
         headers = make_auth_header(receptionist)
 
@@ -152,7 +167,7 @@ class TestActivateUserAdmin:
 
 
 class TestCreateAccountAdmin:
-    async def test_creates_user_with_invite_token(self, client: AsyncClient, system_admin):
+    async def test_creates_user_with_invite_token(self, client: AsyncClient, system_admin: User):
         headers = make_auth_header(system_admin)
         payload = {
             "first_name": "Jane",
@@ -166,12 +181,14 @@ class TestCreateAccountAdmin:
         response = await client.post("/users", json=payload, headers=headers)
 
         assert response.status_code == 201
+
         data = response.json()
+
         assert data["role"] == "library_admin"
         assert data["is_active"] is False
 
 
-    async def test_rejects_system_admin_role(self, client: AsyncClient, system_admin):
+    async def test_rejects_system_admin_role(self, client: AsyncClient, system_admin: User):
         headers = make_auth_header(system_admin)
         payload = {
             "first_name": "Evil",
@@ -186,8 +203,12 @@ class TestCreateAccountAdmin:
 
         assert response.status_code == 403
 
-    async def test_rejects_duplicate_email(self, client: AsyncClient, system_admin, test_db):
-        await make_member(test_db, email="duplicate@gmail.com")
+
+    async def test_rejects_duplicate_email(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
+        await make_member(
+            test_db, 
+            email="duplicate@gmail.com",
+        )
         headers = make_auth_header(system_admin)
         payload = {
             "first_name": "Copy",
@@ -203,7 +224,7 @@ class TestCreateAccountAdmin:
         assert response.status_code == 409
 
 
-    async def test_returns_403_for_non_admin(self, client: AsyncClient, library_admin):
+    async def test_returns_403_for_non_admin(self, client: AsyncClient, library_admin: User):
         headers = make_auth_header(library_admin)
 
         response = await client.post("/users", headers=headers)
@@ -211,7 +232,7 @@ class TestCreateAccountAdmin:
         assert response.status_code == 403
 
 
-    async def test_rejects_invalid_input(self, client: AsyncClient, system_admin, test_db):
+    async def test_rejects_invalid_input(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         await make_member(test_db)
         headers = make_auth_header(system_admin)
         payload = {
@@ -226,6 +247,7 @@ class TestCreateAccountAdmin:
         response = await client.post("/users", json=payload, headers=headers)
 
         assert response.status_code == 422
+
 
 class TestUpdateUserAdmin:
     async def test_updates_user_successfully(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
@@ -242,7 +264,7 @@ class TestUpdateUserAdmin:
         assert response.status_code == 200
 
 
-    async def test_does_not_update_unknown_user(self, test_db: AsyncClient, client: AsyncClient, system_admin: User):
+    async def test_does_not_update_unknown_user(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         await make_member(test_db)
 
         update_request = {
@@ -256,7 +278,7 @@ class TestUpdateUserAdmin:
         assert response.status_code == 404
 
     
-    async def test_does_not_upgrade_to_system_admin(self, test_db: AsyncClient, client: AsyncClient, system_admin: User):
+    async def test_does_not_upgrade_to_system_admin(self, test_db: AsyncSession, client: AsyncClient, system_admin: User):
         user = await make_member(test_db)
 
         update_request = {
@@ -294,14 +316,19 @@ class TestUpdatePasswordAdmin:
 
         headers = make_auth_header(system_admin)
 
-        response = await client.put("/users/999999999/password", json=update_request, headers=headers)
+        response = await client.put("/users/999999/password", json=update_request, headers=headers)
 
         assert response.status_code == 404
 
 
-    async def test_returns_403_for_non_admin(self, client: AsyncClient, library_admin):
+    async def test_returns_403_for_non_admin(self, test_db: AsyncSession, client: AsyncClient, library_admin):
+        user = await make_member(test_db)
         headers = make_auth_header(library_admin)
 
-        response = await client.post("/users", headers=headers)
+        response = await client.put(
+            f"/users/{user.id}/password",
+            json={"new_password": "NewPassword123!"},
+            headers=headers,
+        )
 
         assert response.status_code == 403

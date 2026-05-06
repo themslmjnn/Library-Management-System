@@ -91,10 +91,10 @@ async def update_user_admin(
 
 
 @router.put("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
-async def update_password_admin(
+async def update_user_password_admin(
     db: async_db_dependency,
     user_id: int,
     password_request: UpdateUserPasswordAdmin,
     current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
 ):
-    await UserServiceAdmin.update_password_admin(db, user_id, password_request, current_user.id)
+    await UserServiceAdmin.update_user_password_admin(db, user_id, password_request, current_user.id)
