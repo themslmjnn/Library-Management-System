@@ -9,7 +9,7 @@ from src.core.dependencies import (
 )
 from src.pagination import PaginatedResponse
 from src.user.models import User, UserRole
-from src.user.schemas import CreateUserBase, SearchUserBase, UserResponseBase
+from src.user.schemas import CreateUserBase, SearchUserBase, UserResponseStaff
 from src.user.service import UserServiceStaff
 from src.utils.exception_constants import path_param_int_ge1
 
@@ -19,7 +19,7 @@ router = APIRouter(
 )
 
 
-@router.post("/staff", response_model=UserResponseBase, status_code=status.HTTP_201_CREATED)
+@router.post("/staff", response_model=UserResponseStaff, status_code=status.HTTP_201_CREATED)
 async def create_account_staff(
     db: async_db_dependency,
     user_request: CreateUserBase,
@@ -28,7 +28,7 @@ async def create_account_staff(
     return await UserServiceStaff.create_account_staff(db, user_request, current_user.id)
 
 
-@router.get("/staff", response_model=PaginatedResponse[UserResponseBase], status_code=status.HTTP_200_OK)
+@router.get("/staff", response_model=PaginatedResponse[UserResponseStaff], status_code=status.HTTP_200_OK)
 async def get_users_staff(
     db: async_db_dependency,
     pagination: pagination_dependency,
@@ -48,7 +48,7 @@ async def get_users_staff(
     )
 
 
-@router.get("/{user_id}/staff", response_model=UserResponseBase, status_code=status.HTTP_200_OK)
+@router.get("/{user_id}/staff", response_model=UserResponseStaff, status_code=status.HTTP_200_OK)
 async def get_user_by_id_staff(
     db: async_db_dependency,
     user_id: path_param_int_ge1,

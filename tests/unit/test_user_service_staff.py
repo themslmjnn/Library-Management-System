@@ -3,13 +3,72 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import User, UserRole
 from src.user.service import UserServiceStaff
-from src.utils.exceptions import UserNotFoundError
+from src.utils.exceptions import EmailAlreadyTakenError, PhonenumberAlreadyTakenError, UserNotFoundError, UsernameAlreadyTakenError
 from tests.factories import (
     make_library_admin,
     make_member,
     make_receptionist,
     make_system_admin,
+    make_user,
 )
+from src.user.schemas import CreateUserBase
+
+
+class TestCreateAccountStaff:
+    async def test_reject_duplicate_email(self, test_db: AsyncSession, library_admin: User):
+        await make_user(
+            test_db, 
+            email="taken@gmail.com",
+        )
+
+        update_request = CreateUserBase(
+            first_name="Test_fname",
+            last_name="Test_lname",
+            email="taken@gmail.com",
+            phone_number="+15550000001",
+            date_of_birth="1990-01-01",
+        )
+
+        with pytest.raises(EmailAlreadyTakenError):
+            await UserServiceStaff.create_account_staff(test_db, update_request, library_admin.id)
+
+        
+    async def test_reject_duplicate_username(self, test_db: AsyncSession, library_admin: User):
+        await make_user(
+            test_db, 
+            username="taken_username",
+        )
+
+        update_request = CreateUserBase(
+            username="taken_username",
+            first_name="Test_fname",
+            last_name="Test_lname",
+            email="test_email@gmail.com",
+            phone_number="+15550000001",
+            date_of_birth="1990-01-01",
+        )
+
+        with pytest.raises(UsernameAlreadyTakenError):
+            await UserServiceStaff.create_account_staff(test_db, update_request, library_admin.id)
+
+    
+    async def test_reject_duplicate_phone_number(self, test_db: AsyncSession, library_admin: User):
+        await make_user(
+            test_db, 
+            phone_number="+992 000 000 000",
+        )
+
+        update_request = CreateUserBase(
+            first_name="Test_fname",
+            last_name="Test_lname",
+            email="test_email@gmail.com",
+            phone_number="+992 000 000 000",
+            date_of_birth="1990-01-01",
+            role=UserRole.receptionist,
+        )
+
+        with pytest.raises(PhonenumberAlreadyTakenError):
+            await UserServiceStaff.create_account_staff(test_db, update_request, library_admin.id)
 
 
 class TestGetUsersStaff:

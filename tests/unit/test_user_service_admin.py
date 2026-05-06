@@ -21,7 +21,7 @@ NEW_PASSWORD = "NewPassword123!"
 
 
 class TestCreateAccountAdmin:
-    async def test_blocks_system_admin_creation(self, test_db: AsyncSession, system_admin: User):
+    async def test_block_system_admin_creation(self, test_db: AsyncSession, system_admin: User):
         create_request = CreateUserAdmin(
             first_name="Test_fname",
             last_name="Test_lname",
@@ -35,7 +35,7 @@ class TestCreateAccountAdmin:
             await UserServiceAdmin.create_account_admin(test_db, create_request, system_admin.id)
 
 
-    async def test_rejects_duplicate_email(self, test_db: AsyncSession, system_admin: User):
+    async def test_reject_duplicate_email(self, test_db: AsyncSession, system_admin: User):
         await make_user(
             test_db, 
             email="taken@gmail.com",
@@ -54,7 +54,7 @@ class TestCreateAccountAdmin:
             await UserServiceAdmin.create_account_admin(test_db, update_request, system_admin.id)
 
         
-    async def test_rejects_duplicate_username(self, test_db: AsyncSession, system_admin: User):
+    async def test_reject_duplicate_username(self, test_db: AsyncSession, system_admin: User):
         await make_user(
             test_db, 
             username="taken_username",
@@ -74,7 +74,7 @@ class TestCreateAccountAdmin:
             await UserServiceAdmin.create_account_admin(test_db, update_request, system_admin.id)
 
     
-    async def test_rejects_duplicate_phone_number(self, test_db: AsyncSession, system_admin: User):
+    async def test_reject_duplicate_phone_number(self, test_db: AsyncSession, system_admin: User):
         await make_user(
             test_db, 
             phone_number="+992 000 000 000",
@@ -93,7 +93,7 @@ class TestCreateAccountAdmin:
             await UserServiceAdmin.create_account_admin(test_db, update_request, system_admin.id)
 
 
-    async def test_creates_user_successfully(self, test_db: AsyncSession, system_admin: User):
+    async def test_create_user_successfully(self, test_db: AsyncSession, system_admin: User):
         create_request = CreateUserAdmin(
             first_name="Test_fname",
             last_name="Test_lname",
@@ -112,7 +112,7 @@ class TestCreateAccountAdmin:
         assert user.invite_token_hash is not None
         assert user.password_hash is None
 
-        
+
 class TestDeactivateUserAdmin:
     async def test_does_not_deactivate_unknown_user(self, test_db: AsyncSession, system_admin: User):
         with pytest.raises(UserNotFoundError):
@@ -289,6 +289,15 @@ class TestUpdateUserAdmin:
 
 
 class TestUpdateUserPasswordAdmin:
+    async def test_does_not_update_unknown_user(self, test_db: AsyncSession, system_admin: User):
+        update_request = UpdateUserAdmin(
+            email="user_email@gmail.com",
+        )
+
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.update_user_password_admin(test_db, 999999, update_request, system_admin.id)
+
+
     async def test_update_password_and_invalidates_tokens(self, test_db, system_admin):
         user = await make_member(
             test_db, 

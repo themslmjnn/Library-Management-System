@@ -77,7 +77,7 @@ class TestCreateAccountPublic:
             await UserServicePublic.create_account_public(test_db, request)
 
 
-    async def test_creates_user_successfully(self, test_db: AsyncSession):
+    async def test_create_user_successfully(self, test_db: AsyncSession):
         request = CreateUserPublic(
             first_name="Test_fname",
             last_name="Test_lname",
