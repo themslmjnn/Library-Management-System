@@ -2,7 +2,8 @@ from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from auth.schemas import CreateRefreshTokenRequest
+from src.auth.schemas import CreateRefreshTokenRequest
+from src.book.models import Book
 from src.core.security import (
     create_refresh_token,
     generate_account_activation_code,
@@ -154,3 +155,24 @@ async def make_user_with_refresh_token(test_db: AsyncSession):
     await test_db.commit()
 
     return user, raw_refresh
+
+
+async def make_book(
+    db: AsyncSession,
+    *,
+    title: str | None = None,
+    author: str | None = None,
+    category: str = "science",
+    created_by: int,
+) -> Book:
+    _id = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
+    book = Book(
+        title=title or f"Book_{_id}",
+        author=author or f"Author_{_id}",
+        category=category,
+        created_by=created_by,
+    )
+    db.add(book)
+    await db.commit()
+    await db.refresh(book)
+    return book

@@ -45,6 +45,26 @@ class TestCreateBook:
             await BookService.add_book(test_db, book_2, system_admin.id)
 
 
+    async def test_same_title_different_author_is_allowed(self, test_db, system_admin):
+        book_1 = CreateBook(
+            title="Same Title", 
+            author="Author A", 
+            category="science",
+        )
+
+        await BookService.add_book(test_db, book_1, system_admin.id)
+
+        book_2 = CreateBook(
+            title="Same Title", 
+            author="Author B", 
+            category="science",
+        )
+
+        result = await BookService.add_book(test_db, book_2, system_admin.id)
+
+        assert result.id is not None
+
+
 class TestGetBookByID:
     async def test_return_valid_book_info(self, test_db: AsyncSession, system_admin: User):
         book_request = CreateBook(
@@ -89,6 +109,8 @@ class TestUpdateBook:
 
         result = await BookService.update_book(test_db, system_admin.id, update_request, book.id)
 
+        await test_db.refresh(result)
+
         assert result.title == update_request.title
         assert result.author == update_request.author
 
@@ -126,4 +148,4 @@ class TestUpdateBook:
 
     async def test_raise_404_for_unknown_books(self, test_db: AsyncSession, system_admin: User):
         with pytest.raises(BookNotFoundError):
-            await BookService.update_book(test_db, system_admin.id, None, 999999)
+            await BookService.update_book(test_db, system_admin.id, UpdateBook(title="Anything"), 999999)
