@@ -95,3 +95,86 @@ class TestLoanBookMe:
         }, headers=headers)
 
         assert response.status_code == 404
+
+
+class TestGetLoansMe:
+    async def test_member_sees_own_loans(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        await make_inventory(test_db, book_id=book.id, quantity=5, added_by=system_admin.id)
+        member = await make_member(test_db)
+        headers = make_auth_header(member)
+
+        await client.post("/loans/me", json={
+            "book_id": book.id, "due_at": due_date()
+        }, headers=headers)
+
+        response = await client.get("/loans/me", headers=headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["user_id"] == member.id
+
+    async def test_member_cannot_see_other_users_loans(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        await make_inventory(test_db, book_id=book.id, quantity=5, added_by=system_admin.id)
+
+        member1 = await make_member(test_db)
+        member2 = await make_member(test_db)
+
+        await client.post("/loans/me", json={
+            "book_id": book.id, "due_at": due_date()
+        }, headers=make_auth_header(member1))
+
+        # member2 fetches their own loans — must not see member1's loan
+        response = await client.get("/loans/me", headers=make_auth_header(member2))
+
+        data = response.json()
+        ids = [loan["user_id"] for loan in data["items"]]
+        assert member1.id not in ids
+
+    async def test_unauthenticated_cannot_get_loans_me(self, client: AsyncClient):
+        response = await client.get("/loans/me")
+        assert response.status_code == 401
+
+    async def test_member_gets_own_loan_by_id(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        member = await make_member(test_db)
+        headers = make_auth_header(member)
+
+        loan_response = await client.post("/loans/me", json={
+            "book_id": book.id, "due_at": due_date()
+        }, headers=headers)
+        loan_id = loan_response.json()["id"]
+
+        response = await client.get(f"/loans/{loan_id}/me", headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["id"] == loan_id
+
+    async def test_member_cannot_get_other_users_loan_by_id(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        await make_inventory(test_db, book_id=book.id, quantity=5, added_by=system_admin.id)
+
+        member1 = await make_member(test_db)
+        member2 = await make_member(test_db)
+
+        loan_response = await client.post("/loans/me", json={
+            "book_id": book.id, "due_at": due_date()
+        }, headers=make_auth_header(member1))
+        loan_id = loan_response.json()["id"]
+
+        # member2 tries to access member1's loan — must get 404, not 403
+        # 404 prevents confirming the loan exists at all
+        response = await client.get(f"/loans/{loan_id}/me", headers=make_auth_header(member2))
+
+        assert response.status_code == 404
