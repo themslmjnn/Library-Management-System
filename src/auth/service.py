@@ -1,11 +1,10 @@
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import HTTPException, Response, status
+from fastapi import Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.core.dependencies import CurrentUser
 from src.auth.repository import AuthRepository
 from src.auth.schemas import (
     ActivateAccountWithCode,
@@ -15,6 +14,7 @@ from src.auth.schemas import (
     LoginResponse,
 )
 from src.core.config import settings
+from src.core.dependencies import CurrentUser
 from src.core.logging import get_logger
 from src.core.security import (
     create_access_token,
@@ -32,6 +32,7 @@ from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
 from src.utils.exceptions import (
     AccountInactiveError,
     AccountLockedError,
+    EmptyCredentialsError,
     ExpiredActivationCodeError,
     ExpiredInviteTokenError,
     ExpiredRefreshTokenError,
@@ -39,7 +40,7 @@ from src.utils.exceptions import (
     InvalidCredentialsError,
     InvalidInviteTokenError,
     InvalidRefreshTokenError,
-    UsernameCannotBeEmptyError,
+    RefreshTokenFamilyError,
 )
 
 logger = get_logger(__name__)
@@ -81,6 +82,7 @@ class AuthService:
         user.refresh_token_expires_at = None
 
         await db.commit()
+        await db.refresh(user)
 
         logger.info(
             "tokens_invalidated",
@@ -90,9 +92,9 @@ class AuthService:
 
 
     @staticmethod
-    async def login(db: AsyncSession, response: Response, form_data: OAuth2PasswordRequestForm) -> LoginResponse:
-        if form_data.username is None:
-            raise UsernameCannotBeEmptyError("Username can not be empty")
+    async def login(db: AsyncSession, response: Response, form_data: OAuth2PasswordRequestForm) -> LoginResponse:        
+        if form_data.username is None or form_data.password is None:
+            raise EmptyCredentialsError("Username and password is required")
         
         user = await AuthRepository.get_by_login_identifier(db, form_data.username)
 
@@ -187,6 +189,7 @@ class AuthService:
         )
 
         await db.commit()
+        await db.refresh(user)
 
         logger.info(
             "login_success",
@@ -202,15 +205,28 @@ class AuthService:
         }
 
 
+
     @staticmethod
-    async def activate_account_with_token(db: AsyncSession, request: ActivateAccountWithToken) -> None:
-        user = await AuthRepository.get_by_login_identifier(db, request.email)
+    async def logout(db: AsyncSession, response: Response, current_user: User) -> None:
+        await AuthService._invalidate_all_tokens(db, current_user)
+
+        AuthService._clear_refresh_cookie(response)
+
+        logger.info(
+            "logout", 
+            user_id=current_user.id,
+        )
+
+
+    @staticmethod
+    async def activate_account_with_token(db: AsyncSession, activation_request: ActivateAccountWithToken) -> None:
+        user = await AuthRepository.get_by_login_identifier(db, activation_request.email)
 
         if user is None or user.invite_token_hash is None:
             logger.warning(
                 "activation_failed",
-                reason="invalid_token",
-                email=request.email,
+                reason="invalid_invite_token",
+                email=activation_request.email,
             )
 
             raise InvalidInviteTokenError(HTTP400.INVALID_INVITE_TOKEN)
@@ -218,27 +234,28 @@ class AuthService:
         if datetime.now(timezone.utc) > user.invite_token_expires_at:
             logger.warning(
                 "activation_failed",
-                reason="token_expired",
+                reason="invite_token_expired",
                 user_id=user.id,
             )
 
             raise ExpiredInviteTokenError(HTTP400.EXPIRED_INVITE_TOKEN)
 
-        if not verify_invite_token(request.invite_token, user.invite_token_hash):
+        if not verify_invite_token(activation_request.invite_token, user.invite_token_hash):
             logger.warning(
                 "activation_failed",
-                reason="token_mismatch",
+                reason="invite_token_mismatch",
                 user_id=user.id,
             )
 
             raise InvalidInviteTokenError(HTTP400.INVALID_INVITE_TOKEN)
 
-        user.password_hash = hash_password(request.password)
+        user.password_hash = hash_password(activation_request.password)
         user.is_active = True
         user.invite_token_hash = None
         user.invite_token_expires_at = None
 
         await db.commit()
+        await db.refresh(user)
 
         logger.info(
             "account_activated", 
@@ -248,16 +265,34 @@ class AuthService:
 
 
     @staticmethod
-    async def activate_account_with_code(db: AsyncSession, request: ActivateAccountWithCode) -> None:
-        user = await AuthRepository.get_by_login_identifier(db, request.email)
+    async def activate_account_with_code(db: AsyncSession, activation_request: ActivateAccountWithCode) -> None:
+        user = await AuthRepository.get_by_login_identifier(db, activation_request.email)
 
         if user is None or user.account_activation_code_hash is None:
+            logger.warning(
+                "activation_failed",
+                reason="invalid_activation_code",
+                email=activation_request.email,
+            )
+
             raise InvalidActivationCodeError(HTTP400.INVALID_ACTIVATION_CODE)
 
         if datetime.now(timezone.utc) > user.account_activation_code_expires_at:
+            logger.warning(
+                "activation_failed",
+                reason="activation_code_expired",
+                user_id=user.id,
+            )
+
             raise ExpiredActivationCodeError(HTTP400.EXPIRED_ACTIVATION_CODE)
 
-        if not verify_account_activation_code(request.code, user.account_activation_code_hash):
+        if not verify_account_activation_code(activation_request.code, user.account_activation_code_hash):
+            logger.warning(
+                "activation_failed",
+                reason="activation_code_mismatch",
+                user_id=user.id,
+            )
+
             raise InvalidActivationCodeError(HTTP400.INVALID_ACTIVATION_CODE)
 
         user.is_active = True
@@ -265,6 +300,13 @@ class AuthService:
         user.account_activation_code_expires_at = None
 
         await db.commit()
+        await db.refresh(user)
+
+        logger.info(
+            "account_activated", 
+            user_id=user.id, 
+            method="activation_code",
+        )
 
 
     @staticmethod
@@ -272,17 +314,29 @@ class AuthService:
         try:
             payload = decode_refresh_token(raw_refresh_token)
             user_id = int(payload.get("sub"))
-            token_family = payload.get("family")
+            refresh_token_family = payload.get("family")
 
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
+            logger.warning(
+                "invalid_jwt",
+                error_type=type(e).__name__,
+                error_message=str(e),
+            )
+
             raise InvalidRefreshTokenError(HTTP401.INVALID_REFRESH_TOKEN)
 
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
         if user is None or user.refresh_token_hash is None:
+            logger.warning(
+                "refresh_token_rotation_failed",
+                reason="invalid_refresh_token",
+                user_id=user_id,
+            )
+
             raise InvalidRefreshTokenError(HTTP401.INVALID_REFRESH_TOKEN)
 
-        if token_family != user.refresh_token_family:
+        if refresh_token_family != user.refresh_token_family:
             await AuthService._invalidate_all_tokens(db, user)
 
             logger.warning(
@@ -291,15 +345,24 @@ class AuthService:
                 action="all_tokens_invalidated",
             )
             
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Security violation detected. Please log in again",
-            )
+            raise RefreshTokenFamilyError("Security violation detected. Please log in again")
 
         if datetime.now(timezone.utc) > user.refresh_token_expires_at:
+            logger.warning(
+                "refresh_token_rotation_failed",
+                reason="refesh_token_expired",
+                user_id=user.id,
+            )
+
             raise ExpiredRefreshTokenError(HTTP401.EXPIRED_REFRESH_TOKEN)
 
         if not verify_refresh_token(raw_refresh_token, user.refresh_token_hash):
+            logger.warning(
+                "refresh_token_rotation_failed",
+                reason="refresh_token_mismatch",
+                user_id=user.id,
+            )
+
             raise InvalidRefreshTokenError(HTTP401.INVALID_REFRESH_TOKEN)
 
         new_family = secrets.token_urlsafe(32)
@@ -325,19 +388,17 @@ class AuthService:
         )
 
         await db.commit()
-
-        AuthService._set_refresh_cookie(response, raw_refresh_token)
-
-        return {"access_token": access_token, "token_type": "bearer"}
-
-
-    @staticmethod
-    async def logout(db: AsyncSession, response: Response, current_user: User) -> None:
-        await AuthService._invalidate_all_tokens(db, current_user)
-
-        AuthService._clear_refresh_cookie(response)
+        await db.refresh(user)
 
         logger.info(
-            "logout", 
-            user_id=current_user.id,
+            "refresh_roken_rotated", 
+            user_id=user.id, 
+            method="refresh_token",
         )
+        
+        AuthService._set_refresh_cookie(response, raw_refresh_token)
+
+        return {
+            "access_token": access_token, 
+            "token_type": "bearer",
+        }

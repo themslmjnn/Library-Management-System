@@ -82,7 +82,7 @@ async def make_invited_user(
     created_by: int | None = None,
 ) -> tuple[User, str]:
 
-    raw_token, hashed_token = generate_invite_token()
+    raw_invite_token, hashed_invite_token = generate_invite_token()
     _id = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
 
     new_user = User(
@@ -95,7 +95,7 @@ async def make_invited_user(
         password_hash=None,
         role=role,
         is_active=False,
-        invite_token_hash=hashed_token,
+        invite_token_hash=hashed_invite_token,
         invite_token_expires_at=datetime.now(timezone.utc) + timedelta(days=2),
         created_by=created_by,
     )
@@ -105,7 +105,7 @@ async def make_invited_user(
     await db.commit()
     await db.refresh(new_user)
 
-    return new_user, raw_token
+    return new_user, raw_invite_token
 
 
 async def make_user_with_activation_code(
@@ -139,22 +139,26 @@ async def make_user_with_activation_code(
 
 
 async def make_user_with_refresh_token(test_db: AsyncSession):
-    user = await make_member(test_db, password=CORRECT_PASSWORD)
+    user = await make_member(
+        test_db, 
+        password=CORRECT_PASSWORD,
+    )
 
-    raw_refresh, hashed_refresh = create_refresh_token(
+    raw_refresh_token, hashed_refresh_token = create_refresh_token(
         CreateRefreshTokenRequest(
             user_id=user.id,
             family="test_family_abc",
         )
     )
 
-    user.refresh_token_hash = hashed_refresh
+    user.refresh_token_hash = hashed_refresh_token
     user.refresh_token_family = "test_family_abc"
     user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
 
     await test_db.commit()
+    await test_db.refresh(user)
 
-    return user, raw_refresh
+    return user, raw_refresh_token
 
 
 async def make_book(

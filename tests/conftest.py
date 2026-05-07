@@ -158,3 +158,8 @@ async def flush_cache():
 
     await fresh_client.flushdb()
     await fresh_client.aclose()
+
+DEFAULT_PASSWORD = "Valid123!"
+CORRECT_PASSWORD = "Correct123!"
+WRONG_PASSWORD = "Wrong123!"
+NEW_PASSWORD = "NewPassword123!"

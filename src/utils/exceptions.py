@@ -38,6 +38,12 @@ class InvalidActivationCodeError(AppException):
 class ExpiredActivationCodeError(AppException):
     pass
 
+class EmptyCredentialsError(AppException):
+    pass
+
+class RefreshTokenFamilyError(AppException):
+    pass
+
 
 # USER
 class UserNotFoundError(AppException):
