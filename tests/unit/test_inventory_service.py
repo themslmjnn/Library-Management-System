@@ -233,3 +233,98 @@ class TestGetInventories:
 
         assert result.total == 0
         assert result.items == []
+
+
+class TestUpdateInventory:
+    async def test_updates_quantity_successfully(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+
+        await InventoryService.update_inventory(test_db, system_admin.id, 20, inventory.id)
+        await test_db.refresh(inventory)
+
+        assert inventory.quantity == 20
+
+
+    async def test_update_to_zero_quantity(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+
+        # zero is allowed for manual corrections — only creation rejects it
+        await InventoryService.update_inventory(test_db, system_admin.id, 0, inventory.id)
+        await test_db.refresh(inventory)
+
+        assert inventory.quantity == 0
+
+
+    async def test_raises_for_unknown_id(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        non_existent_id = inventory.id + 999999
+
+        with pytest.raises(InventoryNotFoundError):
+            await InventoryService.update_inventory(test_db, system_admin.id, 10, non_existent_id)
+
+
+    async def test_cache_invalidated_after_update(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+
+        # populate cache
+        await InventoryService.get_inventory_by_id(test_db, inventory.id)
+
+        # update
+        await InventoryService.update_inventory(test_db, system_admin.id, 50, inventory.id)
+
+        # stale cache must be gone
+        result = await InventoryService.get_inventory_by_id(test_db, inventory.id)
+        assert result["quantity"] == 50
+
+
+class TestGetAvailableInventories:
+    async def test_returns_inventories_with_stock(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=3)
+        )
+
+        from src.inventory.repository import InventoryRepository
+        result = await InventoryRepository.get_available_inventories(test_db, book.id)
+
+        assert len(result) >= 1
+        assert all(i.quantity > 0 for i in result)
+
+
+    async def test_excludes_zero_quantity_records(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        inv = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+
+        # manually zero it out — simulating all copies loaned
+        inv.quantity = 0
+        await test_db.commit()
+
+        from src.inventory.repository import InventoryRepository
+        result = await InventoryRepository.get_available_inventories(test_db, book.id)
+
+        assert len(result) == 0
+
+
+    async def test_returns_empty_for_unknown_book(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        from src.inventory.repository import InventoryRepository
+        result = await InventoryRepository.get_available_inventories(test_db, book.id + 999999)
+
+        assert result == []
