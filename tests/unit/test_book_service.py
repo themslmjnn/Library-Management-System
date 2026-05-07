@@ -1,10 +1,12 @@
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.user.models import User
-from src.book.schemas import CreateBook, UpdateBook
+from src.book.schemas import CreateBook, SearchBook, UpdateBook
 from src.book.service import BookService
-import pytest
+from src.user.models import User
 from src.utils.exceptions import BookAlreadyExistsError, BookNotFoundError
+from tests.factories import make_book
+
 
 class TestCreateBook:
     async def test_create_book_successfully(self, test_db: AsyncSession, system_admin: User):
@@ -149,3 +151,210 @@ class TestUpdateBook:
     async def test_raise_404_for_unknown_books(self, test_db: AsyncSession, system_admin: User):
         with pytest.raises(BookNotFoundError):
             await BookService.update_book(test_db, system_admin.id, UpdateBook(title="Anything"), 999999)
+
+class TestGetBooks:
+    async def test_returns_paginated_response(self, test_db: AsyncSession, system_admin: User):
+        for _ in range(3):
+            await make_book(test_db, created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(),
+            sort_by="created_at",
+            order="desc",
+        )
+
+        result_dict = result.model_dump()
+
+        assert "items" in result_dict
+        assert "total" in result_dict
+        assert "has_more" in result_dict
+        assert result.total >= 3
+
+
+    async def test_pagination_skip_works(self, test_db: AsyncSession, system_admin: User):
+        for _ in range(5):
+            await make_book(test_db, created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=3,
+            limit=20,
+            filters=SearchBook(),
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert len(result.items) == 2
+
+
+    async def test_pagination_limit_works(self, test_db: AsyncSession, system_admin: User):
+        for _ in range(5):
+            await make_book(test_db, created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=2,
+            filters=SearchBook(),
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert len(result.items) == 2
+        assert result.has_more is True
+
+
+    async def test_has_more_is_false_when_no_more_pages(self, test_db: AsyncSession, system_admin: User):
+        for _ in range(3):
+            await make_book(test_db, created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(),
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert result.has_more is False
+
+
+    async def test_filters_by_category(self, test_db: AsyncSession, system_admin: User):
+        await make_book(test_db, category="fiction", created_by=system_admin.id)
+        await make_book(test_db, category="fiction", created_by=system_admin.id)
+        await make_book(test_db, category="science", created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(category="fiction"),
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert result.total == 2
+        assert all(b.category == "fiction" for b in result.items)
+
+
+    async def test_filters_by_title(self, test_db: AsyncSession, system_admin: User):
+        await make_book(test_db, title="Python Cookbook", created_by=system_admin.id)
+        await make_book(test_db, title="Clean Code", created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(title="python"),
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert result.total == 1
+        assert result.items[0].title == "Python Cookbook"
+
+
+    async def test_filters_by_author(self, test_db: AsyncSession, system_admin: User):
+        await make_book(test_db, author="Martin Fowler", created_by=system_admin.id)
+        await make_book(test_db, author="Robert Martin", created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(author="fowler"),
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert result.total == 1
+        assert result.items[0].author == "Martin Fowler"
+
+
+    async def test_title_filter_is_case_insensitive(self, test_db: AsyncSession, system_admin: User):
+        await make_book(test_db, title="The Great Gatsby", created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(title="great gatsby"),
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert result.total == 1
+
+
+    async def test_sort_by_title_ascending(self, test_db: AsyncSession, system_admin: User):
+        await make_book(test_db, title="Zebra Book", created_by=system_admin.id)
+        await make_book(test_db, title="Apple Book", created_by=system_admin.id)
+        await make_book(test_db, title="Mango Book", created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(),
+            sort_by="title",
+            order="asc",
+        )
+
+        titles = [b.title for b in result.items]
+        assert titles == sorted(titles)
+
+
+    async def test_sort_by_title_descending(self, test_db: AsyncSession, system_admin: User):
+        await make_book(test_db, title="Zebra Book", created_by=system_admin.id)
+        await make_book(test_db, title="Apple Book", created_by=system_admin.id)
+        await make_book(test_db, title="Mango Book", created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(),
+            sort_by="title",
+            order="desc",
+        )
+
+        titles = [b.title for b in result.items]
+        assert titles == sorted(titles, reverse=True)
+
+
+    async def test_invalid_sort_field_falls_back_to_created_at(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        await make_book(test_db, created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(),
+            sort_by="nonexistent_field",
+            order="desc",
+        )
+
+        assert result.total >= 1
+
+
+    async def test_empty_result_when_no_match(self, test_db: AsyncSession, system_admin: User):
+        await make_book(test_db, title="Real Book", created_by=system_admin.id)
+
+        result = await BookService.get_books(
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchBook(title="zzz_no_match_zzz"),
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert result.total == 0
+        assert result.items == []
+        assert result.has_more is False
