@@ -90,3 +90,41 @@ class TestGetBooks:
 
         assert data["total"] == 0
         assert data["items"] == []
+
+
+class TestGetBookById:
+    async def test_public_access_returns_200(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        response = await client.get(f"/books/{book.id}")
+
+        assert response.status_code == 200
+
+
+    async def test_returns_correct_fields(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        response = await client.get(f"/books/{book.id}")
+        data = response.json()
+
+        assert data["id"] == book.id
+        assert data["title"] == book.title
+        assert data["author"] == book.author
+        assert data["category"] == book.category
+
+
+    async def test_returns_404_for_unknown_id(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        response = await client.get(f"/books/{book.id + 999999}")
+
+        assert response.status_code == 404
+
+
+    async def test_second_request_returns_same_data(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        r1 = await client.get(f"/books/{book.id}")
+        r2 = await client.get(f"/books/{book.id}")
+
+        assert r1.json() == r2.json()
