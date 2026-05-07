@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.inventory.service import InventoryService
 from src.user.models import User, UserRole
 from src.inventory.schemas import CreateInventory
 from tests.factories import make_book, make_member, make_receptionist, make_library_admin
@@ -100,3 +101,156 @@ class TestAddInventory:
         response = await client.post("/inventories", json=payload, headers=headers)
 
         assert response.status_code == 400
+
+
+class TestGetInventories:
+    async def test_system_admin_gets_inventories(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(system_admin)
+
+        response = await client.get("/inventories", headers=headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "items" in data
+        assert "total" in data
+
+    async def test_library_admin_gets_inventories(
+        self, client: AsyncClient, library_admin: User, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(library_admin)
+
+        response = await client.get("/inventories", headers=headers)
+
+        assert response.status_code == 200
+
+    async def test_receptionist_cannot_get_inventories(
+        self, client: AsyncClient, receptionist: User
+    ):
+        headers = make_auth_header(receptionist)
+
+        response = await client.get("/inventories", headers=headers)
+
+        assert response.status_code == 403
+
+    async def test_unauthenticated_cannot_get_inventories(self, client: AsyncClient):
+        response = await client.get("/inventories")
+
+        assert response.status_code == 401
+
+    async def test_pagination_works(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        for _ in range(5):
+            await InventoryService.add_inventory(
+                test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=1)
+            )
+
+        headers = make_auth_header(system_admin)
+        response = await client.get("/inventories?skip=0&limit=2", headers=headers)
+
+        data = response.json()
+        assert len(data["items"]) == 2
+        assert data["has_more"] is True
+
+    async def test_filter_by_book_id_works(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book1 = await make_book(test_db, created_by=system_admin.id)
+        book2 = await make_book(test_db, created_by=system_admin.id)
+
+        await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book1.id, quantity=3)
+        )
+        await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book2.id, quantity=5)
+        )
+
+        headers = make_auth_header(system_admin)
+        response = await client.get(f"/inventories?book_id={book1.id}", headers=headers)
+
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["book_id"] == book1.id
+
+
+class TestGetInventoryById:
+    async def test_returns_correct_inventory(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=7)
+        )
+        headers = make_auth_header(system_admin)
+
+        response = await client.get(f"/inventories/{inventory.id}", headers=headers)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == inventory.id
+        assert data["book_id"] == book.id
+        assert data["quantity"] == 7
+
+    async def test_returns_404_for_unknown_id(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(system_admin)
+
+        response = await client.get(f"/inventories/{inventory.id + 999999}", headers=headers)
+
+        assert response.status_code == 404
+
+    async def test_receptionist_cannot_get_by_id(
+        self, client: AsyncClient, receptionist: User, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(receptionist)
+
+        response = await client.get(f"/inventories/{inventory.id}", headers=headers)
+
+        assert response.status_code == 403
+
+    async def test_unauthenticated_cannot_get_by_id(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+
+        response = await client.get(f"/inventories/{inventory.id}")
+
+        assert response.status_code == 401
+
+    async def test_second_request_returns_same_data(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(system_admin)
+
+        r1 = await client.get(f"/inventories/{inventory.id}", headers=headers)
+        r2 = await client.get(f"/inventories/{inventory.id}", headers=headers)
+
+        assert r1.json() == r2.json()
