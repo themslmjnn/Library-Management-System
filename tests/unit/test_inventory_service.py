@@ -1,0 +1,70 @@
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from src.inventory.schemas import CreateInventory, SearchInventory
+from src.inventory.service import InventoryService
+from src.user.models import User
+from src.utils.exceptions import BookNotFoundError, InventoryNotFoundError
+from tests.conftest import make_auth_header
+from tests.factories import make_book, make_member, make_system_admin
+
+
+class TestAddInventory:
+    async def test_adds_inventory_successfully(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        request = CreateInventory(book_id=book.id, quantity=5)
+        inventory = await InventoryService.add_inventory(test_db, system_admin.id, request)
+
+        assert inventory.id is not None
+        assert inventory.book_id == book.id
+        assert inventory.quantity == 5
+        assert inventory.added_by == system_admin.id
+
+
+    async def test_rejects_zero_quantity(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        request = CreateInventory(book_id=book.id, quantity=0)
+
+        with pytest.raises(Exception) as exc_info:
+            await InventoryService.add_inventory(test_db, system_admin.id, request)
+
+        assert exc_info.value.status_code == 400
+
+
+    async def test_rejects_negative_quantity(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        request = CreateInventory(book_id=book.id, quantity=-1)
+
+        with pytest.raises(Exception) as exc_info:
+            await InventoryService.add_inventory(test_db, system_admin.id, request)
+
+        assert exc_info.value.status_code == 400
+
+
+    async def test_rejects_invalid_book_id(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+        non_existent_book_id = book.id + 999999
+
+        request = CreateInventory(book_id=non_existent_book_id, quantity=5)
+
+        with pytest.raises(BookNotFoundError):
+            await InventoryService.add_inventory(test_db, system_admin.id, request)
+
+
+    async def test_multiple_inventory_records_for_same_book(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        r1 = CreateInventory(book_id=book.id, quantity=3)
+        r2 = CreateInventory(book_id=book.id, quantity=5)
+
+        inv1 = await InventoryService.add_inventory(test_db, system_admin.id, r1)
+        inv2 = await InventoryService.add_inventory(test_db, system_admin.id, r2)
+
+        assert inv1.id != inv2.id
+        assert inv1.quantity == 3
+        assert inv2.quantity == 5
