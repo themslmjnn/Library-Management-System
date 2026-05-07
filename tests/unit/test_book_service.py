@@ -358,3 +358,47 @@ class TestGetBooks:
         assert result.total == 0
         assert result.items == []
         assert result.has_more is False
+
+
+class TestGetBookByIDCache:
+    async def test_returns_correct_data(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        result = await BookService.get_book_by_id(test_db, book.id)
+
+        assert result["id"] == book.id
+        assert result["title"] == book.title
+        assert result["author"] == book.author
+
+
+    async def test_second_call_returns_same_result(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        result1 = await BookService.get_book_by_id(test_db, book.id)
+        result2 = await BookService.get_book_by_id(test_db, book.id)
+
+        assert result1 == result2
+
+
+    async def test_cache_invalidated_after_update(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+
+        await BookService.get_book_by_id(test_db, book.id)
+
+        await BookService.update_book(
+            test_db,
+            system_admin.id,
+            UpdateBook(title="Updated Title"),
+            book.id,
+        )
+
+        result = await BookService.get_book_by_id(test_db, book.id)
+        assert result["title"] == "Updated Title"
+
+
+    async def test_not_found_raises_after_cache_miss(self, test_db: AsyncSession, system_admin: User):
+        book = await make_book(test_db, created_by=system_admin.id)
+        non_existent_id = book.id + 999999
+
+        with pytest.raises(BookNotFoundError):
+            await BookService.get_book_by_id(test_db, non_existent_id)
