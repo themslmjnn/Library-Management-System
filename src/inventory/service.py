@@ -36,6 +36,9 @@ class InventoryService:
             await db.commit()
             await db.refresh(new_inventory)
 
+            key = inventory_detail_key(new_inventory.id)
+            await delete_cache(key)
+
             logger.info(
                 "inventory_added",
                 inventory_id=new_inventory.id,
@@ -100,13 +103,14 @@ class InventoryService:
         inventory.quantity = quantity
 
         await db.commit()
+        await db.refresh(inventory)
 
         key = inventory_detail_key(inventory_id)
         await delete_cache(key)
 
         logger.info(
             "inventory_updated",
-            inventory_id=inventory.id,
+            inventory_id=inventory_id,
             requested_by=user_id,
         )
 

@@ -254,3 +254,111 @@ class TestGetInventoryById:
         r2 = await client.get(f"/inventories/{inventory.id}", headers=headers)
 
         assert r1.json() == r2.json()
+
+class TestUpdateInventory:
+    async def test_system_admin_updates_inventory(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(system_admin)
+
+        response = await client.put(
+            f"/inventories/{inventory.id}?quantity=20",
+            # json={"quantity": 20},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json()["quantity"] == 20
+
+    async def test_library_admin_updates_inventory(
+        self, client: AsyncClient, library_admin: User, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(library_admin)
+
+        response = await client.put(
+            f"/inventories/{inventory.id}?quantity=10",
+            # json={"quantity": 10},
+            headers=headers,
+        )
+
+        assert response.status_code == 200
+
+    async def test_receptionist_cannot_update_inventory(
+        self, client: AsyncClient, receptionist: User, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(receptionist)
+
+        response = await client.put(
+            f"/inventories/{inventory.id}",
+            json={"quantity": 10},
+            headers=headers,
+        )
+
+        assert response.status_code == 403
+
+    async def test_unauthenticated_cannot_update_inventory(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+
+        response = await client.put(
+            f"/inventories/{inventory.id}",
+            json={"quantity": 10},
+        )
+
+        assert response.status_code == 401
+
+    async def test_returns_404_for_unknown_id(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(system_admin)
+
+        response = await client.put(
+            f"/inventories/{inventory.id + 999999}?quantity=10",
+            # json={"quantity": 10},
+            headers=headers,
+        )
+
+        assert response.status_code == 404
+
+    async def test_cache_invalidated_after_update(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
+        )
+        headers = make_auth_header(system_admin)
+
+        # populate cache
+        await client.get(f"/inventories/{inventory.id}", headers=headers)
+
+        # update
+        await client.put(
+            f"/inventories/{inventory.id}?quantity=77",
+            # json={"quantity": 77},
+            headers=headers,
+        )
+
+        # stale cache must be gone
+        response = await client.get(f"/inventories/{inventory.id}", headers=headers)
+        assert response.json()["quantity"] == 77
