@@ -128,3 +128,133 @@ class TestGetBookById:
         r2 = await client.get(f"/books/{book.id}")
 
         assert r1.json() == r2.json()
+
+
+class TestCreateBook:
+    async def test_system_admin_creates_book(self, client: AsyncClient, system_admin: User):
+        headers = make_auth_header(system_admin)
+        payload = {
+            "title": "New Book",
+            "author": "New Author",
+            "category": "science",
+            "description": "A great book",
+            "publishing_date": "2020-01-01",
+        }
+
+        response = await client.post("/books", json=payload, headers=headers)
+
+        assert response.status_code == 201
+        data = response.json()
+        assert data["title"] == "New Book"
+        assert data["author"] == "New Author"
+
+
+    async def test_library_admin_creates_book(self, client: AsyncClient, library_admin: User):
+        headers = make_auth_header(library_admin)
+        payload = {
+            "title": "Library Book",
+            "author": "Library Author",
+            "category": "history",
+        }
+
+        response = await client.post("/books", json=payload, headers=headers)
+
+        assert response.status_code == 201
+
+
+    async def test_receptionist_cannot_create_book(self, client: AsyncClient, receptionist: User):
+        headers = make_auth_header(receptionist)
+        payload = {
+            "title": "Forbidden Book",
+            "author": "Forbidden Author",
+            "category": "fiction",
+        }
+
+        response = await client.post("/books", json=payload, headers=headers)
+
+        assert response.status_code == 403
+
+
+    async def test_member_cannot_create_book(self, client: AsyncClient, test_db: AsyncSession):
+        member = await make_member(test_db)
+        headers = make_auth_header(member)
+        payload = {
+            "title": "Member Book",
+            "author": "Member Author",
+            "category": "fiction",
+        }
+
+        response = await client.post("/books", json=payload, headers=headers)
+
+        assert response.status_code == 403
+
+
+    async def test_unauthenticated_cannot_create_book(self, client: AsyncClient):
+        payload = {
+            "title": "Anon Book",
+            "author": "Anon Author",
+            "category": "fiction",
+        }
+
+        response = await client.post("/books", json=payload)
+
+        assert response.status_code == 401
+
+
+    async def test_rejects_duplicate_title_and_author(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        await make_book(test_db, title="Duplicate", author="Same Author", created_by=system_admin.id)
+        headers = make_auth_header(system_admin)
+        payload = {
+            "title": "Duplicate",
+            "author": "Same Author",
+            "category": "science",
+        }
+
+        response = await client.post("/books", json=payload, headers=headers)
+
+        assert response.status_code == 409
+
+
+    async def test_same_title_different_author_is_allowed(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        await make_book(test_db, title="Same Title", author="Author A", created_by=system_admin.id)
+        headers = make_auth_header(system_admin)
+        payload = {
+            "title": "Same Title",
+            "author": "Author B",
+            "category": "science",
+        }
+
+        response = await client.post("/books", json=payload, headers=headers)
+
+        assert response.status_code == 201
+
+
+    async def test_rejects_invalid_input(self, client: AsyncClient, system_admin: User):
+        headers = make_auth_header(system_admin)
+        payload = {
+            "title": "AB",          
+            "author": "CD",     
+            "category": "science",
+        }
+
+        response = await client.post("/books", json=payload, headers=headers)
+
+        assert response.status_code == 422
+
+
+    async def test_rejects_future_publishing_date(self, client: AsyncClient, system_admin: User):
+        headers = make_auth_header(system_admin)
+        payload = {
+            "title": "Future Book",
+            "author": "Future Author",
+            "category": "science",
+            "publishing_date": "2099-01-01",
+        }
+
+        response = await client.post("/books", json=payload, headers=headers)
+
+        assert response.status_code == 422
