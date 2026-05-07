@@ -97,7 +97,8 @@ class BookService:
             update_object(book, update_request)
 
             await db.commit()
-
+            await db.refresh(book)
+            
             logger.info(
                 "book_updated",
                 book_id=book.id,

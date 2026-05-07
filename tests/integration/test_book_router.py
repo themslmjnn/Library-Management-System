@@ -1,17 +1,11 @@
-import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.book.schemas import CreateBook
-from src.user.models import User, UserRole
-from src.utils.exceptions import BookNotFoundError
+from src.user.models import User
 from tests.conftest import make_auth_header
 from tests.factories import (
     make_book,
-    make_library_admin,
     make_member,
-    make_receptionist,
-    make_system_admin,
 )
 
 
@@ -258,3 +252,91 @@ class TestCreateBook:
         response = await client.post("/books", json=payload, headers=headers)
 
         assert response.status_code == 422
+
+
+class TestUpdateBook:
+    async def test_system_admin_updates_book(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        headers = make_auth_header(system_admin)
+        payload = {"title": "Updated Title"}
+
+        response = await client.put(f"/books/{book.id}", json=payload, headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["title"] == "Updated Title"
+
+
+    async def test_library_admin_updates_book(
+        self, client: AsyncClient, library_admin: User, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        headers = make_auth_header(library_admin)
+        payload = {"author": "Updated Author"}
+
+        response = await client.put(f"/books/{book.id}", json=payload, headers=headers)
+
+        assert response.status_code == 200
+        assert response.json()["author"] == "Updated Author"
+
+
+    async def test_receptionist_cannot_update_book(
+        self, client: AsyncClient, receptionist: User, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        headers = make_auth_header(receptionist)
+        payload = {"title": "Hacked Title"}
+
+        response = await client.put(f"/books/{book.id}", json=payload, headers=headers)
+
+        assert response.status_code == 403
+
+
+    async def test_unauthenticated_cannot_update_book(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        payload = {"title": "Anon Update"}
+
+        response = await client.put(f"/books/{book.id}", json=payload)
+
+        assert response.status_code == 401
+
+
+    async def test_returns_404_for_unknown_book(self, client: AsyncClient, system_admin: User, test_db: AsyncSession):
+        book = await make_book(test_db, created_by=system_admin.id)
+        headers = make_auth_header(system_admin)
+        payload = {"title": "Anything"}
+
+        response = await client.put(f"/books/{book.id + 999999}", json=payload, headers=headers)
+
+        assert response.status_code == 404
+
+
+    async def test_rejects_duplicate_title_author_on_update(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        await make_book(test_db, title="Existing", author="Author A", created_by=system_admin.id)
+        book2 = await make_book(test_db, title="Other", author="Author B", created_by=system_admin.id)
+        headers = make_auth_header(system_admin)
+
+        payload = {"title": "Existing", "author": "Author A"}
+
+        response = await client.put(f"/books/{book2.id}", json=payload, headers=headers)
+
+        assert response.status_code == 409
+
+
+    async def test_cache_invalidated_after_update(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
+        book = await make_book(test_db, created_by=system_admin.id)
+        headers = make_auth_header(system_admin)
+
+        await client.get(f"/books/{book.id}")
+
+        await client.put(f"/books/{book.id}", json={"title": "Cache Busted"}, headers=headers)
+
+        response = await client.get(f"/books/{book.id}")
+        assert response.json()["title"] == "Cache Busted"

@@ -166,6 +166,7 @@ async def make_book(
     created_by: int,
 ) -> Book:
     _id = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
+    
     book = Book(
         title=title or f"Book_{_id}",
         author=author or f"Author_{_id}",
@@ -173,6 +174,8 @@ async def make_book(
         created_by=created_by,
     )
     db.add(book)
+
     await db.commit()
     await db.refresh(book)
+
     return book

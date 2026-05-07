@@ -2,10 +2,12 @@ from unittest.mock import MagicMock
 
 import pytest
 import pytest_asyncio
+import redis.asyncio as aioredis
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import NullPool
+from sqlalchemy import NullPool, create_engine
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+import src.core.cache as cache_module
 from src.auth.schemas import CreateAccessTokenRequest
 from src.core.config import settings
 from src.core.dependencies import get_db
@@ -22,12 +24,22 @@ from tests.factories import (
     make_user,
 )
 
-TEST_DB_URL = (
-    f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+
+# async engine for tests — uses asyncpg
+ASYNC_DB_URL = (
+    f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
+    f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 )
 
+# sync engine only for table creation — uses psycopg2
+SYNC_DB_URL = (
+    f"postgresql+psycopg2://{settings.DB_USER}:{settings.DB_PASSWORD}"
+    f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+)
+
+# async engine used by all test fixtures
 test_engine = create_async_engine(
-    url=TEST_DB_URL,
+    url=ASYNC_DB_URL,
     poolclass=NullPool,
 )
 
@@ -37,15 +49,15 @@ TestSessionLocal = async_sessionmaker(
     expire_on_commit=False,
 )
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def create_tables():
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+@pytest.fixture(scope="session", autouse=True)
+def create_tables():
+    sync_engine = create_engine(SYNC_DB_URL)
+    Base.metadata.create_all(sync_engine)
 
     yield
 
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+    Base.metadata.drop_all(sync_engine)
+    sync_engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -127,3 +139,22 @@ def reset_rate_limiter():
     ip_limiter._storage.reset()
 
     yield
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def flush_cache():
+    fresh_client = aioredis.Redis(
+        host=settings.REDIS_HOST,
+        port=settings.REDIS_PORT,
+        password=settings.REDIS_PASSWORD or None,
+        db=settings.REDIS_DB,
+        decode_responses=True,
+    )
+
+    cache_module.redis_client = fresh_client
+    await fresh_client.flushdb()
+
+    yield
+
+    await fresh_client.flushdb()
+    await fresh_client.aclose()
