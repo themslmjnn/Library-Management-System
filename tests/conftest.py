@@ -24,7 +24,6 @@ from tests.factories import (
     make_user,
 )
 
-
 # async engine for tests — uses asyncpg
 ASYNC_DB_URL = (
     f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"

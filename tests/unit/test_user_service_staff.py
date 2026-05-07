@@ -2,8 +2,14 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import User, UserRole
+from src.user.schemas import CreateUserBase
 from src.user.service import UserServiceStaff
-from src.utils.exceptions import EmailAlreadyTakenError, PhonenumberAlreadyTakenError, UserNotFoundError, UsernameAlreadyTakenError
+from src.utils.exceptions import (
+    EmailAlreadyTakenError,
+    PhonenumberAlreadyTakenError,
+    UsernameAlreadyTakenError,
+    UserNotFoundError,
+)
 from tests.factories import (
     make_library_admin,
     make_member,
@@ -11,7 +17,6 @@ from tests.factories import (
     make_system_admin,
     make_user,
 )
-from src.user.schemas import CreateUserBase
 
 
 class TestCreateAccountStaff:

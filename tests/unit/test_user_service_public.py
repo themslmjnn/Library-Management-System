@@ -10,12 +10,8 @@ from src.utils.exceptions import (
     PhonenumberAlreadyTakenError,
     UsernameAlreadyTakenError,
 )
+from tests.conftest import DEFAULT_PASSWORD, NEW_PASSWORD, OLD_PASSWORD, WRONG_PASSWORD
 from tests.factories import make_member, make_user
-
-DEFAULT_PASSWORD = "Valid123!"
-OLD_PASSWORD = "OldPassword123!"
-NEW_PASSWORD = "NewPassword123!"
-WRONG_PASSWORD = "Wrong123!"
 
 
 class TestCreateAccountPublic:    

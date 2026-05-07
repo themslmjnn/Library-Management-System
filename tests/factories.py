@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.schemas import CreateRefreshTokenRequest
 from src.book.models import Book
+from src.book.repository import BookRepository
 from src.core.security import (
     create_refresh_token,
     generate_account_activation_code,
@@ -15,7 +16,6 @@ from src.user.repository import UserRepositoryBase
 
 DEFAULT_PASSWORD = "Valid123!"
 CORRECT_PASSWORD = "Correct123!"
-WRONG_PASSWORD = "Wrong123!"
 NEW_PASSWORD = "NewPassword123!"
 
 
@@ -162,24 +162,29 @@ async def make_user_with_refresh_token(test_db: AsyncSession):
 
 
 async def make_book(
-    db: AsyncSession,
+    test_db: AsyncSession,
     *,
     title: str | None = None,
     author: str | None = None,
-    category: str = "science",
+    category: str = "others",
+    description: str | None = None,
+    publishing_date: date = date(2000, 1, 1),
     created_by: int,
 ) -> Book:
     _id = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
-    
+
     book = Book(
         title=title or f"Book_{_id}",
         author=author or f"Author_{_id}",
         category=category,
+        description=description,
+        publishing_date=publishing_date,
         created_by=created_by,
     )
-    db.add(book)
 
-    await db.commit()
-    await db.refresh(book)
+    BookRepository.add_book(test_db, book)
+
+    await test_db.commit()
+    await test_db.refresh(book)
 
     return book
