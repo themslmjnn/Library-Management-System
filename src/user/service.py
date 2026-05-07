@@ -36,8 +36,8 @@ from src.utils.cache_keys import user_detail_key
 from src.utils.email import send_account_activation_code, send_invite_email
 from src.utils.exception_constants import HTTP400, HTTP404
 from src.utils.exceptions import (
-    CannotAssignSystemRoleError,
     CannotAssignSystemAdminRoleError,
+    CannotAssignSystemRoleError,
     IncorrectPasswordError,
     UserAlreadyActiveError,
     UserAlreadyInactiveError,

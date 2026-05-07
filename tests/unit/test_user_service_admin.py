@@ -14,10 +14,8 @@ from src.utils.exceptions import (
     UsernameAlreadyTakenError,
     UserNotFoundError,
 )
+from tests.conftest import NEW_PASSWORD, OLD_PASSWORD
 from tests.factories import make_library_admin, make_member, make_user
-
-OLD_PASSWORD = "OldPassword123!"
-NEW_PASSWORD = "NewPassword123!"
 
 
 class TestCreateAccountAdmin:
@@ -111,6 +109,26 @@ class TestCreateAccountAdmin:
         assert user.is_active is False
         assert user.invite_token_hash is not None
         assert user.password_hash is None
+
+
+class TestGetUserByIDAdmin:
+    async def test_get_user_by_id_admin_return_404(self, test_db: AsyncSession):
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.get_user_by_id_admin(test_db, 999999)
+
+
+    async def test_get_user_by_id_admin_return_valid_infon(self, test_db: AsyncSession):
+        user = await make_member(
+            test_db,
+            email="test_email@gmail.com",
+            phone_number="+1 000 0000",
+        )
+
+        result = await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+
+        assert result["email"] == "test_email@gmail.com"
+        assert result["phone_number"] == "+1 000 0000"
+        assert result["role"] == UserRole.member
 
 
 class TestDeactivateUserAdmin:
