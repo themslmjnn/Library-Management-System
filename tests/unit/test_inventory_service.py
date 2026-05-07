@@ -6,7 +6,12 @@ from src.inventory.service import InventoryService
 from src.user.models import User
 from src.utils.exceptions import BookNotFoundError, InventoryNotFoundError
 from tests.conftest import make_auth_header
-from tests.factories import make_book, make_library_admin, make_member, make_system_admin
+from tests.factories import (
+    make_book,
+    make_library_admin,
+    make_member,
+    make_system_admin,
+)
 
 
 class TestAddInventory:
