@@ -13,7 +13,6 @@ class LoanBase(BaseModel):
 
 class CreateLoanPublic(BaseModel):
     book_id: int = Field(ge=1)
-    inventory_id: int = Field(ge=1)
     due_at: date
 
 

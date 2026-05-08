@@ -1,3 +1,4 @@
+import itertools
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,8 @@ from src.core.security import (
     generate_invite_token,
     hash_password,
 )
+from src.inventory.models import Inventory
+from src.inventory.repository import InventoryRepository
 from src.user.models import User, UserRole
 from src.user.repository import UserRepositoryBase
 
@@ -18,6 +21,11 @@ DEFAULT_PASSWORD = "Valid123!"
 CORRECT_PASSWORD = "Correct123!"
 NEW_PASSWORD = "NewPassword123!"
 
+
+_counter = itertools.count(1)
+
+def _next() -> int:
+    return next(_counter)
 
 async def make_user(
     db: AsyncSession,
@@ -32,15 +40,15 @@ async def make_user(
     created_by: int | None = None,
 ) -> User:
     
-    _id = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
+    n = _next()
 
     new_user = User(
-        username=username or f"user_{_id}",
+        username=username or f"user_{n}",
         first_name="test_fname",
         last_name="test_lname",
         date_of_birth=date(2000, 1, 1),
-        email=email or f"user_{_id}@gmail.com",
-        phone_number=phone_number or f"+992 000 {_id:07d}",
+        email=email or f"user_{n}@gmail.com",
+        phone_number=phone_number or f"+992 000 {n:07d}",
         password_hash=hash_password(password) if has_password else None,
         role=role,
         is_active=is_active,
@@ -83,15 +91,15 @@ async def make_invited_user(
 ) -> tuple[User, str]:
 
     raw_invite_token, hashed_invite_token = generate_invite_token()
-    _id = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
+    n = _next()
 
     new_user = User(
-        username=f"invited_{_id}",
+        username=f"invited_{n}",
         first_name="Invited",
         last_name="User",
         date_of_birth=date(1995, 6, 15),
-        email=f"invited_{_id}@gmail.com",
-        phone_number=f"+1444{_id:07d}",
+        email=f"invited_{n}@gmail.com",
+        phone_number=f"+1444{n:07d}",
         password_hash=None,
         role=role,
         is_active=False,
@@ -114,15 +122,15 @@ async def make_user_with_activation_code(
 ) -> tuple[User, str]:
 
     raw_code, hashed_code = generate_account_activation_code()
-    _id = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
+    n = _next()
 
     user = User(
-        username=f"public_{_id}",
+        username=f"public_{n}",
         first_name="Public",
         last_name="User",
         date_of_birth=date(1995, 3, 20),
-        email=kwargs.get("email", f"public_{_id}@gmail.com"),
-        phone_number=kwargs.get("phone_number", f"+1333{_id:07d}"),
+        email=kwargs.get("email", f"public_{n}@gmail.com"),
+        phone_number=kwargs.get("phone_number", f"+1333{n:07d}"),
         password_hash=hash_password(NEW_PASSWORD),
         role=UserRole.guest,
         is_active=False,
@@ -146,7 +154,7 @@ async def make_user_with_refresh_token(test_db: AsyncSession):
 
     raw_refresh_token, hashed_refresh_token = create_refresh_token(
         CreateRefreshTokenRequest(
-            user_id=user.id,
+            usern=user.id,
             family="test_family_abc",
         )
     )
@@ -171,11 +179,11 @@ async def make_book(
     publishing_date: date = date(2000, 1, 1),
     created_by: int,
 ) -> Book:
-    _id = int(datetime.now(timezone.utc).timestamp() * 1000) % 100000
+    n = _next()
 
     book = Book(
-        title=title or f"Book_{_id}",
-        author=author or f"Author_{_id}",
+        title=title or f"Book_{n}",
+        author=author or f"Author_{n}",
         category=category,
         description=description,
         publishing_date=publishing_date,
@@ -188,3 +196,24 @@ async def make_book(
     await test_db.refresh(book)
 
     return book
+
+
+async def make_inventory(
+    test_db: AsyncSession,
+    *,
+    book_id: int,
+    quantity: int = 5,
+    added_by: int,
+) -> Inventory:
+    inventory = Inventory(
+        book_id=book_id,
+        quantity=quantity,
+        added_by=added_by,
+    )
+    
+    InventoryRepository.add_inventory(test_db, inventory)
+
+    await test_db.commit()
+    await test_db.refresh(inventory)
+    
+    return inventory

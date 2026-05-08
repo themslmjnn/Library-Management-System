@@ -18,7 +18,6 @@ from src.loan.schemas import (
     SearchLoanPublic,
 )
 from src.pagination import PaginatedResponse
-from src.user.models import User
 from src.user.repository import UserRepositoryBase
 from src.utils.cache_keys import loan_detail_key
 from src.utils.exception_constants import HTTP404, HTTP409
@@ -77,7 +76,7 @@ class LoanService:
 
             logger.error(
                 "create_loan_failed",
-                user_id=new_loan.user_id,
+                user_id=loan_request.user_id,
                 requested_by=current_user_id,
                 error=str(e.orig),
             )
@@ -189,7 +188,7 @@ class LoanServicePublic:
 
             logger.error(
                 "create_loan_failed",
-                user_id=new_loan.user_id,
+                user_id=user_id,
                 method="self-loaned",
                 error=str(e.orig),
             )
