@@ -44,6 +44,12 @@ class EmptyCredentialsError(AppException):
 class RefreshTokenFamilyError(AppException):
     pass
 
+class InvalidAccessTokenError(AppException):
+    pass
+
+class AccessDeniedError(AppException):
+    pass
+
 
 # USER
 class UserNotFoundError(AppException):

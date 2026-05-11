@@ -1,30 +1,18 @@
 from datetime import date, datetime
-from enum import Enum
+from typing import Annotated
 
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database import Base
-from src.utils.model_constants import (
-    created_at_constant,
-    int_pk,
-    str30_ix_non_null,
-    updated_at_constant,
-)
+from src.utils.enums import UserRole
 
+str30_ix_non_null = Annotated[str, mapped_column(String(30), index=True, nullable=False)]
 
-class UserRole(str, Enum):
-    system_admin = "system_admin"
-    library_admin = "library_admin"
-    receptionist = "receptionist"
-    member = "member"
-    guest = "guest"
 
 class User(Base):
     __tablename__ = "users"
-
-    id: Mapped[int_pk]
 
     username: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
     first_name: Mapped[str30_ix_non_null]
@@ -54,9 +42,6 @@ class User(Base):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-
-    created_at: Mapped[created_at_constant]
-    updated_at: Mapped[updated_at_constant]
 
     creator: Mapped["User | None"] = relationship(
         "User",

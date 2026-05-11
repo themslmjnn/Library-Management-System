@@ -18,6 +18,7 @@ from src.user.router_admin import router as user_router_admin
 from src.user.router_public import router as user_router_public
 from src.user.router_staff import router as user_router_staff
 from src.utils.exceptions import (
+    AccessDeniedError,
     AccountInactiveError,
     AccountLockedError,
     AppException,
@@ -32,6 +33,7 @@ from src.utils.exceptions import (
     ExpiredInviteTokenError,
     ExpiredRefreshTokenError,
     IncorrectPasswordError,
+    InvalidAccessTokenError,
     InvalidActivationCodeError,
     InvalidCredentialsError,
     InvalidInviteTokenError,
@@ -114,11 +116,14 @@ EXCEPTION_STATUS_MAP = {
     PhonenumberAlreadyTakenError:       409,
     EmptyCredentialsError:              400,
     RefreshTokenFamilyError:            401,
+    InvalidAccessTokenError:            401,
+    AccessDeniedError:                  403,
 }
 
 @app.exception_handler(AppException)
 async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
     status_code = EXCEPTION_STATUS_MAP.get(type(exc), 500)
+    
     return JSONResponse(
         status_code=status_code,
         content={"detail": exc.detail},

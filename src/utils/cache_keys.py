@@ -12,3 +12,7 @@ def user_detail_key(user_id: int) -> str:
 
 def loan_detail_key(loan_id: int) -> str:
     return f"loans:detail:{loan_id}"
+
+
+def access_token_version_key(user_id: int) -> str:
+    return f"user:token_version:{user_id}"

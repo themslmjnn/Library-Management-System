@@ -1,26 +1,15 @@
 from datetime import date
-from enum import Enum
 
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.database import Base
-from src.utils.model_constants import created_at_constant, int_pk, updated_at_constant
+from src.utils.enums import BookCategory
 
-
-class BookCategory(str, Enum):
-    self_improvement = "self improvement"
-    fiction = "fiction"
-    stories = "stories"
-    history = "history"
-    science = "science"
-    others = "others"
 
 class Book(Base):
     __tablename__ = "books"
-
-    id: Mapped[int_pk]
 
     title: Mapped[str] = mapped_column(String(50), nullable=False)
     author: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -30,9 +19,6 @@ class Book(Base):
     publishing_date: Mapped[date | None]
 
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
-
-    created_at: Mapped[created_at_constant]
-    updated_at: Mapped[updated_at_constant]
 
     book_creator: Mapped["User"] = relationship(
         "User", 
