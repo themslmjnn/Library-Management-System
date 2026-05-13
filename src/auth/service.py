@@ -63,7 +63,6 @@ class AuthService:
             path="/auth/refresh_token",
         )
 
-
     @staticmethod
     def _clear_refresh_cookie(response: Response) -> None:
         response.delete_cookie(
@@ -71,9 +70,10 @@ class AuthService:
             path="/auth/refresh_token",
         )
 
-
     @staticmethod
-    async def _invalidate_all_tokens(db: AsyncSession, current_user: CurrentUser) -> None:
+    async def _invalidate_all_tokens(
+        db: AsyncSession, current_user: CurrentUser
+    ) -> None:
         user = await UserRepositoryBase.get_user_by_id(db, current_user.id)
 
         user.access_token_version += 1
@@ -90,12 +90,13 @@ class AuthService:
             reason="explicit_invalidation",
         )
 
-
     @staticmethod
-    async def login(db: AsyncSession, response: Response, form_data: OAuth2PasswordRequestForm) -> LoginResponse:        
+    async def login(
+        db: AsyncSession, response: Response, form_data: OAuth2PasswordRequestForm
+    ) -> LoginResponse:
         if form_data.username is None or form_data.password is None:
             raise EmptyCredentialsError("Username and password is required")
-        
+
         user = await AuthRepository.get_by_login_identifier(db, form_data.username)
 
         if user is None:
@@ -125,14 +126,16 @@ class AuthService:
                 reason="no_password_set",
                 user_id=user.id,
             )
-            
+
             raise InvalidCredentialsError(HTTP401.INVALID_CREDENTIALS)
 
         if not verify_password(form_data.password, user.password_hash):
             user.failed_login_attempts += 1
 
             if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
-                user.locked_until = datetime.now(timezone.utc) + timedelta(minutes=LOCKOUT_MINUTES)
+                user.locked_until = datetime.now(timezone.utc) + timedelta(
+                    minutes=LOCKOUT_MINUTES
+                )
 
                 await db.commit()
 
@@ -184,8 +187,8 @@ class AuthService:
         )
 
         user.refresh_token_hash = hashed_refresh_token
-        user.refresh_token_expires_at = (
-            datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_DAYS)
+        user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(
+            days=settings.REFRESH_TOKEN_EXPIRES_DAYS
         )
 
         await db.commit()
@@ -198,13 +201,11 @@ class AuthService:
         )
 
         AuthService._set_refresh_cookie(response, raw_refresh_token)
-        
+
         return {
-            "access_token": access_token, 
+            "access_token": access_token,
             "token_type": "bearer",
         }
-
-
 
     @staticmethod
     async def logout(db: AsyncSession, response: Response, current_user: User) -> None:
@@ -213,14 +214,17 @@ class AuthService:
         AuthService._clear_refresh_cookie(response)
 
         logger.info(
-            "logout", 
+            "logout",
             user_id=current_user.id,
         )
 
-
     @staticmethod
-    async def activate_account_with_token(db: AsyncSession, activation_request: ActivateAccountWithToken) -> None:
-        user = await AuthRepository.get_by_login_identifier(db, activation_request.email)
+    async def activate_account_with_token(
+        db: AsyncSession, activation_request: ActivateAccountWithToken
+    ) -> None:
+        user = await AuthRepository.get_by_login_identifier(
+            db, activation_request.email
+        )
 
         if user is None or user.invite_token_hash is None:
             logger.warning(
@@ -240,7 +244,9 @@ class AuthService:
 
             raise ExpiredInviteTokenError(HTTP400.EXPIRED_INVITE_TOKEN)
 
-        if not verify_invite_token(activation_request.invite_token, user.invite_token_hash):
+        if not verify_invite_token(
+            activation_request.invite_token, user.invite_token_hash
+        ):
             logger.warning(
                 "activation_failed",
                 reason="invite_token_mismatch",
@@ -258,15 +264,18 @@ class AuthService:
         await db.refresh(user)
 
         logger.info(
-            "account_activated", 
-            user_id=user.id, 
+            "account_activated",
+            user_id=user.id,
             method="invite_token",
         )
 
-
     @staticmethod
-    async def activate_account_with_code(db: AsyncSession, activation_request: ActivateAccountWithCode) -> None:
-        user = await AuthRepository.get_by_login_identifier(db, activation_request.email)
+    async def activate_account_with_code(
+        db: AsyncSession, activation_request: ActivateAccountWithCode
+    ) -> None:
+        user = await AuthRepository.get_by_login_identifier(
+            db, activation_request.email
+        )
 
         if user is None or user.account_activation_code_hash is None:
             logger.warning(
@@ -286,7 +295,9 @@ class AuthService:
 
             raise ExpiredActivationCodeError(HTTP400.EXPIRED_ACTIVATION_CODE)
 
-        if not verify_account_activation_code(activation_request.code, user.account_activation_code_hash):
+        if not verify_account_activation_code(
+            activation_request.code, user.account_activation_code_hash
+        ):
             logger.warning(
                 "activation_failed",
                 reason="activation_code_mismatch",
@@ -303,14 +314,15 @@ class AuthService:
         await db.refresh(user)
 
         logger.info(
-            "account_activated", 
-            user_id=user.id, 
+            "account_activated",
+            user_id=user.id,
             method="activation_code",
         )
 
-
     @staticmethod
-    async def refresh_token(db: AsyncSession, response: Response, raw_refresh_token: str) -> LoginResponse:
+    async def refresh_token(
+        db: AsyncSession, response: Response, raw_refresh_token: str
+    ) -> LoginResponse:
         try:
             payload = decode_refresh_token(raw_refresh_token)
             user_id = int(payload.get("sub"))
@@ -344,8 +356,10 @@ class AuthService:
                 user_id=user.id,
                 action="all_tokens_invalidated",
             )
-            
-            raise RefreshTokenFamilyError("Security violation detected. Please log in again")
+
+            raise RefreshTokenFamilyError(
+                "Security violation detected. Please log in again"
+            )
 
         if datetime.now(timezone.utc) > user.refresh_token_expires_at:
             logger.warning(
@@ -383,22 +397,22 @@ class AuthService:
         )
 
         user.refresh_token_hash = hashed_refresh_token
-        user.refresh_token_expires_at = (
-            datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_DAYS)
+        user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(
+            days=settings.REFRESH_TOKEN_EXPIRES_DAYS
         )
 
         await db.commit()
         await db.refresh(user)
 
         logger.info(
-            "refresh_roken_rotated", 
-            user_id=user.id, 
+            "refresh_roken_rotated",
+            user_id=user.id,
             method="refresh_token",
         )
-        
+
         AuthService._set_refresh_cookie(response, raw_refresh_token)
 
         return {
-            "access_token": access_token, 
+            "access_token": access_token,
             "token_type": "bearer",
         }

@@ -1,4 +1,3 @@
-import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -15,17 +14,20 @@ CORRECT_PASSWORD = "Correct123!"
 WRONG_PASSWORD = "Wrong123!"
 NEW_PASSWORD = "NewPassword123!"
 
+
 # LOGIN
 class TestLogin:
-    async def test_login_returns_access_token(self, test_db: AsyncSession, client: AsyncClient):
+    async def test_login_returns_access_token(
+        self, test_db: AsyncSession, client: AsyncClient
+    ):
         await make_member(
-            test_db, 
-            email="login@gmail.com", 
+            test_db,
+            email="login@gmail.com",
             password=DEFAULT_PASSWORD,
         )
 
         response = await client.post(
-            "/auth/login", 
+            "/auth/login",
             data={
                 "username": "login@gmail.com",
                 "password": DEFAULT_PASSWORD,
@@ -38,16 +40,17 @@ class TestLogin:
         assert "access_token" in data
         assert data["token_type"] == "bearer"
 
-
-    async def test_login_sets_refresh_cookie(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_login_sets_refresh_cookie(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         await make_member(
-            test_db, 
-            email="cookie@gmail.com", 
+            test_db,
+            email="cookie@gmail.com",
             password=DEFAULT_PASSWORD,
         )
 
         response = await client.post(
-            "/auth/login", 
+            "/auth/login",
             data={
                 "username": "cookie@gmail.com",
                 "password": DEFAULT_PASSWORD,
@@ -57,16 +60,17 @@ class TestLogin:
         assert response.status_code == 200
         assert "refresh_token" in response.cookies
 
-
-    async def test_login_fails_wrong_password(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_login_fails_wrong_password(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         await make_member(
-            test_db, 
-            email="wrongpass@gmail.com", 
+            test_db,
+            email="wrongpass@gmail.com",
             password=DEFAULT_PASSWORD,
         )
 
         response = await client.post(
-            "/auth/login", 
+            "/auth/login",
             data={
                 "username": "wrongpass@gmail.com",
                 "password": WRONG_PASSWORD,
@@ -75,10 +79,9 @@ class TestLogin:
 
         assert response.status_code == 401
 
-
     async def test_login_fails_unknown_user(self, client: AsyncClient):
         response = await client.post(
-            "/auth/login", 
+            "/auth/login",
             data={
                 "username": "ghost@gmail.com",
                 "password": CORRECT_PASSWORD,
@@ -87,17 +90,18 @@ class TestLogin:
 
         assert response.status_code == 401
 
-
-    async def test_login_fails_inactive_account(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_login_fails_inactive_account(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         await make_member(
-            test_db, 
-            email="inactive@gmail.com", 
-            password=CORRECT_PASSWORD, 
+            test_db,
+            email="inactive@gmail.com",
+            password=CORRECT_PASSWORD,
             is_active=False,
         )
 
         response = await client.post(
-            "/auth/login", 
+            "/auth/login",
             data={
                 "username": "inactive@gmail.com",
                 "password": CORRECT_PASSWORD,
@@ -106,16 +110,17 @@ class TestLogin:
 
         assert response.status_code == 403
 
-
-    async def test_login_does_not_expose_whether_email_exists(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_login_does_not_expose_whether_email_exists(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         await make_member(
-            test_db, 
-            email="exists@gmail.com", 
+            test_db,
+            email="exists@gmail.com",
             password=DEFAULT_PASSWORD,
         )
 
         r1 = await client.post(
-            "/auth/login", 
+            "/auth/login",
             data={
                 "username": "exists@gmail.com",
                 "password": WRONG_PASSWORD,
@@ -123,7 +128,7 @@ class TestLogin:
         )
 
         r2 = await client.post(
-            "/auth/login", 
+            "/auth/login",
             data={
                 "username": "notexists@gmail.com",
                 "password": WRONG_PASSWORD,
@@ -140,21 +145,22 @@ class TestLogout:
         headers = make_auth_header(user)
 
         response = await client.post(
-            "/auth/logout", 
+            "/auth/logout",
             headers=headers,
         )
 
         assert response.status_code == 204
 
-
-    async def test_logout_clears_refresh_cookie(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_logout_clears_refresh_cookie(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user = await make_member(
-            test_db, 
+            test_db,
             password=CORRECT_PASSWORD,
         )
 
         await client.post(
-            "/auth/login", 
+            "/auth/login",
             data={
                 "username": user.email,
                 "password": CORRECT_PASSWORD,
@@ -164,7 +170,7 @@ class TestLogout:
         headers = make_auth_header(user)
 
         response = await client.post(
-            "/auth/logout", 
+            "/auth/logout",
             headers=headers,
         )
 
@@ -173,26 +179,26 @@ class TestLogout:
         assert not cookie
         assert response.status_code == 204
 
-
     async def test_logout_requires_authentication(self, client: AsyncClient):
         response = await client.post("/auth/logout")
 
         assert response.status_code == 401
 
-
-    async def test_token_rejected_after_logout(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_token_rejected_after_logout(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user = await make_member(test_db)
         headers = make_auth_header(user)
 
         await client.post(
-            "/auth/logout", 
+            "/auth/logout",
             headers=headers,
         )
 
         await test_db.refresh(user)
-        
+
         response = await client.get(
-            "/users/me", 
+            "/users/me",
             headers=headers,
         )
 
@@ -200,14 +206,16 @@ class TestLogout:
 
 
 class TestActivateWithToken:
-    async def test_activation_succeeds(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_activation_succeeds(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user, raw_token = await make_invited_user(
-            test_db, 
+            test_db,
             role=UserRole.member,
         )
 
         response = await client.post(
-            "/auth/activate_with_token", 
+            "/auth/activate_with_token",
             json={
                 "email": user.email,
                 "invite_token": raw_token,
@@ -221,12 +229,13 @@ class TestActivateWithToken:
 
         assert user.is_active is True
 
-
-    async def test_activation_fails_wrong_token(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_activation_fails_wrong_token(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user, _ = await make_invited_user(test_db)
 
         response = await client.post(
-            "/auth/activate_with_token", 
+            "/auth/activate_with_token",
             json={
                 "email": user.email,
                 "invite_token": "completelyWrongToken",
@@ -236,13 +245,14 @@ class TestActivateWithToken:
 
         assert response.status_code == 400
 
-
-    async def test_activation_fails_bad_password(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_activation_fails_bad_password(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user, raw_token = await make_invited_user(test_db)
 
         response = await client.post(
-            "/auth/activate_with_token", 
-                json={
+            "/auth/activate_with_token",
+            json={
                 "email": user.email,
                 "invite_token": raw_token,
                 "password": "weak",
@@ -251,8 +261,9 @@ class TestActivateWithToken:
 
         assert response.status_code == 422
 
-
-    async def test_token_cannot_be_used_twice(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_token_cannot_be_used_twice(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user, raw_token = await make_invited_user(test_db)
 
         payload = {
@@ -274,12 +285,14 @@ class TestActivateWithToken:
 
 
 class TestActivateWithCode:
-    async def test_activation_succeeds(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_activation_succeeds(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user, raw_code = await make_user_with_activation_code(test_db)
 
         response = await client.post(
-            "/auth/activate_with_code", 
-                json={
+            "/auth/activate_with_code",
+            json={
                 "email": user.email,
                 "code": raw_code,
             },
@@ -291,13 +304,14 @@ class TestActivateWithCode:
 
         assert user.is_active is True
 
-
-    async def test_activation_fails_wrong_code(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_activation_fails_wrong_code(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user, _ = await make_user_with_activation_code(test_db)
 
         response = await client.post(
-            "/auth/activate_with_code", 
-                json={
+            "/auth/activate_with_code",
+            json={
                 "email": user.email,
                 "code": "000000ff",
             },
@@ -305,12 +319,13 @@ class TestActivateWithCode:
 
         assert response.status_code == 400
 
-
-    async def test_code_cannot_be_used_twice(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_code_cannot_be_used_twice(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user, raw_code = await make_user_with_activation_code(test_db)
 
         payload = {
-            "email": user.email, 
+            "email": user.email,
             "code": raw_code,
         }
 
@@ -320,14 +335,10 @@ class TestActivateWithCode:
         assert r1.status_code == 204
         assert r2.status_code == 400
 
-
     async def test_activation_fails_unknown_email(self, client, test_db):
         response = await client.post(
             "/auth/activate_with_code",
-            json={
-                "email": "nobody@gmail.com", 
-                "code": "anycode"
-            },
+            json={"email": "nobody@gmail.com", "code": "anycode"},
         )
 
         assert response.status_code == 400
@@ -338,7 +349,7 @@ class TestRefreshToken:
         user = await make_member(test_db, password=DEFAULT_PASSWORD)
 
         await client.post(
-            "/auth/login", 
+            "/auth/login",
             data={
                 "username": user.email,
                 "password": DEFAULT_PASSWORD,
@@ -353,22 +364,22 @@ class TestRefreshToken:
         assert "access_token" in data
         assert data["token_type"] == "bearer"
 
-
     async def test_refresh_fails_without_cookie(self, client: AsyncClient):
         response = await client.post("/auth/refresh_token")
 
         assert response.status_code == 401
 
-
-    async def test_refresh_rotates_cookie(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_refresh_rotates_cookie(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         user = await make_member(
-            test_db, 
+            test_db,
             password=CORRECT_PASSWORD,
         )
 
         await client.post(
-            "/auth/login", 
-                data={
+            "/auth/login",
+            data={
                 "username": user.email,
                 "password": CORRECT_PASSWORD,
             },
@@ -380,20 +391,19 @@ class TestRefreshToken:
 
         assert old_cookie != new_cookie
 
-
     async def test_reused_refresh_token_invalidates_all_sessions(
         self, client: AsyncClient, test_db: AsyncSession
     ):
         user = await make_member(
-            test_db, 
+            test_db,
             password=CORRECT_PASSWORD,
         )
 
         original_version = user.access_token_version
 
         await client.post(
-            "/auth/login", 
-                data={
+            "/auth/login",
+            data={
                 "username": user.email,
                 "password": CORRECT_PASSWORD,
             },

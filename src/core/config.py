@@ -13,7 +13,7 @@ class Settings(BaseSettings):
 
     ACCESS_TOKEN_EXPIRES_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRES_DAYS: int = 7
-    
+
     ENVIRONMENT: str = "development"
 
     REDIS_HOST: str = "localhost"
@@ -24,11 +24,12 @@ class Settings(BaseSettings):
     @property
     def DB_URL(self):
         return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-    
+
     @property
     def cookie_secure(self) -> bool:
         return self.ENVIRONMENT == "production"
-    
+
     model_config = SettingsConfigDict(env_file=".env")
+
 
 settings = Settings()

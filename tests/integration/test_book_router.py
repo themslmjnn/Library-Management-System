@@ -10,15 +10,18 @@ from tests.factories import (
 
 
 class TestGetBooks:
-    async def test_public_access_returns_200(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_public_access_returns_200(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         await make_book(test_db, created_by=system_admin.id)
 
         response = await client.get("/books")
 
         assert response.status_code == 200
 
-
-    async def test_returns_paginated_shape(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_returns_paginated_shape(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         await make_book(test_db, created_by=system_admin.id)
 
         response = await client.get("/books")
@@ -30,8 +33,9 @@ class TestGetBooks:
         assert "limit" in data
         assert "has_more" in data
 
-
-    async def test_pagination_params_work(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_pagination_params_work(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         for _ in range(5):
             await make_book(test_db, created_by=system_admin.id)
 
@@ -41,8 +45,9 @@ class TestGetBooks:
         assert len(data["items"]) == 2
         assert data["has_more"] is True
 
-
-    async def test_category_filter_works(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_category_filter_works(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         await make_book(test_db, category="fiction", created_by=system_admin.id)
         await make_book(test_db, category="fiction", created_by=system_admin.id)
         await make_book(test_db, category="science", created_by=system_admin.id)
@@ -53,8 +58,9 @@ class TestGetBooks:
         assert data["total"] == 2
         assert all(b["category"] == "fiction" for b in data["items"])
 
-
-    async def test_title_search_works(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_title_search_works(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         await make_book(test_db, title="Django Unleashed", created_by=system_admin.id)
         await make_book(test_db, title="Flask Web Dev", created_by=system_admin.id)
 
@@ -64,8 +70,9 @@ class TestGetBooks:
         assert data["total"] == 1
         assert data["items"][0]["title"] == "Django Unleashed"
 
-
-    async def test_sort_order_works(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_sort_order_works(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         await make_book(test_db, title="Zebra", created_by=system_admin.id)
         await make_book(test_db, title="Apple", created_by=system_admin.id)
 
@@ -75,8 +82,9 @@ class TestGetBooks:
         titles = [b["title"] for b in data["items"]]
         assert titles == sorted(titles)
 
-
-    async def test_empty_result_for_no_match(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_empty_result_for_no_match(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         await make_book(test_db, created_by=system_admin.id)
 
         response = await client.get("/books?title=zzz_no_match_zzz")
@@ -87,15 +95,18 @@ class TestGetBooks:
 
 
 class TestGetBookById:
-    async def test_public_access_returns_200(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_public_access_returns_200(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(test_db, created_by=system_admin.id)
 
         response = await client.get(f"/books/{book.id}")
 
         assert response.status_code == 200
 
-
-    async def test_returns_correct_fields(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_returns_correct_fields(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(test_db, created_by=system_admin.id)
 
         response = await client.get(f"/books/{book.id}")
@@ -106,16 +117,18 @@ class TestGetBookById:
         assert data["author"] == book.author
         assert data["category"] == book.category
 
-
-    async def test_returns_404_for_unknown_id(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_returns_404_for_unknown_id(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(test_db, created_by=system_admin.id)
 
         response = await client.get(f"/books/{book.id + 999999}")
 
         assert response.status_code == 404
 
-
-    async def test_second_request_returns_same_data(self, client: AsyncClient, test_db: AsyncSession, system_admin: User):
+    async def test_second_request_returns_same_data(
+        self, client: AsyncClient, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(test_db, created_by=system_admin.id)
 
         r1 = await client.get(f"/books/{book.id}")
@@ -125,7 +138,9 @@ class TestGetBookById:
 
 
 class TestCreateBook:
-    async def test_system_admin_creates_book(self, client: AsyncClient, system_admin: User):
+    async def test_system_admin_creates_book(
+        self, client: AsyncClient, system_admin: User
+    ):
         headers = make_auth_header(system_admin)
         payload = {
             "title": "New Book",
@@ -142,8 +157,9 @@ class TestCreateBook:
         assert data["title"] == "New Book"
         assert data["author"] == "New Author"
 
-
-    async def test_library_admin_creates_book(self, client: AsyncClient, library_admin: User):
+    async def test_library_admin_creates_book(
+        self, client: AsyncClient, library_admin: User
+    ):
         headers = make_auth_header(library_admin)
         payload = {
             "title": "Library Book",
@@ -155,8 +171,9 @@ class TestCreateBook:
 
         assert response.status_code == 201
 
-
-    async def test_receptionist_cannot_create_book(self, client: AsyncClient, receptionist: User):
+    async def test_receptionist_cannot_create_book(
+        self, client: AsyncClient, receptionist: User
+    ):
         headers = make_auth_header(receptionist)
         payload = {
             "title": "Forbidden Book",
@@ -168,8 +185,9 @@ class TestCreateBook:
 
         assert response.status_code == 403
 
-
-    async def test_member_cannot_create_book(self, client: AsyncClient, test_db: AsyncSession):
+    async def test_member_cannot_create_book(
+        self, client: AsyncClient, test_db: AsyncSession
+    ):
         member = await make_member(test_db)
         headers = make_auth_header(member)
         payload = {
@@ -182,7 +200,6 @@ class TestCreateBook:
 
         assert response.status_code == 403
 
-
     async def test_unauthenticated_cannot_create_book(self, client: AsyncClient):
         payload = {
             "title": "Anon Book",
@@ -194,11 +211,12 @@ class TestCreateBook:
 
         assert response.status_code == 401
 
-
     async def test_rejects_duplicate_title_and_author(
         self, client: AsyncClient, system_admin: User, test_db: AsyncSession
     ):
-        await make_book(test_db, title="Duplicate", author="Same Author", created_by=system_admin.id)
+        await make_book(
+            test_db, title="Duplicate", author="Same Author", created_by=system_admin.id
+        )
         headers = make_auth_header(system_admin)
         payload = {
             "title": "Duplicate",
@@ -210,11 +228,12 @@ class TestCreateBook:
 
         assert response.status_code == 409
 
-
     async def test_same_title_different_author_is_allowed(
         self, client: AsyncClient, system_admin: User, test_db: AsyncSession
     ):
-        await make_book(test_db, title="Same Title", author="Author A", created_by=system_admin.id)
+        await make_book(
+            test_db, title="Same Title", author="Author A", created_by=system_admin.id
+        )
         headers = make_auth_header(system_admin)
         payload = {
             "title": "Same Title",
@@ -226,12 +245,11 @@ class TestCreateBook:
 
         assert response.status_code == 201
 
-
     async def test_rejects_invalid_input(self, client: AsyncClient, system_admin: User):
         headers = make_auth_header(system_admin)
         payload = {
-            "title": "AB",          
-            "author": "CD",     
+            "title": "AB",
+            "author": "CD",
             "category": "science",
         }
 
@@ -239,8 +257,9 @@ class TestCreateBook:
 
         assert response.status_code == 422
 
-
-    async def test_rejects_future_publishing_date(self, client: AsyncClient, system_admin: User):
+    async def test_rejects_future_publishing_date(
+        self, client: AsyncClient, system_admin: User
+    ):
         headers = make_auth_header(system_admin)
         payload = {
             "title": "Future Book",
@@ -267,9 +286,12 @@ class TestUpdateBook:
         assert response.status_code == 200
         assert response.json()["title"] == "Updated Title"
 
-
     async def test_library_admin_updates_book(
-        self, client: AsyncClient, library_admin: User, test_db: AsyncSession, system_admin: User
+        self,
+        client: AsyncClient,
+        library_admin: User,
+        test_db: AsyncSession,
+        system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         headers = make_auth_header(library_admin)
@@ -280,9 +302,12 @@ class TestUpdateBook:
         assert response.status_code == 200
         assert response.json()["author"] == "Updated Author"
 
-
     async def test_receptionist_cannot_update_book(
-        self, client: AsyncClient, receptionist: User, test_db: AsyncSession, system_admin: User
+        self,
+        client: AsyncClient,
+        receptionist: User,
+        test_db: AsyncSession,
+        system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         headers = make_auth_header(receptionist)
@@ -291,7 +316,6 @@ class TestUpdateBook:
         response = await client.put(f"/books/{book.id}", json=payload, headers=headers)
 
         assert response.status_code == 403
-
 
     async def test_unauthenticated_cannot_update_book(
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
@@ -303,22 +327,28 @@ class TestUpdateBook:
 
         assert response.status_code == 401
 
-
-    async def test_returns_404_for_unknown_book(self, client: AsyncClient, system_admin: User, test_db: AsyncSession):
+    async def test_returns_404_for_unknown_book(
+        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
+    ):
         book = await make_book(test_db, created_by=system_admin.id)
         headers = make_auth_header(system_admin)
         payload = {"title": "Anything"}
 
-        response = await client.put(f"/books/{book.id + 999999}", json=payload, headers=headers)
+        response = await client.put(
+            f"/books/{book.id + 999999}", json=payload, headers=headers
+        )
 
         assert response.status_code == 404
-
 
     async def test_rejects_duplicate_title_author_on_update(
         self, client: AsyncClient, system_admin: User, test_db: AsyncSession
     ):
-        await make_book(test_db, title="Existing", author="Author A", created_by=system_admin.id)
-        book2 = await make_book(test_db, title="Other", author="Author B", created_by=system_admin.id)
+        await make_book(
+            test_db, title="Existing", author="Author A", created_by=system_admin.id
+        )
+        book2 = await make_book(
+            test_db, title="Other", author="Author B", created_by=system_admin.id
+        )
         headers = make_auth_header(system_admin)
 
         payload = {"title": "Existing", "author": "Author A"}
@@ -326,7 +356,6 @@ class TestUpdateBook:
         response = await client.put(f"/books/{book2.id}", json=payload, headers=headers)
 
         assert response.status_code == 409
-
 
     async def test_cache_invalidated_after_update(
         self, client: AsyncClient, system_admin: User, test_db: AsyncSession
@@ -336,7 +365,9 @@ class TestUpdateBook:
 
         await client.get(f"/books/{book.id}")
 
-        await client.put(f"/books/{book.id}", json={"title": "Cache Busted"}, headers=headers)
+        await client.put(
+            f"/books/{book.id}", json={"title": "Cache Busted"}, headers=headers
+        )
 
         response = await client.get(f"/books/{book.id}")
         assert response.json()["title"] == "Cache Busted"

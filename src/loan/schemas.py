@@ -31,6 +31,7 @@ class SearchLoan(BaseModel):
     due_at: date | None = None
     returned_at: date | None = None
 
+
 class SearchLoanPublic(BaseModel):
     book_id: int | None = None
     due_at: date | None = None

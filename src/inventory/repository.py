@@ -7,11 +7,10 @@ from src.inventory.schemas import CreateInventory, SearchInventory
 ALLOWED_SORT_FIELDS_INVENTORY = {"added_at", "book_id", "added_by"}
 
 
-class InventoryRepository:    
+class InventoryRepository:
     @staticmethod
     def add_inventory(db: AsyncSession, new_inventory: CreateInventory) -> None:
         db.add(new_inventory)
-
 
     @staticmethod
     async def get_inventories(
@@ -22,7 +21,7 @@ class InventoryRepository:
         sort_by: str = "added_at",
         order: str = "desc",
     ) -> tuple[list[Inventory], int]:
-        
+
         base_query = select(Inventory)
 
         if filters:
@@ -46,38 +45,35 @@ class InventoryRepository:
             base_query = base_query.order_by(sort_column.asc())
 
         count_result = await db.execute(
-            select(func.count())
-            .select_from(base_query.subquery())
+            select(func.count()).select_from(base_query.subquery())
         )
 
-        total  = count_result.scalar_one()
+        total = count_result.scalar_one()
 
-        result = await db.execute(
-            base_query.offset(skip).limit(limit)
-        )
+        result = await db.execute(base_query.offset(skip).limit(limit))
 
         return result.scalars().all(), total
 
-    
     @staticmethod
-    async def get_inventory_by_id(db: AsyncSession, inventory_id: int) -> Inventory | None:
-        query = (
-            select(Inventory)
-            .filter(Inventory.id == inventory_id)
-        )
+    async def get_inventory_by_id(
+        db: AsyncSession, inventory_id: int
+    ) -> Inventory | None:
+        query = select(Inventory).filter(Inventory.id == inventory_id)
 
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
 
-    
     @staticmethod
-    async def get_available_inventories(db: AsyncSession, book_id: int) -> list[Inventory]:
+    async def get_available_inventories(
+        db: AsyncSession, book_id: int
+    ) -> list[Inventory]:
         query = (
             select(Inventory)
-            .filter(and_(
-                Inventory.quantity != 0,
-                Inventory.book_id == book_id,
+            .filter(
+                and_(
+                    Inventory.quantity != 0,
+                    Inventory.book_id == book_id,
                 )
             )
             .order_by(Inventory.added_at.asc())

@@ -24,8 +24,10 @@ NEW_PASSWORD = "NewPassword123!"
 
 _counter = itertools.count(1)
 
+
 def _next() -> int:
     return next(_counter)
+
 
 async def make_user(
     db: AsyncSession,
@@ -39,7 +41,7 @@ async def make_user(
     has_password: bool = True,
     created_by: int | None = None,
 ) -> User:
-    
+
     n = _next()
 
     new_user = User(
@@ -135,7 +137,8 @@ async def make_user_with_activation_code(
         role=UserRole.guest,
         is_active=False,
         account_activation_code_hash=hashed_code,
-        account_activation_code_expires_at=datetime.now(timezone.utc) + timedelta(days=1),
+        account_activation_code_expires_at=datetime.now(timezone.utc)
+        + timedelta(days=1),
     )
 
     UserRepositoryBase.add_user(test_db, user)
@@ -148,7 +151,7 @@ async def make_user_with_activation_code(
 
 async def make_user_with_refresh_token(test_db: AsyncSession):
     user = await make_member(
-        test_db, 
+        test_db,
         password=CORRECT_PASSWORD,
     )
 
@@ -210,10 +213,10 @@ async def make_inventory(
         quantity=quantity,
         added_by=added_by,
     )
-    
+
     InventoryRepository.add_inventory(test_db, inventory)
 
     await test_db.commit()
     await test_db.refresh(inventory)
-    
+
     return inventory

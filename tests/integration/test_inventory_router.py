@@ -1,12 +1,14 @@
-import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.inventory.service import InventoryService
-from src.user.models import User, UserRole
 from src.inventory.schemas import CreateInventory
-from tests.factories import make_book, make_member, make_receptionist, make_library_admin
+from src.inventory.service import InventoryService
+from src.user.models import User
 from tests.conftest import make_auth_header
+from tests.factories import (
+    make_book,
+    make_member,
+)
 
 
 class TestAddInventory:
@@ -26,7 +28,11 @@ class TestAddInventory:
         assert data["added_by"] == system_admin.id
 
     async def test_library_admin_adds_inventory(
-        self, client: AsyncClient, library_admin: User, test_db: AsyncSession, system_admin: User
+        self,
+        client: AsyncClient,
+        library_admin: User,
+        test_db: AsyncSession,
+        system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         headers = make_auth_header(library_admin)
@@ -37,7 +43,11 @@ class TestAddInventory:
         assert response.status_code == 201
 
     async def test_receptionist_cannot_add_inventory(
-        self, client: AsyncClient, receptionist: User, test_db: AsyncSession, system_admin: User
+        self,
+        client: AsyncClient,
+        receptionist: User,
+        test_db: AsyncSession,
+        system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         headers = make_auth_header(receptionist)
@@ -121,7 +131,11 @@ class TestGetInventories:
         assert "total" in data
 
     async def test_library_admin_gets_inventories(
-        self, client: AsyncClient, library_admin: User, test_db: AsyncSession, system_admin: User
+        self,
+        client: AsyncClient,
+        library_admin: User,
+        test_db: AsyncSession,
+        system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         await InventoryService.add_inventory(
@@ -212,12 +226,18 @@ class TestGetInventoryById:
         )
         headers = make_auth_header(system_admin)
 
-        response = await client.get(f"/inventories/{inventory.id + 999999}", headers=headers)
+        response = await client.get(
+            f"/inventories/{inventory.id + 999999}", headers=headers
+        )
 
         assert response.status_code == 404
 
     async def test_receptionist_cannot_get_by_id(
-        self, client: AsyncClient, receptionist: User, test_db: AsyncSession, system_admin: User
+        self,
+        client: AsyncClient,
+        receptionist: User,
+        test_db: AsyncSession,
+        system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         inventory = await InventoryService.add_inventory(
@@ -255,6 +275,7 @@ class TestGetInventoryById:
 
         assert r1.json() == r2.json()
 
+
 class TestUpdateInventory:
     async def test_system_admin_updates_inventory(
         self, client: AsyncClient, system_admin: User, test_db: AsyncSession
@@ -275,7 +296,11 @@ class TestUpdateInventory:
         assert response.json()["quantity"] == 20
 
     async def test_library_admin_updates_inventory(
-        self, client: AsyncClient, library_admin: User, test_db: AsyncSession, system_admin: User
+        self,
+        client: AsyncClient,
+        library_admin: User,
+        test_db: AsyncSession,
+        system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         inventory = await InventoryService.add_inventory(
@@ -292,7 +317,11 @@ class TestUpdateInventory:
         assert response.status_code == 200
 
     async def test_receptionist_cannot_update_inventory(
-        self, client: AsyncClient, receptionist: User, test_db: AsyncSession, system_admin: User
+        self,
+        client: AsyncClient,
+        receptionist: User,
+        test_db: AsyncSession,
+        system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         inventory = await InventoryService.add_inventory(

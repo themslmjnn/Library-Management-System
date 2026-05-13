@@ -5,6 +5,7 @@ from fastapi import Path
 # --- Path Parameters ---
 path_param_int_ge1 = Annotated[int, Path(ge=1)]
 
+
 # --- HTTP 400 Bad Request ---
 class HTTP400:
     INCORRECT_PASSWORD = "Incorrect old password"

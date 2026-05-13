@@ -13,33 +13,38 @@ from tests.factories import (
 
 
 class TestAddInventory:
-    async def test_adds_inventory_successfully(self, test_db: AsyncSession, system_admin: User):
+    async def test_adds_inventory_successfully(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
         request = CreateInventory(
-            book_id=book.id, 
+            book_id=book.id,
             quantity=5,
         )
 
-        inventory = await InventoryService.add_inventory(test_db, system_admin.id, request)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, request
+        )
 
         assert inventory.id is not None
         assert inventory.book_id == book.id
         assert inventory.quantity == 5
         assert inventory.added_by == system_admin.id
 
-
-    async def test_rejects_zero_quantity(self, test_db: AsyncSession, system_admin: User):
+    async def test_rejects_zero_quantity(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
         request = CreateInventory(
-            book_id=book.id, 
+            book_id=book.id,
             quantity=0,
         )
 
@@ -48,55 +53,53 @@ class TestAddInventory:
 
         assert exc_info.value.status_code == 400
 
-
-    async def test_rejects_negative_quantity(self, test_db: AsyncSession, system_admin: User):
+    async def test_rejects_negative_quantity(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
-        request = CreateInventory(
-            book_id=book.id, 
-            quantity=-1
-        )
+        request = CreateInventory(book_id=book.id, quantity=-1)
 
         with pytest.raises(Exception) as exc_info:
             await InventoryService.add_inventory(test_db, system_admin.id, request)
 
         assert exc_info.value.status_code == 400
 
-
-    async def test_rejects_invalid_book_id(self, test_db: AsyncSession, system_admin: User):
+    async def test_rejects_invalid_book_id(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
         non_existent_book_id = book.id + 999999
 
         request = CreateInventory(
-            book_id=non_existent_book_id, 
+            book_id=non_existent_book_id,
             quantity=5,
         )
 
         with pytest.raises(BookNotFoundError):
             await InventoryService.add_inventory(test_db, system_admin.id, request)
 
-
     async def test_multiple_inventory_records_for_same_book(
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
         r1 = CreateInventory(
-            book_id=book.id, 
+            book_id=book.id,
             quantity=3,
         )
         r2 = CreateInventory(
-            book_id=book.id, 
+            book_id=book.id,
             quantity=5,
         )
 
@@ -109,18 +112,22 @@ class TestAddInventory:
 
 
 class TestGetInventoryById:
-    async def test_returns_correct_inventory(self, test_db: AsyncSession, system_admin: User):
+    async def test_returns_correct_inventory(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
         request = CreateInventory(
-            book_id=book.id, 
+            book_id=book.id,
             quantity=10,
         )
 
-        inventory = await InventoryService.add_inventory(test_db, system_admin.id, request)
+        inventory = await InventoryService.add_inventory(
+            test_db, system_admin.id, request
+        )
 
         result = await InventoryService.get_inventory_by_id(test_db, inventory.id)
 
@@ -129,10 +136,11 @@ class TestGetInventoryById:
         assert result["quantity"] == 10
         assert result["added_by"] == system_admin.id
 
-
-    async def test_raises_for_unknown_id(self, test_db: AsyncSession, system_admin: User):
+    async def test_raises_for_unknown_id(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -145,10 +153,11 @@ class TestGetInventoryById:
         with pytest.raises(InventoryNotFoundError):
             await InventoryService.get_inventory_by_id(test_db, non_existent_id)
 
-
-    async def test_second_call_returns_cached_result(self, test_db: AsyncSession, system_admin: User):
+    async def test_second_call_returns_cached_result(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -161,10 +170,11 @@ class TestGetInventoryById:
 
         assert result1 == result2
 
-
-    async def test_cache_invalidated_after_update(self, test_db: AsyncSession, system_admin: User):
+    async def test_cache_invalidated_after_update(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -174,7 +184,9 @@ class TestGetInventoryById:
 
         await InventoryService.get_inventory_by_id(test_db, inventory.id)
 
-        await InventoryService.update_inventory(test_db, system_admin.id, 99, inventory.id)
+        await InventoryService.update_inventory(
+            test_db, system_admin.id, 99, inventory.id
+        )
 
         result = await InventoryService.get_inventory_by_id(test_db, inventory.id)
 
@@ -182,9 +194,11 @@ class TestGetInventoryById:
 
 
 class TestGetInventories:
-    async def test_returns_paginated_response(self, test_db: AsyncSession, system_admin: User):
+    async def test_returns_paginated_response(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -206,10 +220,11 @@ class TestGetInventories:
         assert "total" in result.model_dump()
         assert result.total >= 3
 
-
-    async def test_pagination_limit_works(self, test_db: AsyncSession, system_admin: User):
+    async def test_pagination_limit_works(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -230,14 +245,13 @@ class TestGetInventories:
         assert len(result.items) == 2
         assert result.has_more is True
 
-
     async def test_filters_by_book_id(self, test_db: AsyncSession, system_admin: User):
         book1 = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
         book2 = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -260,11 +274,10 @@ class TestGetInventories:
         assert result.total == 1
         assert result.items[0].book_id == book1.id
 
-
     async def test_filters_by_added_by(self, test_db: AsyncSession, system_admin: User):
         library_admin = await make_library_admin(test_db)
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -287,10 +300,11 @@ class TestGetInventories:
         assert result.total == 1
         assert result.items[0].added_by == system_admin.id
 
-
-    async def test_empty_result_when_no_match(self, test_db: AsyncSession, system_admin: User):
+    async def test_empty_result_when_no_match(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -312,9 +326,11 @@ class TestGetInventories:
 
 
 class TestUpdateInventory:
-    async def test_updates_quantity_successfully(self, test_db: AsyncSession, system_admin: User):
+    async def test_updates_quantity_successfully(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -322,15 +338,18 @@ class TestUpdateInventory:
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
 
-        await InventoryService.update_inventory(test_db, system_admin.id, 20, inventory.id)
+        await InventoryService.update_inventory(
+            test_db, system_admin.id, 20, inventory.id
+        )
         await test_db.refresh(inventory)
 
         assert inventory.quantity == 20
 
-
-    async def test_update_to_zero_quantity(self, test_db: AsyncSession, system_admin: User):
+    async def test_update_to_zero_quantity(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -338,15 +357,18 @@ class TestUpdateInventory:
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
 
-        await InventoryService.update_inventory(test_db, system_admin.id, 0, inventory.id)
+        await InventoryService.update_inventory(
+            test_db, system_admin.id, 0, inventory.id
+        )
         await test_db.refresh(inventory)
 
         assert inventory.quantity == 0
 
-
-    async def test_raises_for_unknown_id(self, test_db: AsyncSession, system_admin: User):
+    async def test_raises_for_unknown_id(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -356,12 +378,15 @@ class TestUpdateInventory:
         non_existent_id = inventory.id + 999999
 
         with pytest.raises(InventoryNotFoundError):
-            await InventoryService.update_inventory(test_db, system_admin.id, 10, non_existent_id)
+            await InventoryService.update_inventory(
+                test_db, system_admin.id, 10, non_existent_id
+            )
 
-
-    async def test_cache_invalidated_after_update(self, test_db: AsyncSession, system_admin: User):
+    async def test_cache_invalidated_after_update(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -371,7 +396,9 @@ class TestUpdateInventory:
 
         await InventoryService.get_inventory_by_id(test_db, inventory.id)
 
-        await InventoryService.update_inventory(test_db, system_admin.id, 50, inventory.id)
+        await InventoryService.update_inventory(
+            test_db, system_admin.id, 50, inventory.id
+        )
 
         result = await InventoryService.get_inventory_by_id(test_db, inventory.id)
 
@@ -379,9 +406,11 @@ class TestUpdateInventory:
 
 
 class TestGetAvailableInventories:
-    async def test_returns_inventories_with_stock(self, test_db: AsyncSession, system_admin: User):
+    async def test_returns_inventories_with_stock(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -394,10 +423,11 @@ class TestGetAvailableInventories:
         assert len(result) >= 1
         assert all(i.quantity > 0 for i in result)
 
-
-    async def test_excludes_zero_quantity_records(self, test_db: AsyncSession, system_admin: User):
+    async def test_excludes_zero_quantity_records(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -413,13 +443,16 @@ class TestGetAvailableInventories:
 
         assert len(result) == 0
 
-
-    async def test_returns_empty_for_unknown_book(self, test_db: AsyncSession, system_admin: User):
+    async def test_returns_empty_for_unknown_book(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
-        result = await InventoryRepository.get_available_inventories(test_db, book.id + 999999)
+        result = await InventoryRepository.get_available_inventories(
+            test_db, book.id + 999999
+        )
 
         assert result == []

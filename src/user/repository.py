@@ -14,33 +14,27 @@ ALLOWED_SORT_FIELDS_USER = {"created_at", "first_name", "last_name"}
 
 class UserRepositoryBase:
     @staticmethod
-    def add_user(db: AsyncSession, new_user: CreateUserAdmin | CreateUserPublic) -> None:
+    def add_user(
+        db: AsyncSession, new_user: CreateUserAdmin | CreateUserPublic
+    ) -> None:
         db.add(new_user)
-
 
     @staticmethod
     async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
-        query = (
-            select(User)
-            .filter(User.id == user_id)
-        )
+        query = select(User).filter(User.id == user_id)
 
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
-    
+
     @staticmethod
     async def get_the_biggest_id(db: AsyncSession) -> int:
-        query = (
-            select(User.id)
-            .order_by(User.id.desc())
-            .limit(1)
-        )
+        query = select(User.id).order_by(User.id.desc()).limit(1)
 
         result = await db.execute(query)
 
         return result.scalar()
-    
+
 
 class UserRepositoryAdmin:
     @staticmethod
@@ -52,22 +46,30 @@ class UserRepositoryAdmin:
             return base_query
 
         if filters.username:
-            base_query = base_query.filter(User.username.ilike('%' + filters.username + '%'))
+            base_query = base_query.filter(
+                User.username.ilike("%" + filters.username + "%")
+            )
 
         if filters.first_name:
-            base_query = base_query.filter(User.first_name.ilike('%' + filters.first_name + '%'))
+            base_query = base_query.filter(
+                User.first_name.ilike("%" + filters.first_name + "%")
+            )
 
         if filters.last_name:
-            base_query = base_query.filter(User.last_name.ilike('%' + filters.last_name + '%'))
+            base_query = base_query.filter(
+                User.last_name.ilike("%" + filters.last_name + "%")
+            )
 
         if filters.date_of_birth:
             base_query = base_query.filter(User.date_of_birth == filters.date_of_birth)
 
         if filters.email:
-            base_query = base_query.filter(User.email.ilike('%' + filters.email + '%'))
+            base_query = base_query.filter(User.email.ilike("%" + filters.email + "%"))
 
         if filters.phone_number:
-            base_query = base_query.filter(User.phone_number.ilike('%' + filters.phone_number + '%'))
+            base_query = base_query.filter(
+                User.phone_number.ilike("%" + filters.phone_number + "%")
+            )
 
         if filters.role:
             base_query = base_query.filter(User.role == filters.role)
@@ -76,7 +78,6 @@ class UserRepositoryAdmin:
             base_query = base_query.filter(User.is_active == filters.is_active)
 
         return base_query
-    
 
     @staticmethod
     async def get_users_admin(
@@ -87,11 +88,8 @@ class UserRepositoryAdmin:
         sort_by: str = "created_at",
         order: str = "desc",
     ) -> tuple[list[User], int]:
-        
-        base_query = (
-            select(User)
-            .filter(User.role != UserRole.system_admin)
-        )
+
+        base_query = select(User).filter(User.role != UserRole.system_admin)
 
         base_query = UserRepositoryAdmin._apply_admin_filters(base_query, filters)
 
@@ -105,18 +103,15 @@ class UserRepositoryAdmin:
             base_query = base_query.order_by(sort_column.asc())
 
         count_result = await db.execute(
-            select(func.count())
-            .select_from(base_query.subquery())
+            select(func.count()).select_from(base_query.subquery())
         )
 
-        total  = count_result.scalar_one()
+        total = count_result.scalar_one()
 
-        result = await db.execute(
-            base_query.offset(skip).limit(limit)
-        )
+        result = await db.execute(base_query.offset(skip).limit(limit))
 
         return result.scalars().all(), total
-    
+
 
 class UserRepositoryStaff:
     @staticmethod
@@ -128,22 +123,27 @@ class UserRepositoryStaff:
             return base_query
 
         if filters.first_name:
-            base_query = base_query.filter(User.first_name.ilike('%' + filters.first_name + '%'))
+            base_query = base_query.filter(
+                User.first_name.ilike("%" + filters.first_name + "%")
+            )
 
         if filters.last_name:
-            base_query = base_query.filter(User.last_name.ilike('%' + filters.last_name + '%'))
+            base_query = base_query.filter(
+                User.last_name.ilike("%" + filters.last_name + "%")
+            )
 
         if filters.date_of_birth:
             base_query = base_query.filter(User.date_of_birth == filters.date_of_birth)
 
         if filters.email:
-            base_query = base_query.filter(User.email.ilike('%' + filters.email + '%'))
+            base_query = base_query.filter(User.email.ilike("%" + filters.email + "%"))
 
         if filters.phone_number:
-            base_query = base_query.filter(User.phone_number.ilike('%' + filters.phone_number + '%'))
+            base_query = base_query.filter(
+                User.phone_number.ilike("%" + filters.phone_number + "%")
+            )
 
         return base_query
-    
 
     @staticmethod
     async def get_users_library_admin(
@@ -154,12 +154,9 @@ class UserRepositoryStaff:
         sort_by: str = "created_at",
         order: str = "desc",
     ) -> tuple[list[User], int]:
-        
-        base_query = (
-            select(User)
-            .filter(
-                User.role.not_in([UserRole.library_admin, UserRole.system_admin])
-            )
+
+        base_query = select(User).filter(
+            User.role.not_in([UserRole.library_admin, UserRole.system_admin])
         )
 
         base_query = UserRepositoryStaff._apply_staff_filters(base_query, filters)
@@ -174,36 +171,30 @@ class UserRepositoryStaff:
             base_query = base_query.order_by(sort_column.asc())
 
         count_result = await db.execute(
-            select(func.count())
-            .select_from(base_query.subquery())
+            select(func.count()).select_from(base_query.subquery())
         )
 
-        total  = count_result.scalar_one()
+        total = count_result.scalar_one()
 
-        result = await db.execute(
-            base_query.offset(skip).limit(limit)
-        )
+        result = await db.execute(base_query.offset(skip).limit(limit))
 
         return result.scalars().all(), total
-    
-    
+
     @staticmethod
-    async def get_user_by_id_library_admin(db: AsyncSession, user_id: int) -> User | None:
-        query = (
-            select(User)
-            .filter(
-                and_(
-                    User.id == user_id,
-                    User.role.not_in([UserRole.system_admin, UserRole.library_admin])
-                )
+    async def get_user_by_id_library_admin(
+        db: AsyncSession, user_id: int
+    ) -> User | None:
+        query = select(User).filter(
+            and_(
+                User.id == user_id,
+                User.role.not_in([UserRole.system_admin, UserRole.library_admin]),
             )
         )
 
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
-    
-    
+
     @staticmethod
     async def get_users_receptionist(
         db: AsyncSession,
@@ -213,12 +204,9 @@ class UserRepositoryStaff:
         sort_by: str = "created_at",
         order: str = "desc",
     ) -> tuple[list[User], int]:
-        
-        base_query = (
-            select(User)
-            .filter(
-                User.role.in_([UserRole.member, UserRole.guest])
-            )
+
+        base_query = select(User).filter(
+            User.role.in_([UserRole.member, UserRole.guest])
         )
 
         base_query = UserRepositoryStaff._apply_staff_filters(base_query, filters)
@@ -233,29 +221,21 @@ class UserRepositoryStaff:
             base_query = base_query.order_by(sort_column.asc())
 
         count_result = await db.execute(
-            select(func.count())
-            .select_from(base_query.subquery())
+            select(func.count()).select_from(base_query.subquery())
         )
 
-        total  = count_result.scalar_one()
+        total = count_result.scalar_one()
 
-        result = await db.execute(
-            base_query.offset(skip).limit(limit)
-        )
+        result = await db.execute(base_query.offset(skip).limit(limit))
 
         return result.scalars().all(), total
 
-
     @staticmethod
-    async def get_user_by_id_receptionist(db: AsyncSession, user_id: int) -> User | None:
-        query = (
-            select(User)
-            .filter(
-                and_(
-                    User.id == user_id,
-                    User.role.in_([UserRole.member, UserRole.guest])
-                )
-            )
+    async def get_user_by_id_receptionist(
+        db: AsyncSession, user_id: int
+    ) -> User | None:
+        query = select(User).filter(
+            and_(User.id == user_id, User.role.in_([UserRole.member, UserRole.guest]))
         )
 
         result = await db.execute(query)

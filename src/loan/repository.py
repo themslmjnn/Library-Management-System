@@ -11,8 +11,7 @@ class LoanRepository:
     @staticmethod
     def loan_book(db: AsyncSession, loan_request: CreateLoanPublic | LoanBase) -> None:
         db.add(loan_request)
-    
-    
+
     @staticmethod
     async def get_loans(
         db: AsyncSession,
@@ -22,7 +21,7 @@ class LoanRepository:
         sort_by: str = "created_at",
         order: str = "desc",
     ) -> tuple[list[Loan], int]:
-        
+
         base_query = select(Loan)
 
         if filters:
@@ -40,7 +39,7 @@ class LoanRepository:
 
             if filters.due_at is not None:
                 base_query = base_query.filter(Loan.due_at == filters.due_at)
-        
+
         if sort_by not in ALLOWED_SORT_FIELDS_LOAN:
             sort_by = "loaned_at"
 
@@ -51,31 +50,24 @@ class LoanRepository:
             base_query = base_query.order_by(sort_column.asc())
 
         count_result = await db.execute(
-            select(func.count())
-            .select_from(base_query.subquery())
+            select(func.count()).select_from(base_query.subquery())
         )
 
-        total  = count_result.scalar_one()
+        total = count_result.scalar_one()
 
-        result = await db.execute(
-            base_query.offset(skip).limit(limit)
-        )
+        result = await db.execute(base_query.offset(skip).limit(limit))
 
         return result.scalars().all(), total
-    
-    
+
     @staticmethod
     async def get_loan_by_id(db: AsyncSession, loan_id: int) -> Loan | None:
-        query = (
-            select(Loan)
-            .filter(Loan.id == loan_id)
-        )
+        query = select(Loan).filter(Loan.id == loan_id)
 
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
-    
-    
+
+
 class LoanRepositoryPublic:
     @staticmethod
     async def get_loans_me(
@@ -87,11 +79,8 @@ class LoanRepositoryPublic:
         sort_by: str = "created_at",
         order: str = "desc",
     ) -> tuple[list[Loan], int]:
-        
-        base_query = (
-            select(Loan)
-            .filter(Loan.user_id == user_id)
-        )
+
+        base_query = select(Loan).filter(Loan.user_id == user_id)
 
         if filters:
             if filters.book_id is not None:
@@ -102,7 +91,7 @@ class LoanRepositoryPublic:
 
             if filters.due_at is not None:
                 base_query = base_query.filter(Loan.due_at == filters.due_at)
-        
+
         if sort_by not in ALLOWED_SORT_FIELDS_LOAN:
             sort_by = "loaned_at"
 
@@ -113,28 +102,23 @@ class LoanRepositoryPublic:
             base_query = base_query.order_by(sort_column.asc())
 
         count_result = await db.execute(
-            select(func.count())
-            .select_from(base_query.subquery())
+            select(func.count()).select_from(base_query.subquery())
         )
 
-        total  = count_result.scalar_one()
+        total = count_result.scalar_one()
 
-        result = await db.execute(
-            base_query.offset(skip).limit(limit)
-        )
+        result = await db.execute(base_query.offset(skip).limit(limit))
 
         return result.scalars().all(), total
-    
-    
+
     @staticmethod
-    async def get_loan_by_id_me(db: AsyncSession, user_id: int, loan_id: int) -> Loan | None:
-        query = (
-            select(Loan)
-            .filter(
-                and_(
-                    Loan.id == loan_id,
-                    Loan.user_id == user_id,
-                )
+    async def get_loan_by_id_me(
+        db: AsyncSession, user_id: int, loan_id: int
+    ) -> Loan | None:
+        query = select(Loan).filter(
+            and_(
+                Loan.id == loan_id,
+                Loan.user_id == user_id,
             )
         )
 

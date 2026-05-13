@@ -27,7 +27,11 @@ async def loan_book_me(
     return await LoanServicePublic.loan_book_me(db, loan_request, current_user.id)
 
 
-@router.get("/me", response_model=PaginatedResponse[LoanResponse], status_code=status.HTTP_200_OK)
+@router.get(
+    "/me",
+    response_model=PaginatedResponse[LoanResponse],
+    status_code=status.HTTP_200_OK,
+)
 async def get_loans_me(
     db: async_db_dependency,
     pagination: pagination_dependency,
@@ -37,19 +41,15 @@ async def get_loans_me(
     order: str = "desc",
 ):
     return await LoanServicePublic.get_loans_me(
-        db,
-        pagination.skip,
-        pagination.limit,
-        current_user.id,
-        filters,
-        sort_by,
-        order
+        db, pagination.skip, pagination.limit, current_user.id, filters, sort_by, order
     )
 
 
-@router.get("/{loan_id}/me", response_model=LoanResponse, status_code=status.HTTP_200_OK)
+@router.get(
+    "/{loan_id}/me", response_model=LoanResponse, status_code=status.HTTP_200_OK
+)
 async def get_loan_by_id_me(
-    db: async_db_dependency, 
+    db: async_db_dependency,
     current_user: current_user_dependency,
     loan_id: path_param_int_ge1,
 ):

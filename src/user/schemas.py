@@ -6,8 +6,8 @@ from src.user.models import UserRole
 from src.utils.base_schema import BaseSchema
 from src.utils.validators import (
     validate_date_of_birth,
-    validate_phone_number,
     validate_password,
+    validate_phone_number,
 )
 
 
@@ -23,14 +23,16 @@ class CreateUserBase(BaseModel):
     @classmethod
     def validate_date_of_birth(cls, field: date) -> date:
         return validate_date_of_birth(field)
-    
+
     @field_validator("phone_number")
     @classmethod
     def validate_phone_number(cls, field: date) -> date:
         return validate_phone_number(field)
 
+
 class CreateUserAdmin(CreateUserBase):
     role: UserRole
+
 
 class CreateUserPublic(CreateUserBase):
     password: str
@@ -39,7 +41,7 @@ class CreateUserPublic(CreateUserBase):
     @classmethod
     def validate_password_strength(cls, field: str) -> str:
         return validate_password(field)
-    
+
 
 class UserResponseBase(BaseSchema):
     id: int
@@ -52,10 +54,12 @@ class UserResponseBase(BaseSchema):
     created_at: datetime
     updated_at: datetime
 
+
 class UserResponseAdmin(UserResponseBase):
     role: UserRole
     is_active: bool
     created_by: int | None = None
+
 
 class UserResponseStaff(UserResponseBase):
     role: UserRole
@@ -73,12 +77,12 @@ class UpdateUserBase(BaseModel):
     @classmethod
     def validate_date_of_birth(cls, field: date) -> date:
         return validate_date_of_birth(field)
-    
+
     @field_validator("phone_number")
     @classmethod
     def validate_phone_number(cls, field: date) -> date:
         return validate_phone_number(field)
-    
+
 
 class UpdateUserAdmin(UpdateUserBase):
     role: UserRole | None = None
@@ -92,7 +96,8 @@ class UpdateUserPasswordAdmin(BaseModel):
     @classmethod
     def validate_password_strength(cls, field: str) -> str:
         return validate_password(field)
-    
+
+
 class UpdateUserPasswordPublic(BaseModel):
     old_password: str
     new_password: str = Field(min_length=8)
@@ -106,9 +111,10 @@ class UpdateUserPasswordPublic(BaseModel):
 class SearchUserBase(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
-    date_of_birth: date| None = None
+    date_of_birth: date | None = None
     email: str | None = None
     phone_number: str | None = None
+
 
 class SearchUserAdmin(SearchUserBase):
     username: str | None = None

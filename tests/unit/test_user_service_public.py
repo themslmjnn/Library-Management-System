@@ -14,10 +14,10 @@ from tests.conftest import DEFAULT_PASSWORD, NEW_PASSWORD, OLD_PASSWORD, WRONG_P
 from tests.factories import make_member, make_user
 
 
-class TestCreateAccountPublic:    
+class TestCreateAccountPublic:
     async def test_reject_duplicate_email(self, test_db: AsyncSession):
         await make_user(
-            test_db, 
+            test_db,
             email="taken@gmail.com",
         )
 
@@ -33,10 +33,9 @@ class TestCreateAccountPublic:
         with pytest.raises(EmailAlreadyTakenError):
             await UserServicePublic.create_account_public(test_db, request)
 
-        
     async def test_reject_duplicate_username(self, test_db: AsyncSession):
         await make_user(
-            test_db, 
+            test_db,
             username="taken_username",
         )
 
@@ -53,10 +52,9 @@ class TestCreateAccountPublic:
         with pytest.raises(UsernameAlreadyTakenError):
             await UserServicePublic.create_account_public(test_db, request)
 
-    
     async def test_reject_duplicate_phone_number(self, test_db: AsyncSession):
         await make_user(
-            test_db, 
+            test_db,
             phone_number="+992 000 000 000",
         )
 
@@ -71,7 +69,6 @@ class TestCreateAccountPublic:
 
         with pytest.raises(PhonenumberAlreadyTakenError):
             await UserServicePublic.create_account_public(test_db, request)
-
 
     async def test_create_user_successfully(self, test_db: AsyncSession):
         request = CreateUserPublic(
@@ -110,8 +107,9 @@ class TestUpdateMe:
         )
 
         with pytest.raises(EmailAlreadyTakenError):
-            await UserServicePublic.update_me(test_db, update_request, user_to_be_updated.id)
-
+            await UserServicePublic.update_me(
+                test_db, update_request, user_to_be_updated.id
+            )
 
     async def test_reject_duplicate_username(self, test_db: AsyncSession):
         await make_member(
@@ -125,12 +123,13 @@ class TestUpdateMe:
         )
 
         update_request = UpdateUserBase(
-           username="test_user",
+            username="test_user",
         )
 
         with pytest.raises(UsernameAlreadyTakenError):
-            await UserServicePublic.update_me(test_db, update_request, user_to_be_updated.id)
-
+            await UserServicePublic.update_me(
+                test_db, update_request, user_to_be_updated.id
+            )
 
     async def test_reject_duplicate_phone_number(self, test_db: AsyncSession):
         await make_member(
@@ -144,12 +143,13 @@ class TestUpdateMe:
         )
 
         update_request = UpdateUserBase(
-           phone_number="+992 000 111 222",
+            phone_number="+992 000 111 222",
         )
 
         with pytest.raises(PhonenumberAlreadyTakenError):
-            await UserServicePublic.update_me(test_db, update_request, user_to_be_updated.id)
-
+            await UserServicePublic.update_me(
+                test_db, update_request, user_to_be_updated.id
+            )
 
     async def test_updates_user_successfully(self, test_db: AsyncSession):
         user = await make_user(test_db)
@@ -172,7 +172,6 @@ class TestUpdateMe:
         assert user.email == "new_email@gmail.com"
         assert user.phone_number == "+992 101 101 101"
 
-
     async def test_partially_updates_user_successfully(self, test_db: AsyncSession):
         user = await make_user(test_db)
 
@@ -194,7 +193,7 @@ class TestUpdateMe:
 class TestUpdateMyPassword:
     async def test_updates_password_successfully(self, test_db: AsyncSession):
         user = await make_member(
-            test_db, 
+            test_db,
             password=OLD_PASSWORD,
         )
 
@@ -216,10 +215,9 @@ class TestUpdateMyPassword:
         assert user.refresh_token_family is None
         assert user.refresh_token_expires_at is None
 
-
     async def test_incorrect_old_password(self, test_db: AsyncSession):
         user = await make_member(
-            test_db, 
+            test_db,
             password=OLD_PASSWORD,
         )
 

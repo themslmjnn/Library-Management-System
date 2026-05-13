@@ -16,7 +16,9 @@ router = APIRouter(
 )
 
 
-@router.post("/me", response_model=UserResponseBase, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/me", response_model=UserResponseBase, status_code=status.HTTP_201_CREATED
+)
 @ip_limiter.limit("3/minute")
 async def create_account_public(
     request: Request,

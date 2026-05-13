@@ -4,7 +4,7 @@ from slowapi.util import get_remote_address
 
 
 def get_user_identifier(request: Request) -> str:
-    user = getattr(request.state, 'user', None)
+    user = getattr(request.state, "user", None)
 
     if user is not None:
         return f"user: {user.id}"

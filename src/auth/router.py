@@ -14,7 +14,7 @@ from src.core.limiter import ip_limiter
 from src.utils.exception_constants import HTTP401
 
 router = APIRouter(
-    prefix="/auth", 
+    prefix="/auth",
     tags=["Auth"],
 )
 
@@ -59,7 +59,9 @@ async def activate_with_code(
     await AuthService.activate_account_with_code(db, activation_request)
 
 
-@router.post("/refresh_token", response_model=LoginResponse, status_code=status.HTTP_200_OK)
+@router.post(
+    "/refresh_token", response_model=LoginResponse, status_code=status.HTTP_200_OK
+)
 @ip_limiter.limit("30/minute")
 async def refresh(
     request: Request,
@@ -72,5 +74,5 @@ async def refresh(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=HTTP401.INVALID_REFRESH_TOKEN,
         )
-    
+
     return await AuthService.refresh_token(db, response, refresh_token)

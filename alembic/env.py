@@ -5,10 +5,6 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-import src.user.models
-import src.loan.models
-import src.inventory.models
-import src.book.models
 from alembic import context
 from src.core.config import settings
 

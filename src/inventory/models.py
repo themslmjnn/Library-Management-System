@@ -12,11 +12,11 @@ class Inventory(Base):
     quantity: Mapped[int] = mapped_column(nullable=False)
 
     book: Mapped["Book"] = relationship(
-        "Book", 
+        "Book",
         back_populates="inventory_records",
     )
-    
+
     creator: Mapped["User"] = relationship(
-        "User", 
+        "User",
         back_populates="inventory_records_creator",
     )

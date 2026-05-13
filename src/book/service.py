@@ -1,6 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.enums import SortOrder
 from src.book.models import Book
 from src.book.repository import BookRepository
 from src.book.schemas import BookResponse, CreateBook, SearchBook, UpdateBook
@@ -11,15 +12,18 @@ from src.utils.cache_keys import book_detail_key
 from src.utils.exception_constants import HTTP404
 from src.utils.exceptions import BookNotFoundError, check_unique_title_and_author
 from src.utils.helpers import ensure_exists, update_object
+from utils.enums import BookCategory
 
 logger = get_logger(__name__)
 
 
 class BookService:
     @staticmethod
-    async def add_book(db: AsyncSession, book_request: CreateBook, current_user_id: int) -> Book:
+    async def add_book(
+        db: AsyncSession, book_request: CreateBook, current_user_id: int
+    ) -> Book:
         new_book = Book(
-            **book_request.model_dump(), 
+            **book_request.model_dump(),
             created_by=current_user_id,
         )
 
@@ -49,20 +53,30 @@ class BookService:
 
             check_unique_title_and_author(error)
             raise
-        
 
     @staticmethod
     async def get_books(
         db: AsyncSession,
         skip: int,
         limit: int,
-        filters: SearchBook,
+        title: str | None,
+        author: str | None,
+        category: BookCategory | None,
         sort_by: str,
-        order: str,
+        order: SortOrder,
     ) -> PaginatedResponse:
-        
-        books, total = await BookRepository.get_books(db, skip, limit, filters, sort_by, order)
-        
+
+        books, total = await BookRepository.get_books(
+            db,
+            skip=skip,
+            limit=limit,
+            title=title,
+            author=author,
+            category=category,
+            sort_by=sort_by,
+            order=order,
+        )
+
         return PaginatedResponse(
             items=books,
             total=total,
@@ -70,7 +84,6 @@ class BookService:
             limit=limit,
             has_more=skip + limit < total,
         )
-    
 
     @staticmethod
     async def get_book_by_id(db: AsyncSession, book_id: int) -> BookResponse:
@@ -86,10 +99,11 @@ class BookService:
         await set_cache(key, serialized, 600)
 
         return serialized
-    
 
     @staticmethod
-    async def update_book(db: AsyncSession, user_id: int, update_request: UpdateBook, book_id: int) -> Book:
+    async def update_book(
+        db: AsyncSession, user_id: int, update_request: UpdateBook, book_id: int
+    ) -> Book:
         book = await BookRepository.get_book_by_id(db, book_id)
         ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
 
@@ -98,7 +112,7 @@ class BookService:
 
             await db.commit()
             await db.refresh(book)
-            
+
             logger.info(
                 "book_updated",
                 book_id=book.id,
@@ -118,6 +132,6 @@ class BookService:
                 requested_by=user_id,
                 error=str(error.orig),
             )
-            
+
             check_unique_title_and_author(error)
             raise

@@ -20,7 +20,7 @@ def validate_password(password: str) -> str:
             "password_no_special_character",
             "Password must contain at least one special character",
         )
-    
+
     return password
 
 
@@ -33,7 +33,11 @@ def validate_date_of_birth(birth_date: date) -> date:
             "Date of birth must be in the past",
         )
 
-    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+    age = (
+        today.year
+        - birth_date.year
+        - ((today.month, today.day) < (birth_date.month, birth_date.day))
+    )
 
     if age < 13:
         raise PydanticCustomError(
@@ -63,6 +67,7 @@ def validate_date_of_birth(birth_date: date) -> date:
 
 _PHONE_RE = re.compile(r"^[+\d][\d\s\-().]{5,19}$")
 _DIGIT_RE = re.compile(r"\d")
+
 
 def validate_phone_number(phone: str) -> str:
     phone = phone.strip()

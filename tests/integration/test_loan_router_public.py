@@ -1,19 +1,15 @@
 from datetime import date, timedelta
 
-import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.user.models import User, UserRole
+from src.user.models import User
 from tests.conftest import make_auth_header
 from tests.factories import (
     make_book,
     make_guest,
     make_inventory,
-    make_library_admin,
     make_member,
-    make_receptionist,
-    make_system_admin,
 )
 
 
@@ -26,14 +22,20 @@ class TestLoanBookMe:
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         member = await make_member(test_db)
         headers = make_auth_header(member)
 
-        response = await client.post("/loans/me", json={
-            "book_id": book.id,
-            "due_at": due_date(),
-        }, headers=headers)
+        response = await client.post(
+            "/loans/me",
+            json={
+                "book_id": book.id,
+                "due_at": due_date(),
+            },
+            headers=headers,
+        )
 
         assert response.status_code == 201
         data = response.json()
@@ -43,14 +45,20 @@ class TestLoanBookMe:
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         guest = await make_guest(test_db)
         headers = make_auth_header(guest)
 
-        response = await client.post("/loans/me", json={
-            "book_id": book.id,
-            "due_at": due_date(),
-        }, headers=headers)
+        response = await client.post(
+            "/loans/me",
+            json={
+                "book_id": book.id,
+                "due_at": due_date(),
+            },
+            headers=headers,
+        )
 
         assert response.status_code == 201
 
@@ -58,12 +66,17 @@ class TestLoanBookMe:
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
 
-        response = await client.post("/loans/me", json={
-            "book_id": book.id,
-            "due_at": due_date(),
-        })
+        response = await client.post(
+            "/loans/me",
+            json={
+                "book_id": book.id,
+                "due_at": due_date(),
+            },
+        )
 
         assert response.status_code == 401
 
@@ -71,14 +84,20 @@ class TestLoanBookMe:
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=0, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=0, added_by=system_admin.id
+        )
         member = await make_member(test_db)
         headers = make_auth_header(member)
 
-        response = await client.post("/loans/me", json={
-            "book_id": book.id,
-            "due_at": due_date(),
-        }, headers=headers)
+        response = await client.post(
+            "/loans/me",
+            json={
+                "book_id": book.id,
+                "due_at": due_date(),
+            },
+            headers=headers,
+        )
 
         assert response.status_code == 409
 
@@ -89,10 +108,14 @@ class TestLoanBookMe:
         member = await make_member(test_db)
         headers = make_auth_header(member)
 
-        response = await client.post("/loans/me", json={
-            "book_id": book.id + 999999,
-            "due_at": due_date(),
-        }, headers=headers)
+        response = await client.post(
+            "/loans/me",
+            json={
+                "book_id": book.id + 999999,
+                "due_at": due_date(),
+            },
+            headers=headers,
+        )
 
         assert response.status_code == 404
 
@@ -102,13 +125,17 @@ class TestGetLoansMe:
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=5, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=5, added_by=system_admin.id
+        )
         member = await make_member(test_db)
         headers = make_auth_header(member)
 
-        await client.post("/loans/me", json={
-            "book_id": book.id, "due_at": due_date()
-        }, headers=headers)
+        await client.post(
+            "/loans/me",
+            json={"book_id": book.id, "due_at": due_date()},
+            headers=headers,
+        )
 
         response = await client.get("/loans/me", headers=headers)
 
@@ -121,14 +148,18 @@ class TestGetLoansMe:
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=5, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=5, added_by=system_admin.id
+        )
 
         member1 = await make_member(test_db)
         member2 = await make_member(test_db)
 
-        await client.post("/loans/me", json={
-            "book_id": book.id, "due_at": due_date()
-        }, headers=make_auth_header(member1))
+        await client.post(
+            "/loans/me",
+            json={"book_id": book.id, "due_at": due_date()},
+            headers=make_auth_header(member1),
+        )
 
         # member2 fetches their own loans — must not see member1's loan
         response = await client.get("/loans/me", headers=make_auth_header(member2))
@@ -145,13 +176,17 @@ class TestGetLoansMe:
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         member = await make_member(test_db)
         headers = make_auth_header(member)
 
-        loan_response = await client.post("/loans/me", json={
-            "book_id": book.id, "due_at": due_date()
-        }, headers=headers)
+        loan_response = await client.post(
+            "/loans/me",
+            json={"book_id": book.id, "due_at": due_date()},
+            headers=headers,
+        )
         loan_id = loan_response.json()["id"]
 
         response = await client.get(f"/loans/{loan_id}/me", headers=headers)
@@ -163,18 +198,24 @@ class TestGetLoansMe:
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=5, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=5, added_by=system_admin.id
+        )
 
         member1 = await make_member(test_db)
         member2 = await make_member(test_db)
 
-        loan_response = await client.post("/loans/me", json={
-            "book_id": book.id, "due_at": due_date()
-        }, headers=make_auth_header(member1))
+        loan_response = await client.post(
+            "/loans/me",
+            json={"book_id": book.id, "due_at": due_date()},
+            headers=make_auth_header(member1),
+        )
         loan_id = loan_response.json()["id"]
 
         # member2 tries to access member1's loan — must get 404, not 403
         # 404 prevents confirming the loan exists at all
-        response = await client.get(f"/loans/{loan_id}/me", headers=make_auth_header(member2))
+        response = await client.get(
+            f"/loans/{loan_id}/me", headers=make_auth_header(member2)
+        )
 
         assert response.status_code == 404

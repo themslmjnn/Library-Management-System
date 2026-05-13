@@ -19,21 +19,33 @@ router = APIRouter(
 )
 
 
-@router.post("/staff", response_model=UserResponseStaff, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/staff", response_model=UserResponseStaff, status_code=status.HTTP_201_CREATED
+)
 async def create_account_staff(
     db: async_db_dependency,
     user_request: CreateUserBase,
-    current_user: Annotated[User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))],
+    current_user: Annotated[
+        User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))
+    ],
 ):
-    return await UserServiceStaff.create_account_staff(db, user_request, current_user.id)
+    return await UserServiceStaff.create_account_staff(
+        db, user_request, current_user.id
+    )
 
 
-@router.get("/staff", response_model=PaginatedResponse[UserResponseStaff], status_code=status.HTTP_200_OK)
+@router.get(
+    "/staff",
+    response_model=PaginatedResponse[UserResponseStaff],
+    status_code=status.HTTP_200_OK,
+)
 async def get_users_staff(
     db: async_db_dependency,
     pagination: pagination_dependency,
     filters: Annotated[SearchUserBase, Depends()],
-    current_user: Annotated[User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))],
+    current_user: Annotated[
+        User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))
+    ],
     sort_by: str = "created_at",
     order: str = "desc",
 ):
@@ -48,10 +60,14 @@ async def get_users_staff(
     )
 
 
-@router.get("/{user_id}/staff", response_model=UserResponseStaff, status_code=status.HTTP_200_OK)
+@router.get(
+    "/{user_id}/staff", response_model=UserResponseStaff, status_code=status.HTTP_200_OK
+)
 async def get_user_by_id_staff(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    current_user: Annotated[User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))],
+    current_user: Annotated[
+        User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))
+    ],
 ):
     return await UserServiceStaff.get_user_by_id_staff(db, user_id, current_user)

@@ -25,16 +25,18 @@ def due_date(days: int = 14) -> date:
 
 
 class TestLoanBook:
-    async def test_creates_loan_successfully(self, test_db: AsyncSession, system_admin: User):
+    async def test_creates_loan_successfully(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
         await make_inventory(
-            test_db, 
-            book_id=book.id, 
-            quantity=3, 
+            test_db,
+            book_id=book.id,
+            quantity=3,
             added_by=system_admin.id,
         )
 
@@ -54,25 +56,26 @@ class TestLoanBook:
         assert loan.created_by == system_admin.id
         assert loan.returned_at is None
 
-
-    async def test_loan_sets_inventory_id(self, test_db: AsyncSession, system_admin: User):
+    async def test_loan_sets_inventory_id(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
         inventory = await make_inventory(
-            test_db, 
-            book_id=book.id, 
-            quantity=5, 
+            test_db,
+            book_id=book.id,
+            quantity=5,
             added_by=system_admin.id,
         )
 
         borrower = await make_member(test_db)
 
         request = LoanBase(
-            book_id=book.id, 
-            user_id=borrower.id, 
+            book_id=book.id,
+            user_id=borrower.id,
             due_at=due_date(),
         )
 
@@ -80,25 +83,26 @@ class TestLoanBook:
 
         assert loan.inventory_id == inventory.id
 
-
-    async def test_loan_decrements_inventory(self, test_db: AsyncSession, system_admin: User):
+    async def test_loan_decrements_inventory(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
         inventory = await make_inventory(
-            test_db, 
-            book_id=book.id, 
-            quantity=5, 
+            test_db,
+            book_id=book.id,
+            quantity=5,
             added_by=system_admin.id,
         )
 
         borrower = await make_member(test_db)
 
         request = LoanBase(
-            book_id=book.id, 
-            user_id=borrower.id, 
+            book_id=book.id,
+            user_id=borrower.id,
             due_at=due_date(),
         )
 
@@ -108,11 +112,12 @@ class TestLoanBook:
 
         assert inventory.quantity == 4
 
-
-    async def test_loan_fails_book_not_found(self, test_db: AsyncSession, system_admin: User):
+    async def test_loan_fails_book_not_found(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         borrower = await make_member(test_db)
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
@@ -125,16 +130,18 @@ class TestLoanBook:
         with pytest.raises(BookNotFoundError):
             await LoanService.loan_book(test_db, system_admin.id, request)
 
-
-    async def test_loan_fails_user_not_found(self, test_db: AsyncSession, system_admin: User):
+    async def test_loan_fails_user_not_found(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
-            created_by=system_admin.id,)
-    
+            test_db,
+            created_by=system_admin.id,
+        )
+
         await make_inventory(
-            test_db, 
-            book_id=book.id, 
-            quantity=3, 
+            test_db,
+            book_id=book.id,
+            quantity=3,
             added_by=system_admin.id,
         )
 
@@ -149,33 +156,35 @@ class TestLoanBook:
         with pytest.raises(UserNotFoundError):
             await LoanService.loan_book(test_db, system_admin.id, request)
 
-
-    async def test_loan_fails_book_not_available(self, test_db: AsyncSession, system_admin: User):
+    async def test_loan_fails_book_not_available(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(
-            test_db, 
+            test_db,
             created_by=system_admin.id,
         )
 
         await make_inventory(
-            test_db, 
-            book_id=book.id, 
-            quantity=0, 
+            test_db,
+            book_id=book.id,
+            quantity=0,
             added_by=system_admin.id,
         )
 
         borrower = await make_member(test_db)
 
         request = LoanBase(
-            book_id=book.id, 
-            user_id=borrower.id, 
+            book_id=book.id,
+            user_id=borrower.id,
             due_at=due_date(),
         )
 
         with pytest.raises(BookNotAvailableError):
             await LoanService.loan_book(test_db, system_admin.id, request)
 
-
-    async def test_loan_fails_no_inventory_record(self, test_db: AsyncSession, system_admin: User):
+    async def test_loan_fails_no_inventory_record(
+        self, test_db: AsyncSession, system_admin: User
+    ):
         book = await make_book(test_db, created_by=system_admin.id)
         borrower = await make_member(test_db)
 
@@ -184,12 +193,13 @@ class TestLoanBook:
         with pytest.raises(BookNotAvailableError):
             await LoanService.loan_book(test_db, system_admin.id, request)
 
-
     async def test_multiple_loans_decrement_correctly(
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        inventory = await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        inventory = await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
 
         borrower1 = await make_member(test_db)
         borrower2 = await make_member(test_db)
@@ -197,9 +207,9 @@ class TestLoanBook:
 
         for borrower in [borrower1, borrower2, borrower3]:
             await LoanService.loan_book(
-                test_db, 
+                test_db,
                 system_admin.id,
-                LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date())
+                LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date()),
             )
 
         await test_db.refresh(inventory)
@@ -209,25 +219,30 @@ class TestLoanBook:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=2, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=2, added_by=system_admin.id
+        )
 
         borrower1 = await make_member(test_db)
         borrower2 = await make_member(test_db)
         borrower3 = await make_member(test_db)
 
         await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower1.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower1.id, due_at=due_date()),
         )
         await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower2.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower2.id, due_at=due_date()),
         )
 
         with pytest.raises(BookNotAvailableError):
             await LoanService.loan_book(
-                test_db, system_admin.id,
-                LoanBase(book_id=book.id, user_id=borrower3.id, due_at=due_date())
+                test_db,
+                system_admin.id,
+                LoanBase(book_id=book.id, user_id=borrower3.id, due_at=due_date()),
             )
 
 
@@ -236,13 +251,15 @@ class TestReturnLoan:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         loan = await LoanService.loan_book(
-            test_db, 
+            test_db,
             system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date())
+            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date()),
         )
 
         await LoanService.return_loan(test_db, system_admin.id, loan.id)
@@ -255,12 +272,15 @@ class TestReturnLoan:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        inventory = await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        inventory = await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         loan = await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date()),
         )
 
         await test_db.refresh(inventory)
@@ -273,21 +293,22 @@ class TestReturnLoan:
 
         assert inventory.quantity == qty_after_loan + 1
 
-
     async def test_return_sets_timezone_aware_datetime(
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         loan = await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date()),
         )
 
         await LoanService.return_loan(test_db, system_admin.id, loan.id)
-
 
         await test_db.refresh(loan)
         assert loan.returned_at.tzinfo is not None
@@ -296,12 +317,15 @@ class TestReturnLoan:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         loan = await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date()),
         )
 
         await LoanService.return_loan(test_db, system_admin.id, loan.id)
@@ -313,12 +337,15 @@ class TestReturnLoan:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         loan = await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date()),
         )
 
         with pytest.raises(LoanNotFoundError):
@@ -332,7 +359,7 @@ class TestReturnLoan:
     #     borrower = await make_member(test_db)
 
     #     loan = await LoanServicePublic.loan_book_me(
-    #         test_db, 
+    #         test_db,
     #         CreateLoanPublic(book_id=book.id, due_at=due_date()), borrower.id
     #     )
 
@@ -364,23 +391,31 @@ class TestGetLoans:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=5, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=5, added_by=system_admin.id
+        )
 
         borrower1 = await make_member(test_db)
         borrower2 = await make_member(test_db)
 
         await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower1.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower1.id, due_at=due_date()),
         )
         await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower2.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower2.id, due_at=due_date()),
         )
 
         result = await LoanService.get_loans(
-            test_db, skip=0, limit=20,
-            filters=SearchLoan(), sort_by="loaned_at", order="desc"
+            test_db,
+            skip=0,
+            limit=20,
+            filters=SearchLoan(),
+            sort_by="loaned_at",
+            order="desc",
         )
 
         assert result.total >= 2
@@ -389,12 +424,15 @@ class TestGetLoans:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         loan = await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date()),
         )
 
         result = await LoanService.get_loan_by_id(test_db, loan.id)
@@ -407,11 +445,14 @@ class TestGetLoans:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
         loan = await LoanService.loan_book(
-            test_db, system_admin.id,
-            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date())
+            test_db,
+            system_admin.id,
+            LoanBase(book_id=book.id, user_id=borrower.id, due_at=due_date()),
         )
 
         with pytest.raises(LoanNotFoundError):

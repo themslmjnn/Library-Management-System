@@ -32,6 +32,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.rollback()
             raise
 
+
 async_db_dependency = Annotated[AsyncSession, Depends(get_db)]
 
 
@@ -40,7 +41,10 @@ class CurrentUser:
     id: int
     role: UserRole
 
-async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_scheme)) -> CurrentUser:
+
+async def get_current_user(
+    db: async_db_dependency, token: str = Depends(oauth2_scheme)
+) -> CurrentUser:
     try:
         payload = decode_access_token(token)
 
@@ -49,7 +53,7 @@ async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_
 
     except (ValueError, TypeError):
         raise InvalidAccessTokenError(HTTP401.INVALID_ACCESS_TOKEN)
-    
+
     user_access_token_version_key = access_token_version_key(user_id)
 
     cached_version = await get_cache(user_access_token_version_key)
@@ -58,31 +62,32 @@ async def get_current_user(db: async_db_dependency, token: str = Depends(oauth2_
             raise InvalidAccessTokenError(HTTP401.INVALID_ACCESS_TOKEN)
 
         return CurrentUser(
-            id=user_id, 
+            id=user_id,
             role=UserRole(payload.get("role")),
         )
-    
+
     user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
     if user is None:
         raise InvalidAccessTokenError(HTTP401.INVALID_ACCESS_TOKEN)
-    
-    if user.access_token_version != token_version:      
+
+    if user.access_token_version != token_version:
         raise InvalidAccessTokenError(HTTP401.INVALID_ACCESS_TOKEN)
-    
+
     if not user.is_active:
         raise AccountInactiveError(HTTP403.ACCOUNT_DEACTIVATED)
-    
+
     await set_cache(
-        user_access_token_version_key, 
-        user.access_token_version, 
+        user_access_token_version_key,
+        user.access_token_version,
         ttl_seconds=300,
     )
-    
+
     return CurrentUser(
-        id=user_id, 
+        id=user_id,
         role=UserRole(payload.get("role")),
     )
+
 
 current_user_dependency = Annotated[CurrentUser, Depends(get_current_user)]
 
@@ -91,14 +96,29 @@ def require_roles(*roles: UserRole):
     def guard(current_user: current_user_dependency) -> CurrentUser:
         if current_user.role not in roles:
             raise AccessDeniedError(HTTP403.ACCESS_DENIED)
-        
+
         return current_user
+
     return guard
+
+
+require_system_admin = require_roles(UserRole.system_admin)
+require_system_and_library_admin = require_roles(
+    UserRole.system_admin,
+    UserRole.library_admin,
+)
+require_staff = require_roles(UserRole.library_admin, UserRole.receptionist)
+require_system_admin_and_staff = require_roles(
+    UserRole.system_admin,
+    UserRole.library_admin,
+    UserRole.receptionist,
+)
 
 
 class PaginationParams(BaseModel):
     skip: int = Query(ge=0, default=0)
     limit: int = Query(ge=1, le=100, default=20)
+
 
 pagination_dependency = Annotated[PaginationParams, Depends(PaginationParams)]
 

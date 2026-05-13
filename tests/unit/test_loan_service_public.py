@@ -1,7 +1,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.loan.schemas import CreateLoanPublic, SearchLoanPublic
+from src.loan.schemas import CreateLoanPublic
 from src.loan.service import LoanServicePublic
 from src.user.models import User
 from src.utils.exceptions import (
@@ -23,7 +23,9 @@ class TestLoanBookMe:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         request = CreateLoanPublic(book_id=book.id, due_at=due_date())
@@ -37,7 +39,9 @@ class TestLoanBookMe:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         request = CreateLoanPublic(book_id=book.id, due_at=due_date())
@@ -50,7 +54,9 @@ class TestLoanBookMe:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        inventory = await make_inventory(test_db, book_id=book.id, quantity=5, added_by=system_admin.id)
+        inventory = await make_inventory(
+            test_db, book_id=book.id, quantity=5, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         request = CreateLoanPublic(book_id=book.id, due_at=due_date())
@@ -74,7 +80,9 @@ class TestLoanBookMe:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=0, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=0, added_by=system_admin.id
+        )
         borrower = await make_member(test_db)
 
         request = CreateLoanPublic(book_id=book.id, due_at=due_date())
@@ -82,11 +90,11 @@ class TestLoanBookMe:
         with pytest.raises(BookNotAvailableError):
             await LoanServicePublic.loan_book_me(test_db, request, borrower.id)
 
-    async def test_guest_can_loan(
-        self, test_db: AsyncSession, system_admin: User
-    ):
+    async def test_guest_can_loan(self, test_db: AsyncSession, system_admin: User):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=3, added_by=system_admin.id
+        )
         guest = await make_guest(test_db)
 
         request = CreateLoanPublic(book_id=book.id, due_at=due_date())
@@ -125,7 +133,9 @@ class TestGetLoansMe:
         self, test_db: AsyncSession, system_admin: User
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        await make_inventory(test_db, book_id=book.id, quantity=5, added_by=system_admin.id)
+        await make_inventory(
+            test_db, book_id=book.id, quantity=5, added_by=system_admin.id
+        )
 
         borrower1 = await make_member(test_db)
         borrower2 = await make_member(test_db)

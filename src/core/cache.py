@@ -16,30 +16,31 @@ redis_client = redis.asyncio.Redis(
     decode_responses=True,
 )
 
+
 async def get_cache(key: str) -> Optional[Any]:
     try:
         value = await redis_client.get(key)
         if value is None:
             return None
-        
+
         return json.loads(value)
     except Exception as e:
         logger.warning(
-            "cache_get_failed", 
-            key=key, 
+            "cache_get_failed",
+            key=key,
             error=str(e),
         )
 
         return None
-    
+
 
 async def set_cache(key: str, value: Any, ttl_seconds: int = 60) -> None:
     try:
         await redis_client.setex(key, ttl_seconds, json.dumps(value))
     except Exception as e:
         logger.warning(
-            "cache_set_failed", 
-            key=key, 
+            "cache_set_failed",
+            key=key,
             error=str(e),
         )
 
@@ -50,7 +51,7 @@ async def delete_cache(*keys: str) -> None:
             await redis_client.delete(*keys)
     except Exception as e:
         logger.warning(
-            "cache_get_failed", 
-            keys=keys, 
+            "cache_get_failed",
+            keys=keys,
             error=str(e),
         )

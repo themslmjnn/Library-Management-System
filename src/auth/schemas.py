@@ -9,6 +9,7 @@ class CreateAccessTokenRequest(BaseModel):
     role: UserRole
     access_token_version: int
 
+
 class CreateRefreshTokenRequest(BaseModel):
     user_id: int
     family: str
@@ -28,7 +29,8 @@ class ActivateAccountWithToken(BaseModel):
     @classmethod
     def validate_password_strength(cls, field: str) -> str:
         return validate_password(field)
-    
+
+
 class ActivateAccountWithCode(BaseModel):
     email: str
     code: str

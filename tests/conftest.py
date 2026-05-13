@@ -48,6 +48,7 @@ TestSessionLocal = async_sessionmaker(
     expire_on_commit=False,
 )
 
+
 @pytest.fixture(scope="session", autouse=True)
 def create_tables():
     sync_engine = create_engine(SYNC_DB_URL)
@@ -78,7 +79,7 @@ async def test_db():
 
         await session.close()
         await conn.rollback()
-    
+
     app.dependency_overrides.clear()
 
 
@@ -157,6 +158,7 @@ async def flush_cache():
 
     await fresh_client.flushdb()
     await fresh_client.aclose()
+
 
 DEFAULT_PASSWORD = "Valid123!"
 CORRECT_PASSWORD = "Correct123!"
