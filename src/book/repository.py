@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.enums import SortOrder
 from src.book.models import Book
-from src.book.schemas import CreateBook, SearchBook
+from src.book.schemas import CreateBook
 from utils.enums import BookCategory
 
 ALLOWED_SORT_FIELDS_BOOK = {"created_at", "title", "author", "publishing_date"}

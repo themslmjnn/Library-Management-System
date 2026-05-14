@@ -51,21 +51,21 @@ class UserResponseBase(BaseSchema):
     date_of_birth: date
     email: EmailStr
     phone_number: str
-    created_at: datetime
-    updated_at: datetime
 
 
 class UserResponseAdmin(UserResponseBase):
     role: UserRole
     is_active: bool
     created_by: int | None = None
+    created_at: datetime
+    updated_at: datetime
 
 
 class UserResponseStaff(UserResponseBase):
     role: UserRole
 
 
-class UpdateUserBase(BaseModel):
+class UpdateUser(BaseModel):
     username: str | None = Field(min_length=6, max_length=20, default=None)
     first_name: str | None = Field(min_length=2, max_length=20, default=None)
     last_name: str | None = Field(min_length=2, max_length=20, default=None)
@@ -82,11 +82,6 @@ class UpdateUserBase(BaseModel):
     @classmethod
     def validate_phone_number(cls, field: date) -> date:
         return validate_phone_number(field)
-
-
-class UpdateUserAdmin(UpdateUserBase):
-    role: UserRole | None = None
-    is_active: bool | None = None
 
 
 class UpdateUserPasswordAdmin(BaseModel):

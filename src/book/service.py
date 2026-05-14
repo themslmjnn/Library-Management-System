@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.enums import SortOrder
 from src.book.models import Book
 from src.book.repository import BookRepository
-from src.book.schemas import BookResponse, CreateBook, SearchBook, UpdateBook
+from src.book.schemas import BookResponse, CreateBook, UpdateBook
 from src.core.cache import delete_cache, get_cache, set_cache
 from src.core.logging import get_logger
 from src.pagination import PaginatedResponse
