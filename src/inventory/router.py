@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, status
 from src.core.dependencies import (
     async_db_dependency,
     pagination_dependency,
-    require_roles,
+    require_system_and_library_admin,
 )
 from src.inventory.schemas import (
     CreateInventory,
@@ -14,7 +14,7 @@ from src.inventory.schemas import (
 )
 from src.inventory.service import InventoryService
 from src.pagination import PaginatedResponse
-from src.user.models import User, UserRole
+from src.user.models import User
 from src.utils.exception_constants import path_param_int_ge1
 
 router = APIRouter(
@@ -26,9 +26,7 @@ router = APIRouter(
 @router.post("", response_model=InventoryResponse, status_code=status.HTTP_201_CREATED)
 async def add_inventory(
     db: async_db_dependency,
-    current_user: Annotated[
-        User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))
-    ],
+    current_user: Annotated[User, Depends(require_system_and_library_admin)],
     inventory_request: CreateInventory,
 ):
 
@@ -43,9 +41,7 @@ async def add_inventory(
 async def get_inventories(
     db: async_db_dependency,
     pagination: pagination_dependency,
-    _: Annotated[
-        User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))
-    ],
+    _: Annotated[User, Depends(require_system_and_library_admin)],
     filters: Annotated[SearchInventory, Depends()],
     sort_by: str = "created_at",
     order: str = "desc",
@@ -60,9 +56,7 @@ async def get_inventories(
 )
 async def update_inventory(
     db: async_db_dependency,
-    current_user: Annotated[
-        User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))
-    ],
+    current_user: Annotated[User, Depends(require_system_and_library_admin)],
     quantity: int,
     inventory_id: path_param_int_ge1,
 ):
@@ -76,9 +70,7 @@ async def update_inventory(
 )
 async def get_inventory_by_id(
     db: async_db_dependency,
-    _: Annotated[
-        User, Depends(require_roles(UserRole.system_admin, UserRole.library_admin))
-    ],
+    _: Annotated[User, Depends(require_system_and_library_admin)],
     inventory_id: path_param_int_ge1,
 ):
     return await InventoryService.get_inventory_by_id(db, inventory_id)

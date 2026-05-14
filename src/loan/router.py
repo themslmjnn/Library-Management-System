@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, status
 from src.core.dependencies import (
     async_db_dependency,
     pagination_dependency,
-    require_roles,
+    require_system_admin_and_staff,
 )
 from src.loan.schemas import LoanBase, LoanResponse, SearchLoan
 from src.loan.service import LoanService
@@ -24,11 +24,7 @@ async def get_loans(
     pagination: pagination_dependency,
     _: Annotated[
         User,
-        Depends(
-            require_roles(
-                UserRole.system_admin, UserRole.library_admin, UserRole.receptionist
-            )
-        ),
+        Depends(require_system_admin_and_staff),
     ],
     filters: Annotated[SearchLoan, Depends()],
     sort_by: str = "created_at",
@@ -44,11 +40,7 @@ async def get_loan_by_id(
     db: async_db_dependency,
     _: Annotated[
         User,
-        Depends(
-            require_roles(
-                UserRole.system_admin, UserRole.library_admin, UserRole.receptionist
-            )
-        ),
+        Depends(require_system_admin_and_staff),
     ],
     loan_id: path_param_int_ge1,
 ):
@@ -60,11 +52,7 @@ async def loan_book(
     db: async_db_dependency,
     current_user: Annotated[
         User,
-        Depends(
-            require_roles(
-                UserRole.system_admin, UserRole.library_admin, UserRole.receptionist
-            )
-        ),
+        Depends(require_system_admin_and_staff),
     ],
     loan_request: LoanBase,
 ):
@@ -78,11 +66,7 @@ async def return_loan(
     db: async_db_dependency,
     current_user: Annotated[
         User,
-        Depends(
-            require_roles(
-                UserRole.system_admin, UserRole.library_admin, UserRole.receptionist
-            )
-        ),
+        Depends(require_system_admin_and_staff),
     ],
     loan_id: path_param_int_ge1,
 ):

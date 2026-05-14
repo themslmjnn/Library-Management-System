@@ -3,11 +3,11 @@ import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
 
 from src.auth.schemas import CreateAccessTokenRequest, CreateRefreshTokenRequest
-from src.core.config import settings
+from src.core.config import ALGORITHM, settings
 from src.utils.exception_constants import HTTP401
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -64,7 +64,7 @@ def create_access_token(payload: CreateAccessTokenRequest) -> str:
     return jwt.encode(
         payload,
         settings.JWT_SECRET_KEY,
-        algorithm=settings.ALGORITHM,
+        algorithm=ALGORITHM,
     )
 
 
@@ -73,15 +73,17 @@ def decode_access_token(access_token: str) -> dict:
         payload = jwt.decode(
             access_token,
             settings.JWT_SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
+            algorithms=[ALGORITHM],
         )
 
         if payload.get("type") != "access":
             raise ValueError(HTTP401.INVALID_TOKEN_TYPE)
 
         return payload
-    except JWTError:
+    except ExpiredSignatureError:
         raise ValueError(HTTP401.EXPIRED_ACCESS_TOKEN)
+    except JWTError:
+        raise ValueError(HTTP401.INVALID_ACCESS_TOKEN)
 
 
 def create_refresh_token(payload: CreateRefreshTokenRequest) -> tuple[str, str]:
@@ -95,7 +97,7 @@ def create_refresh_token(payload: CreateRefreshTokenRequest) -> tuple[str, str]:
             + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_DAYS),
         },
         settings.JWT_SECRET_KEY,
-        algorithm=settings.ALGORITHM,
+        algorithm=ALGORITHM,
     )
 
     hashed_refresh_token = hashlib.sha256(raw_refresh_token.encode()).hexdigest()
@@ -108,7 +110,7 @@ def decode_refresh_token(refresh_token: str) -> dict:
         payload = jwt.decode(
             refresh_token,
             settings.JWT_SECRET_KEY,
-            algorithms=[settings.ALGORITHM],
+            algorithms=[ALGORITHM],
         )
 
         if payload.get("type") != "refresh":
@@ -120,8 +122,8 @@ def decode_refresh_token(refresh_token: str) -> dict:
         raise ValueError(HTTP401.EXPIRED_REFRESH_TOKEN)
 
 
-def verify_refresh_token(raw_refresh_roken: str, hashed_refresh_token: str) -> bool:
+def verify_refresh_token(raw_refresh_token: str, hashed_refresh_token: str) -> bool:
     return hmac.compare_digest(
-        hashlib.sha256(raw_refresh_roken.encode()).hexdigest(),
+        hashlib.sha256(raw_refresh_token.encode()).hexdigest(),
         hashed_refresh_token,
     )

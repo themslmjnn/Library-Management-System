@@ -3,8 +3,10 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import Response
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import ExpiredSignatureError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.cache import delete_cache
 from src.auth.repository import AuthRepository
 from src.auth.schemas import (
     ActivateAccountWithCode,
@@ -14,7 +16,6 @@ from src.auth.schemas import (
     LoginResponse,
 )
 from src.core.config import settings
-from src.core.dependencies import CurrentUser
 from src.core.logging import get_logger
 from src.core.security import (
     create_access_token,
@@ -42,6 +43,7 @@ from src.utils.exceptions import (
     InvalidRefreshTokenError,
     RefreshTokenFamilyError,
 )
+from utils.cache_keys import access_token_version_key
 
 logger = get_logger(__name__)
 
@@ -71,10 +73,10 @@ class AuthService:
         )
 
     @staticmethod
-    async def _invalidate_all_tokens(
-        db: AsyncSession, current_user: CurrentUser
-    ) -> None:
-        user = await UserRepositoryBase.get_user_by_id(db, current_user.id)
+    async def _invalidate_all_tokens(db: AsyncSession, current_user_id: int) -> None:
+        user = await UserRepositoryBase.get_user_by_id(db, current_user_id)
+        if user is None:
+            return
 
         user.access_token_version += 1
         user.refresh_token_hash = None
@@ -82,11 +84,12 @@ class AuthService:
         user.refresh_token_expires_at = None
 
         await db.commit()
-        await db.refresh(user)
+
+        await delete_cache(access_token_version_key(current_user_id))
 
         logger.info(
             "tokens_invalidated",
-            user_id=user.id,
+            user_id=current_user_id,
             reason="explicit_invalidation",
         )
 
@@ -137,8 +140,6 @@ class AuthService:
                     minutes=LOCKOUT_MINUTES
                 )
 
-                await db.commit()
-
                 logger.warning(
                     "account_locked",
                     user_id=user.id,
@@ -146,14 +147,14 @@ class AuthService:
                     locked_until=user.locked_until.isoformat(),
                 )
             else:
-                await db.commit()
-
                 logger.warning(
                     "login_failed",
                     reason="wrong_password",
                     user_id=user.id,
                     failed_attempts=user.failed_login_attempts,
                 )
+
+            await db.commit()
 
             raise InvalidCredentialsError(HTTP401.INVALID_CREDENTIALS)
 
@@ -235,7 +236,10 @@ class AuthService:
 
             raise InvalidInviteTokenError(HTTP400.INVALID_INVITE_TOKEN)
 
-        if datetime.now(timezone.utc) > user.invite_token_expires_at:
+        if (
+            user.invite_token_expires_at is None
+            and datetime.now(timezone.utc) > user.invite_token_expires_at
+        ):
             logger.warning(
                 "activation_failed",
                 reason="invite_token_expired",
@@ -286,7 +290,10 @@ class AuthService:
 
             raise InvalidActivationCodeError(HTTP400.INVALID_ACTIVATION_CODE)
 
-        if datetime.now(timezone.utc) > user.account_activation_code_expires_at:
+        if (
+            user.invite_token_expires_at is None
+            and datetime.now(timezone.utc) > user.account_activation_code_expires_at
+        ):
             logger.warning(
                 "activation_failed",
                 reason="activation_code_expired",
@@ -328,6 +335,13 @@ class AuthService:
             user_id = int(payload.get("sub"))
             refresh_token_family = payload.get("family")
 
+        except ExpiredSignatureError:
+            logger.warning(
+                "refresh_token_rotation_failed", 
+                reason="token_expired",
+            )
+            raise ExpiredRefreshTokenError(HTTP401.EXPIRED_REFRESH_TOKEN)
+
         except (ValueError, TypeError) as e:
             logger.warning(
                 "invalid_jwt",
@@ -364,7 +378,7 @@ class AuthService:
         if datetime.now(timezone.utc) > user.refresh_token_expires_at:
             logger.warning(
                 "refresh_token_rotation_failed",
-                reason="refesh_token_expired",
+                reason="refresh_token_expired",
                 user_id=user.id,
             )
 
@@ -405,7 +419,7 @@ class AuthService:
         await db.refresh(user)
 
         logger.info(
-            "refresh_roken_rotated",
+            "refresh_token_rotated",
             user_id=user.id,
             method="refresh_token",
         )

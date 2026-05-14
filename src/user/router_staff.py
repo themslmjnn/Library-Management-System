@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, status
 from src.core.dependencies import (
     async_db_dependency,
     pagination_dependency,
-    require_roles,
+    require_staff,
 )
 from src.pagination import PaginatedResponse
 from src.user.models import User, UserRole
@@ -25,9 +25,7 @@ router = APIRouter(
 async def create_account_staff(
     db: async_db_dependency,
     user_request: CreateUserBase,
-    current_user: Annotated[
-        User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))
-    ],
+    current_user: Annotated[User, Depends(require_staff)],
 ):
     return await UserServiceStaff.create_account_staff(
         db, user_request, current_user.id
@@ -43,9 +41,7 @@ async def get_users_staff(
     db: async_db_dependency,
     pagination: pagination_dependency,
     filters: Annotated[SearchUserBase, Depends()],
-    current_user: Annotated[
-        User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))
-    ],
+    current_user: Annotated[User, Depends(require_staff)],
     sort_by: str = "created_at",
     order: str = "desc",
 ):
@@ -66,8 +62,6 @@ async def get_users_staff(
 async def get_user_by_id_staff(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    current_user: Annotated[
-        User, Depends(require_roles(UserRole.library_admin, UserRole.receptionist))
-    ],
+    current_user: Annotated[User, Depends(require_staff)],
 ):
     return await UserServiceStaff.get_user_by_id_staff(db, user_id, current_user)

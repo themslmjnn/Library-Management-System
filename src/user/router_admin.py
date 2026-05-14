@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, status
 from src.core.dependencies import (
     async_db_dependency,
     pagination_dependency,
-    require_roles,
+    require_system_admin,
 )
 from src.pagination import PaginatedResponse
 from src.user.models import User, UserRole
@@ -29,7 +29,7 @@ router = APIRouter(
 async def create_account_admin(
     db: async_db_dependency,
     user_request: CreateUserAdmin,
-    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    current_user: Annotated[User, Depends(require_system_admin)],
 ):
     return await UserServiceAdmin.create_account_admin(
         db, user_request, current_user.id
@@ -45,7 +45,7 @@ async def get_users_admin(
     db: async_db_dependency,
     pagination: pagination_dependency,
     filters: Annotated[SearchUserAdmin, Depends()],
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    _: Annotated[User, Depends(require_system_admin)],
     sort_by: str = "created_at",
     order: str = "desc",
 ):
@@ -65,7 +65,7 @@ async def get_users_admin(
 async def get_user_by_id_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    _: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    _: Annotated[User, Depends(require_system_admin)],
 ):
     return await UserServiceAdmin.get_user_by_id_admin(db, user_id)
 
@@ -74,7 +74,7 @@ async def get_user_by_id_admin(
 async def deactivate_user_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    current_user: Annotated[User, Depends(require_system_admin)],
 ):
     return await UserServiceAdmin.deactivate_user_admin(db, user_id, current_user.id)
 
@@ -83,7 +83,7 @@ async def deactivate_user_admin(
 async def activate_user_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    current_user: Annotated[User, Depends(require_system_admin)],
 ):
     return await UserServiceAdmin.activate_user_admin(db, user_id, current_user.id)
 
@@ -95,7 +95,7 @@ async def update_user_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
     update_request: UpdateUserAdmin,
-    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    current_user: Annotated[User, Depends(require_system_admin)],
 ):
     return await UserServiceAdmin.update_user_admin(
         db, user_id, update_request, current_user.id
@@ -107,7 +107,7 @@ async def update_user_password_admin(
     db: async_db_dependency,
     user_id: int,
     password_request: UpdateUserPasswordAdmin,
-    current_user: Annotated[User, Depends(require_roles(UserRole.system_admin))],
+    current_user: Annotated[User, Depends(require_system_admin)],
 ):
     await UserServiceAdmin.update_user_password_admin(
         db, user_id, password_request, current_user.id
