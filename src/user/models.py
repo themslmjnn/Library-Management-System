@@ -38,16 +38,29 @@ class User(Base):
         "User", foreign_keys="[User.created_by]", back_populates="creator"
     )
 
-    session_creator: Mapped["User"] = relationship(
-        "User",
-        back_populates="created_session",
+    session: Mapped["UserSession"] = relationship(
+        "UserSession",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    activation: Mapped["UserActivation"] = relationship(
+        "UserActivation",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
     )
 
 
-class UserSession:
+class UserSession(Base):
     __tablename__ = "users_sessions"
 
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
 
     access_token_version: Mapped[int] = mapped_column(nullable=False, default=1)
 
@@ -62,16 +75,19 @@ class UserSession:
         DateTime(timezone=True), nullable=True
     )
 
-    created_session: Mapped["UserSession"] = relationship(
-        "UserSession",
-        back_populates="session_creator",
+    user: Mapped["User"] = relationship(
+        "User", 
+        back_populates="activation",
     )
 
 
-class UserActivation:
+class UserActivation(Base):
     __tablename__ = "users_activation"
 
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,  
+    )
 
     invite_token_hash: Mapped[str | None] = mapped_column(nullable=True)
     invite_token_expires_at: Mapped[datetime | None] = mapped_column(
@@ -81,4 +97,9 @@ class UserActivation:
     account_activation_code_hash: Mapped[str | None] = mapped_column(nullable=True)
     account_activation_code_expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    user: Mapped["User"] = relationship(
+        "User", 
+        back_populates="activation",
     )

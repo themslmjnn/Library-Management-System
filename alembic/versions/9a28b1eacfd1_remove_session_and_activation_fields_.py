@@ -5,6 +5,7 @@ Revises: cd753ce2681a
 Create Date: 2026-05-14 11:16:24.900246
 
 """
+
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -12,8 +13,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '9a28b1eacfd1'
-down_revision: Union[str, Sequence[str], None] = 'cd753ce2681a'
+revision: str = "9a28b1eacfd1"
+down_revision: Union[str, Sequence[str], None] = "cd753ce2681a"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -34,22 +35,15 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
+    op.add_column("users", sa.Column("invite_token_hash", sa.String(), nullable=True))
     op.add_column(
         "users",
-        sa.Column("invite_token_hash", sa.String(), nullable=True)
+        sa.Column("invite_token_expires_at", sa.DateTime(timezone=True), nullable=True),
     )
     op.add_column(
-        "users",
-        sa.Column("invite_token_expires_at", sa.DateTime(timezone=True), nullable=True)
+        "users", sa.Column("access_token_version", sa.Integer(), nullable=False)
     )
-    op.add_column(
-        "users",
-        sa.Column("access_token_version", sa.Integer(), nullable=False)
-    )
-    op.add_column(
-        "users",
-        sa.Column("refresh_token_hash", sa.String(), nullable=True)
-    )
+    op.add_column("users", sa.Column("refresh_token_hash", sa.String(), nullable=True))
     op.add_column(
         "users",
         sa.Column(

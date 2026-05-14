@@ -1,22 +1,20 @@
 from sqlalchemy import Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.user.models import User, UserRole
+from src.user.models import User, UserActivation, UserSession
 from src.user.schemas import (
-    CreateUserAdmin,
-    CreateUserBase,
-    CreateUserPublic,
     SearchUserAdmin,
     SearchUserBase,
 )
+from src.utils.enums import UserRole
 
 ALLOWED_SORT_FIELDS_USER = {"created_at", "first_name", "last_name"}
 
 
 class UserRepositoryBase:
     @staticmethod
-    def add_user(
-        db: AsyncSession, new_user: CreateUserAdmin | CreateUserPublic | CreateUserBase
+    def add_entity(
+        db: AsyncSession, new_user: User | UserSession | UserActivation
     ) -> None:
         db.add(new_user)
 
@@ -30,7 +28,7 @@ class UserRepositoryBase:
 
     @staticmethod
     def apply_base_filters(base_query, filters: SearchUserBase) -> Select:
-        if not filters:
+        if filters is not None:
             return base_query
 
         if filters.first_name:
@@ -175,8 +173,6 @@ class UserRepositoryStaff:
         base_query = select(User).filter(
             User.role.in_([UserRole.member, UserRole.guest])
         )
-
-        base_query = UserRepositoryBase.apply_base_filters(base_query, filters)
 
         query = UserRepositoryBase.apply_base_filters(base_query, filters)
 

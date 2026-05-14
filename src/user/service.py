@@ -12,7 +12,7 @@ from src.core.security import (
     verify_password,
 )
 from src.pagination import PaginatedResponse
-from src.user.models import User, UserActivation, UserRole
+from src.user.models import User, UserActivation, UserSession
 from src.user.repository import (
     UserRepositoryAdmin,
     UserRepositoryBase,
@@ -38,6 +38,7 @@ from src.utils.cache_keys import (
     user_detail_key_staff,
 )
 from src.utils.email import send_account_activation_code, send_invite_email
+from src.utils.enums import UserRole
 from src.utils.exception_constants import HTTP400, HTTP403, HTTP404
 from src.utils.exceptions import (
     AccessDeniedError,
@@ -84,17 +85,23 @@ class UserServiceAdmin:
             created_by=current_user_id,
         )
 
-        await db.flush(new_user)
-
-        new_user_activation = UserActivation(
-            user_id=new_user.id,
-            invite_token_hash=hashed_invite_token,
-            invite_token_expires_at=invite_token_expires_at,
-        )
-
         try:
-            UserRepositoryBase.add_user(db, new_user)
-            UserRepositoryBase.add_user(db, new_user_activation)
+            UserRepositoryBase.add_entity(db, new_user)
+
+            await db.flush()
+
+            new_user_activation = UserActivation(
+                user_id=new_user.id,
+                invite_token_hash=hashed_invite_token,
+                invite_token_expires_at=invite_token_expires_at,
+            )
+
+            new_user_session = UserSession(
+                user_id=new_user.id,
+            )
+            
+            UserRepositoryBase.add_entity(db, new_user_activation)
+            UserRepositoryBase.add_entity(db, new_user_session)
 
             await db.commit()
             await db.refresh(new_user)
@@ -177,10 +184,10 @@ class UserServiceAdmin:
             raise UserAlreadyInactiveError("User is already deactivated")
 
         user.is_active = False
-        user.session_creator.access_token_version += 1
-        user.session_creator.refresh_token_hash = None
-        user.session_creator.refresh_token_family = None
-        user.session_creator.refresh_token_expires_at = None
+        user.session.access_token_version += 1
+        user.session.refresh_token_hash = None
+        user.session.refresh_token_family = None
+        user.session.refresh_token_expires_at = None
 
         await db.commit()
 
@@ -284,10 +291,10 @@ class UserServiceAdmin:
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         user.password_hash = hash_password(password_request.new_password)
-        user.session_creator.access_token_version += 1
-        user.session_creator.refresh_token_hash = None
-        user.session_creator.refresh_token_family = None
-        user.session_creator.refresh_token_expires_at = None
+        user.session.access_token_version += 1
+        user.session.refresh_token_hash = None
+        user.session.refresh_token_family = None
+        user.session.refresh_token_expires_at = None
 
         await db.commit()
 
@@ -321,17 +328,23 @@ class UserServiceStaff:
             created_by=current_user_id,
         )
 
-        await db.flush(new_user)
-
-        new_user_activation = UserActivation(
-            user_id=new_user.id,
-            invite_token_hash=invite_token_hash,
-            invite_token_expires_at=invite_token_expires_at,
-        )
-
         try:
-            UserRepositoryBase.add_user(db, new_user)
-            UserRepositoryBase.add_user(db, new_user_activation)
+            UserRepositoryBase.add_entity(db, new_user)
+
+            await db.flush()
+
+            new_user_activation = UserActivation(
+                user_id=new_user.id,
+                invite_token_hash=invite_token_hash,
+                invite_token_expires_at=invite_token_expires_at,
+            )
+
+            new_user_session = UserSession(
+                user_id=new_user.id,
+            )
+
+            UserRepositoryBase.add_entity(db, new_user_activation)
+            UserRepositoryBase.add_entity(db, new_user_session)
 
             await db.commit()
             await db.refresh(new_user)
@@ -341,7 +354,7 @@ class UserServiceStaff:
             logger.info(
                 "user_created",
                 new_user_id=new_user.id,
-                role=new_user.role,
+                role=UserRole.guest,
                 created_by=current_user_id,
             )
 
@@ -403,7 +416,7 @@ class UserServiceStaff:
         elif current_user.role == UserRole.receptionist:
             user = await UserRepositoryStaff.get_user_by_id_receptionist(db, user_id)
         else:
-            raise AccessDeniedError(HTTP403.acces)
+            raise AccessDeniedError(HTTP403.ACCESS_DENIED)
 
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
@@ -443,9 +456,14 @@ class UserServicePublic:
             account_activation_code_expires_at=account_activation_code_expires_at,
         )
 
+        new_user_session = UserSession(
+            user_id=new_user.id,
+        )
+
         try:
             UserRepositoryBase.add_user(db, new_user)
             UserRepositoryBase.add_user(db, new_user_activation)
+            UserRepositoryBase.add_user(db, new_user_session)
 
             await db.commit()
             await db.refresh(new_user)
@@ -533,15 +551,15 @@ class UserServicePublic:
             raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)
 
         user.password_hash = hash_password(password_request.new_password)
-        user.session_creator.access_token_version += 1
-        user.session_creator.refresh_token_hash = None
-        user.session_creator.refresh_token_family = None
-        user.session_creator.refresh_token_expires_at = None
+        user.session.access_token_version += 1
+        user.session.refresh_token_hash = None
+        user.session.refresh_token_family = None
+        user.session.refresh_token_expires_at = None
 
         await db.commit()
 
         logger.info(
             "password_changed",
-            user_id=user.id,
+            user_id=user_id,
             method="self_update",
         )

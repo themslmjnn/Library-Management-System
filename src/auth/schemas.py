@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, field_validator
 
-from src.user.models import UserRole
+from src.utils.enums import UserRole
 from src.utils.validators import validate_password
 
 
