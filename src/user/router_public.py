@@ -4,7 +4,7 @@ from src.core.dependencies import async_db_dependency, current_user_dependency
 from src.core.limiter import ip_limiter
 from src.user.schemas import (
     CreateUserPublic,
-    UpdateUserBase,
+    UpdateUser,
     UpdateUserPasswordPublic,
     UserResponseBase,
 )
@@ -39,7 +39,7 @@ async def get_me(
 @router.patch("/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK)
 async def update_me(
     db: async_db_dependency,
-    update_request: UpdateUserBase,
+    update_request: UpdateUser,
     current_user: current_user_dependency,
 ):
     return await UserServicePublic.update_me(db, update_request, current_user.id)

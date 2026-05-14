@@ -26,7 +26,7 @@ class CreateUserBase(BaseModel):
 
     @field_validator("phone_number")
     @classmethod
-    def validate_phone_number(cls, field: date) -> date:
+    def validate_phone_number(cls, field: str) -> date:
         return validate_phone_number(field)
 
 
@@ -80,7 +80,7 @@ class UpdateUser(BaseModel):
 
     @field_validator("phone_number")
     @classmethod
-    def validate_phone_number(cls, field: date) -> date:
+    def validate_phone_number(cls, field: str) -> date:
         return validate_phone_number(field)
 
 

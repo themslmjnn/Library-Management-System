@@ -38,6 +38,11 @@ class User(Base):
         "User", foreign_keys="[User.created_by]", back_populates="creator"
     )
 
+    session_creator: Mapped["User"] = relationship(
+        "User",
+        back_populates="created_session",
+    )
+
 
 class UserSession:
     __tablename__ = "users_sessions"
@@ -55,6 +60,11 @@ class UserSession:
     failed_login_attempts: Mapped[int] = mapped_column(nullable=False, default=0)
     locked_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+    created_session: Mapped["UserSession"] = relationship(
+        "UserSession",
+        back_populates="session_creator",
     )
 
 

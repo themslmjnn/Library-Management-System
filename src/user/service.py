@@ -12,7 +12,7 @@ from src.core.security import (
     verify_password,
 )
 from src.pagination import PaginatedResponse
-from src.user.models import User, UserRole
+from src.user.models import User, UserActivation, UserRole
 from src.user.repository import (
     UserRepositoryAdmin,
     UserRepositoryBase,
@@ -24,20 +24,24 @@ from src.user.schemas import (
     CreateUserPublic,
     SearchUserAdmin,
     SearchUserBase,
-    UpdateUserAdmin,
-    UpdateUserBase,
+    UpdateUser,
     UpdateUserPasswordAdmin,
     UpdateUserPasswordPublic,
     UserResponseAdmin,
     UserResponseBase,
     UserResponseStaff,
 )
-from src.utils.cache_keys import user_detail_key
+from src.utils.cache_keys import (
+    access_token_version_key,
+    user_detail_key_admin,
+    user_detail_key_self,
+    user_detail_key_staff,
+)
 from src.utils.email import send_account_activation_code, send_invite_email
-from src.utils.exception_constants import HTTP400, HTTP404
+from src.utils.exception_constants import HTTP400, HTTP403, HTTP404
 from src.utils.exceptions import (
-    CannotAssignSystemAdminRoleError,
-    CannotAssignSystemRoleError,
+    AccessDeniedError,
+    CannotCreateSystemAdminRoleError,
     IncorrectPasswordError,
     UserAlreadyActiveError,
     UserAlreadyInactiveError,
@@ -57,27 +61,40 @@ class UserServiceAdmin:
         if user_request.role == UserRole.system_admin:
             logger.warning(
                 "create_user_denied",
-                reason="cannot_assign_system_admin",
+                reason="cannot_create_system_admin",
                 requested_by=current_user_id,
             )
 
-            raise CannotAssignSystemAdminRoleError(
-                "Cannot assign system_admin accounts through the API"
+            raise CannotCreateSystemAdminRoleError(
+                "Cannot create system_admin accounts through the API"
             )
 
         raw_invite_token, hashed_invite_token = generate_invite_token()
         invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=1)
 
         new_user = User(
-            **user_request.model_dump(),
+            username=user_request.username,
+            first_name=user_request.first_name,
+            last_name=user_request.last_name,
+            date_of_birth=user_request.date_of_birth,
+            email=user_request.email,
+            phone_number=user_request.phone_number,
+            role=user_request.role,
             is_active=False,
+            created_by=current_user_id,
+        )
+
+        await db.flush(new_user)
+
+        new_user_activation = UserActivation(
+            user_id=new_user.id,
             invite_token_hash=hashed_invite_token,
             invite_token_expires_at=invite_token_expires_at,
-            created_by=current_user_id,
         )
 
         try:
             UserRepositoryBase.add_user(db, new_user)
+            UserRepositoryBase.add_user(db, new_user_activation)
 
             await db.commit()
             await db.refresh(new_user)
@@ -129,8 +146,8 @@ class UserServiceAdmin:
 
     @staticmethod
     async def get_user_by_id_admin(db: AsyncSession, user_id: int) -> UserResponseAdmin:
-        key = user_detail_key(user_id)
-        cached = await get_cache(key)
+        cache_key = user_detail_key_admin(user_id)
+        cached = await get_cache(cache_key)
         if cached is not None:
             return cached
 
@@ -138,7 +155,7 @@ class UserServiceAdmin:
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseAdmin.model_validate(user).model_dump(mode="json")
-        await set_cache(key, serialized, 600)
+        await set_cache(cache_key, serialized, 600)
 
         return serialized
 
@@ -160,15 +177,19 @@ class UserServiceAdmin:
             raise UserAlreadyInactiveError("User is already deactivated")
 
         user.is_active = False
-        user.access_token_version += 1
-        user.refresh_token_hash = None
-        user.refresh_token_family = None
-        user.refresh_token_expires_at = None
+        user.session_creator.access_token_version += 1
+        user.session_creator.refresh_token_hash = None
+        user.session_creator.refresh_token_family = None
+        user.session_creator.refresh_token_expires_at = None
 
         await db.commit()
 
-        key = user_detail_key(user_id)
-        await delete_cache(key)
+        await delete_cache(
+            user_detail_key_admin(user_id),
+            user_detail_key_staff(user_id),
+            user_detail_key_self(user_id),
+        )
+        await delete_cache(access_token_version_key(user_id))
 
         logger.info(
             "user_deactivated",
@@ -197,8 +218,11 @@ class UserServiceAdmin:
 
         await db.commit()
 
-        key = user_detail_key(user_id)
-        await delete_cache(key)
+        await delete_cache(
+            user_detail_key_admin(user_id),
+            user_detail_key_staff(user_id),
+            user_detail_key_self(user_id),
+        )
 
         logger.info(
             "user_activated",
@@ -210,38 +234,11 @@ class UserServiceAdmin:
     async def update_user_admin(
         db: AsyncSession,
         user_id: int,
-        update_request: UpdateUserAdmin,
+        update_request: UpdateUser,
         current_user_id: int,
     ) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
-
-        if update_request.role is not None:
-            if update_request.role == UserRole.system_admin:
-                logger.error(
-                    "update_user_denied",
-                    reason="cannot_update_role_to_system_admin",
-                    requested_by=current_user_id,
-                )
-
-                raise CannotAssignSystemAdminRoleError(
-                    "Cannot update role to system_admin through the API"
-                )
-
-            if user.role in (
-                UserRole.guest,
-                UserRole.member,
-            ) and update_request.role not in (UserRole.guest, UserRole.member):
-                logger.error(
-                    "update_user_denied",
-                    target_user_id=user_id,
-                    requested_by=current_user_id,
-                    reason="can_not_assign_regular_user_role_a_system_role",
-                )
-
-                raise CannotAssignSystemRoleError(
-                    "Can not assign regular users a system role"
-                )
 
         try:
             update_object(user, update_request)
@@ -249,8 +246,11 @@ class UserServiceAdmin:
             await db.commit()
             await db.refresh(user)
 
-            key = user_detail_key(user_id)
-            await delete_cache(key)
+            await delete_cache(
+                user_detail_key_admin(user_id),
+                user_detail_key_staff(user_id),
+                user_detail_key_self(user_id),
+            )
 
             logger.info(
                 "user_updated",
@@ -284,15 +284,14 @@ class UserServiceAdmin:
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         user.password_hash = hash_password(password_request.new_password)
-        user.access_token_version += 1
-        user.refresh_token_hash = None
-        user.refresh_token_family = None
-        user.refresh_token_expires_at = None
+        user.session_creator.access_token_version += 1
+        user.session_creator.refresh_token_hash = None
+        user.session_creator.refresh_token_family = None
+        user.session_creator.refresh_token_expires_at = None
 
         await db.commit()
 
-        key = user_detail_key(user_id)
-        await delete_cache(key)
+        await delete_cache(access_token_version_key(user_id))
 
         logger.info(
             "password_changed",
@@ -311,16 +310,28 @@ class UserServiceStaff:
         invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=2)
 
         new_user = User(
-            **user_request.model_dump(),
+            username=user_request.username,
+            first_name=user_request.first_name,
+            last_name=user_request.last_name,
+            date_of_birth=user_request.date_of_birth,
+            email=user_request.email,
+            phone_number=user_request.phone_number,
             role=UserRole.guest,
             is_active=False,
+            created_by=current_user_id,
+        )
+
+        await db.flush(new_user)
+
+        new_user_activation = UserActivation(
+            user_id=new_user.id,
             invite_token_hash=invite_token_hash,
             invite_token_expires_at=invite_token_expires_at,
-            created_by=current_user_id,
         )
 
         try:
             UserRepositoryBase.add_user(db, new_user)
+            UserRepositoryBase.add_user(db, new_user_activation)
 
             await db.commit()
             await db.refresh(new_user)
@@ -367,6 +378,8 @@ class UserServiceStaff:
             users, total = await UserRepositoryStaff.get_users_receptionist(
                 db, skip, limit, filters, sort_by, order
             )
+        else:
+            raise AccessDeniedError(HTTP403.ACCESS_DENIED)
 
         return PaginatedResponse(
             items=users,
@@ -380,20 +393,22 @@ class UserServiceStaff:
     async def get_user_by_id_staff(
         db: AsyncSession, user_id: int, current_user: User
     ) -> UserResponseStaff:
+        cache_key = user_detail_key_staff(user_id)
+        cached = await get_cache(cache_key)
+        if cached is not None:
+            return cached
+
         if current_user.role == UserRole.library_admin:
             user = await UserRepositoryStaff.get_user_by_id_library_admin(db, user_id)
         elif current_user.role == UserRole.receptionist:
             user = await UserRepositoryStaff.get_user_by_id_receptionist(db, user_id)
-
-        key = user_detail_key(user_id)
-        cached = await get_cache(key)
-        if cached is not None:
-            return cached
+        else:
+            raise AccessDeniedError(HTTP403.acces)
 
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseStaff.model_validate(user).model_dump(mode="json")
-        await set_cache(key, serialized, 600)
+        await set_cache(cache_key, serialized, 600)
 
         return serialized
 
@@ -418,12 +433,19 @@ class UserServicePublic:
             password_hash=hash_password(user_request.password),
             role=UserRole.guest,
             is_active=False,
+        )
+
+        await db.flush(new_user)
+
+        new_user_activation = UserActivation(
+            user_id=new_user.id,
             account_activation_code_hash=hashed_activation_code,
             account_activation_code_expires_at=account_activation_code_expires_at,
         )
 
         try:
             UserRepositoryBase.add_user(db, new_user)
+            UserRepositoryBase.add_user(db, new_user_activation)
 
             await db.commit()
             await db.refresh(new_user)
@@ -451,8 +473,8 @@ class UserServicePublic:
 
     @staticmethod
     async def get_me(db: AsyncSession, user_id: int) -> UserResponseBase:
-        key = user_detail_key(user_id)
-        cached = await get_cache(key)
+        cache_key = user_detail_key_self(user_id)
+        cached = await get_cache(cache_key)
         if cached is not None:
             return cached
 
@@ -460,13 +482,13 @@ class UserServicePublic:
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseBase.model_validate(user).model_dump(mode="json")
-        await set_cache(key, serialized, 600)
+        await set_cache(cache_key, serialized, 600)
 
         return serialized
 
     @staticmethod
     async def update_me(
-        db: AsyncSession, update_request: UpdateUserBase, user_id: int
+        db: AsyncSession, update_request: UpdateUser, user_id: int
     ) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
@@ -476,8 +498,11 @@ class UserServicePublic:
             await db.commit()
             await db.refresh(user)
 
-            key = user_detail_key(user_id)
-            await delete_cache(key)
+            await delete_cache(
+                user_detail_key_admin(user_id),
+                user_detail_key_staff(user_id),
+                user_detail_key_self(user_id),
+            )
 
             logger.info(
                 "user_updated",
@@ -508,15 +533,12 @@ class UserServicePublic:
             raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)
 
         user.password_hash = hash_password(password_request.new_password)
-        user.access_token_version += 1
-        user.refresh_token_hash = None
-        user.refresh_token_family = None
-        user.refresh_token_expires_at = None
+        user.session_creator.access_token_version += 1
+        user.session_creator.refresh_token_hash = None
+        user.session_creator.refresh_token_family = None
+        user.session_creator.refresh_token_expires_at = None
 
         await db.commit()
-
-        key = user_detail_key(user_id)
-        await delete_cache(key)
 
         logger.info(
             "password_changed",

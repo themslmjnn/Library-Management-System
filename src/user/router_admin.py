@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from src.core.dependencies import (
     async_db_dependency,
@@ -8,11 +8,11 @@ from src.core.dependencies import (
     require_system_admin,
 )
 from src.pagination import PaginatedResponse
-from src.user.models import User, UserRole
+from src.user.models import User
 from src.user.schemas import (
     CreateUserAdmin,
     SearchUserAdmin,
-    UpdateUserAdmin,
+    UpdateUser,
     UpdateUserPasswordAdmin,
     UserResponseAdmin,
 )
@@ -64,25 +64,25 @@ async def get_users_admin(
 )
 async def get_user_by_id_admin(
     db: async_db_dependency,
-    user_id: path_param_int_ge1,
+    user_id: Annotated[int, Path(ge=1)],
     _: Annotated[User, Depends(require_system_admin)],
 ):
     return await UserServiceAdmin.get_user_by_id_admin(db, user_id)
 
 
-@router.put("/{user_id}/deactivate", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/{user_id}/deactivate", status_code=status.HTTP_204_NO_CONTENT)
 async def deactivate_user_admin(
     db: async_db_dependency,
-    user_id: path_param_int_ge1,
+    user_id: Annotated[int, Path(ge=1)],
     current_user: Annotated[User, Depends(require_system_admin)],
 ):
     return await UserServiceAdmin.deactivate_user_admin(db, user_id, current_user.id)
 
 
-@router.put("/{user_id}/activate", status_code=status.HTTP_204_NO_CONTENT)
+@router.patch("/{user_id}/activate", status_code=status.HTTP_204_NO_CONTENT)
 async def activate_user_admin(
     db: async_db_dependency,
-    user_id: path_param_int_ge1,
+    user_id: Annotated[int, Path(ge=1)],
     current_user: Annotated[User, Depends(require_system_admin)],
 ):
     return await UserServiceAdmin.activate_user_admin(db, user_id, current_user.id)
@@ -94,7 +94,7 @@ async def activate_user_admin(
 async def update_user_admin(
     db: async_db_dependency,
     user_id: path_param_int_ge1,
-    update_request: UpdateUserAdmin,
+    update_request: UpdateUser,
     current_user: Annotated[User, Depends(require_system_admin)],
 ):
     return await UserServiceAdmin.update_user_admin(

@@ -8,7 +8,7 @@ from src.core.dependencies import (
     require_staff,
 )
 from src.pagination import PaginatedResponse
-from src.user.models import User, UserRole
+from src.user.models import User
 from src.user.schemas import CreateUserBase, SearchUserBase, UserResponseStaff
 from src.user.service import UserServiceStaff
 from src.utils.exception_constants import path_param_int_ge1

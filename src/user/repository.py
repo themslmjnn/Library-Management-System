@@ -27,22 +27,28 @@ class UserRepositoryBase:
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
-    
+
     @staticmethod
     def apply_base_filters(base_query, filters: SearchUserBase) -> Select:
         if not filters:
             return base_query
-        
+
         if filters.first_name:
-            base_query = base_query.filter(User.first_name.ilike(f"%{filters.first_name}%"))
+            base_query = base_query.filter(
+                User.first_name.ilike(f"%{filters.first_name}%")
+            )
         if filters.last_name:
-            base_query = base_query.filter(User.last_name.ilike(f"%{filters.last_name}%"))
+            base_query = base_query.filter(
+                User.last_name.ilike(f"%{filters.last_name}%")
+            )
         if filters.date_of_birth:
             base_query = base_query.filter(User.date_of_birth == filters.date_of_birth)
         if filters.email:
             base_query = base_query.filter(User.email.ilike(f"%{filters.email}%"))
         if filters.phone_number:
-            base_query = base_query.filter(User.phone_number.ilike(f"%{filters.phone_number}%"))
+            base_query = base_query.filter(
+                User.phone_number.ilike(f"%{filters.phone_number}%")
+            )
 
         return base_query
 
@@ -57,7 +63,7 @@ class UserRepositoryBase:
             return base_query.order_by(sort_column.desc())
 
         return base_query.order_by(sort_column.asc())
-    
+
     @staticmethod
     async def paginate(
         db: AsyncSession,
@@ -75,6 +81,7 @@ class UserRepositoryBase:
         result = await db.execute(query.offset(skip).limit(limit))
 
         return result.scalars().all(), total
+
 
 class UserRepositoryAdmin:
     @staticmethod
@@ -103,7 +110,7 @@ class UserRepositoryAdmin:
         base_query = select(User).filter(User.role != UserRole.system_admin)
 
         query = UserRepositoryAdmin._apply_admin_filters(base_query, filters)
-        
+
         query = UserRepositoryBase.apply_sorting(query, sort_by, order)
 
         return await UserRepositoryBase.paginate(
