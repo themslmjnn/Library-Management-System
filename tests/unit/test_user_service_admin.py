@@ -17,6 +17,7 @@ from src.utils.exceptions import (
 )
 from tests.constants import NEW_PASSWORD, OLD_PASSWORD
 from tests.factories import make_library_admin, make_member, make_user
+from utils.cache_keys import user_detail_key_admin
 
 
 class TestCreateAccountAdmin:
@@ -124,35 +125,29 @@ class TestCreateAccountAdmin:
         assert activation.account_activation_code_expires_at is None
 
     async def test_create_user_successfully(
-        self, test_db: AsyncSession, system_admin: User
+        self, test_db: AsyncSession, system_admin: User, valid_create_user_request: CreateUserAdmin
     ):
-        create_request = CreateUserAdmin(
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="test_email@gmail.com",
-            phone_number="+15550000001",
-            date_of_birth="1990-01-01",
-            role=UserRole.library_admin,
-        )
-
         user = await UserServiceAdmin.create_account_admin(
-            test_db, create_request, system_admin.id
+            test_db, valid_create_user_request, system_admin.id
         )
 
         assert user.id is not None
         assert user.email == "test_email@gmail.com"
-        assert user.role == UserRole.library_admin
+        assert user.role == UserRole.guest
         assert user.is_active is False
         assert user.password_hash is None
         assert user.created_by == system_admin.id
 
 
 class TestGetUserByIDAdmin:
-    async def test_get_user_by_id_admin_return_404(self, test_db: AsyncSession):
-        with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.get_user_by_id_admin(test_db, 999999)
+    async def test_get_user_by_id_admin_raises_not_found(self, test_db: AsyncSession):
+        user = await make_user(test_db)
+        non_existent_id = user.id + 9999999
 
-    async def test_get_user_by_id_admin_return_valid_info(self, test_db: AsyncSession):
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.get_user_by_id_admin(test_db, non_existent_id)
+
+    async def test_get_user_by_id_admin_returns_correct_data(self, test_db: AsyncSession):
         user = await make_member(
             test_db,
             email="test_email@gmail.com",
@@ -161,9 +156,48 @@ class TestGetUserByIDAdmin:
 
         result = await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
 
+        assert result["id"] == user.id
         assert result["email"] == "test_email@gmail.com"
         assert result["phone_number"] == "+1 000 0000"
         assert result["role"] == UserRole.member
+        assert result["is_active"] == user.is_active
+
+    async def test_get_user_by_id_admin_populates_cache_after_db_hit(
+        self, test_db: AsyncSession, mocker
+    ):
+        user = await make_member(test_db)
+
+        mock_set_cache = mocker.patch("src.user.service.set_cache")
+
+        await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+
+        mock_set_cache.assert_called_once_with(
+            user_detail_key_admin(user.id),
+            mocker.ANY,
+            600,
+        )
+
+    async def test_get_user_by_id_admin_returns_cached_data(self, test_db: AsyncSession):
+        user = await make_member(test_db)
+
+        first_result = await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+
+        second_result = await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+
+        assert second_result == first_result
+
+    async def test_get_user_by_id_admin_does_not_hit_db_on_cache_hit(
+        self, test_db: AsyncSession, mocker
+    ):
+        user = await make_member(test_db)
+
+        await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+
+        mock_get_user = mocker.patch.object(UserRepositoryBase, "get_user_by_id")
+
+        await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+
+        mock_get_user.assert_not_called()
 
 
 class TestDeactivateUserAdmin:

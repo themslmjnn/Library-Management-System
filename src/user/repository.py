@@ -53,7 +53,7 @@ class UserRepositoryBase:
 
     @staticmethod
     def apply_base_filters(base_query, filters: SearchUserBase) -> Select:
-        if filters is not None:
+        if filters is None:
             return base_query
 
         if filters.first_name:
