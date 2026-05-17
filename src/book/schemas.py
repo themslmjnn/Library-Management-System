@@ -2,8 +2,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-from src.book.models import BookCategory
 from src.utils.base_schema import BaseSchema
+from src.utils.enums import BookCategory
 from src.utils.validators import validate_publishing_date
 
 

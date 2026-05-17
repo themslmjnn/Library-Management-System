@@ -1,18 +1,18 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.enums import SortOrder
 from src.book.models import Book
 from src.book.repository import BookRepository
 from src.book.schemas import BookResponse, CreateBook, UpdateBook
 from src.core.cache import delete_cache, get_cache, set_cache
+from src.core.enums import SortOrder
 from src.core.logging import get_logger
 from src.pagination import PaginatedResponse
 from src.utils.cache_keys import book_detail_key
+from src.utils.enums import BookCategory
 from src.utils.exception_constants import HTTP404
 from src.utils.exceptions import BookNotFoundError, check_unique_title_and_author
 from src.utils.helpers import ensure_exists, update_object
-from utils.enums import BookCategory
 
 logger = get_logger(__name__)
 

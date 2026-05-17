@@ -1,5 +1,6 @@
 from sqlalchemy import Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from src.user.models import User, UserActivation, UserSession
 from src.user.schemas import (
@@ -24,6 +25,30 @@ class UserRepositoryBase:
 
         result = await db.execute(query)
 
+        return result.scalar_one_or_none()
+    
+    @staticmethod
+    async def get_user_with_session(db: AsyncSession, user_id: int) -> User | None:
+        query = (
+            select(User)
+            .options(joinedload(User.session))
+            .filter(User.id == user_id)
+        )
+
+        result = await db.execute(query)
+
+        return result.scalar_one_or_none()
+    
+    @staticmethod
+    async def get_user_with_activation(db: AsyncSession, user_id: int) -> User | None:
+        query = (
+            select(User)
+            .options(joinedload(User.activation))
+            .filter(User.id == user_id)
+        )
+
+        result = await db.execute(query)
+        
         return result.scalar_one_or_none()
 
     @staticmethod

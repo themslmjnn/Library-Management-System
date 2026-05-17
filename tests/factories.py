@@ -16,11 +16,8 @@ from src.inventory.models import Inventory
 from src.inventory.repository import InventoryRepository
 from src.user.models import User, UserRole
 from src.user.repository import UserRepositoryBase
-
-DEFAULT_PASSWORD = "Valid123!"
-CORRECT_PASSWORD = "Correct123!"
-NEW_PASSWORD = "NewPassword123!"
-
+from tests.constants import CORRECT_PASSWORD, DEFAULT_PASSWORD, NEW_PASSWORD
+from user.schemas import CreateUserAdmin
 
 _counter = itertools.count(1)
 
@@ -57,7 +54,7 @@ async def make_user(
         created_by=created_by,
     )
 
-    UserRepositoryBase.add_user(db, new_user)
+    UserRepositoryBase.add_entity(db, new_user)
 
     await db.commit()
     await db.refresh(new_user)
@@ -110,7 +107,7 @@ async def make_invited_user(
         created_by=created_by,
     )
 
-    UserRepositoryBase.add_user(db, new_user)
+    UserRepositoryBase.add_entity(db, new_user)
 
     await db.commit()
     await db.refresh(new_user)
@@ -141,7 +138,7 @@ async def make_user_with_activation_code(
         + timedelta(days=1),
     )
 
-    UserRepositoryBase.add_user(test_db, user)
+    UserRepositoryBase.add_entity(test_db, user)
 
     await test_db.commit()
     await test_db.refresh(user)
@@ -157,7 +154,7 @@ async def make_user_with_refresh_token(test_db: AsyncSession):
 
     raw_refresh_token, hashed_refresh_token = create_refresh_token(
         CreateRefreshTokenRequest(
-            usern=user.id,
+            user_id=user.id,
             family="test_family_abc",
         )
     )

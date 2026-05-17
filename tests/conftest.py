@@ -23,20 +23,18 @@ from tests.factories import (
     make_system_admin,
     make_user,
 )
+from user.schemas import CreateUserAdmin
 
-# async engine for tests — uses asyncpg
 ASYNC_DB_URL = (
     f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
     f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 )
 
-# sync engine only for table creation — uses psycopg2
 SYNC_DB_URL = (
     f"postgresql+psycopg2://{settings.DB_USER}:{settings.DB_PASSWORD}"
     f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 )
 
-# async engine used by all test fixtures
 test_engine = create_async_engine(
     url=ASYNC_DB_URL,
     poolclass=NullPool,
@@ -75,12 +73,16 @@ async def test_db():
 
         app.dependency_overrides[get_db] = override_get_db
 
-        yield session
-
-        await session.close()
-        await conn.rollback()
-
-    app.dependency_overrides.clear()
+        try:
+            yield session
+        finally:
+            try:
+                await session.close()
+                await conn.rollback()
+            except Exception as e:
+                print(f"Teardown error: {e}")
+            finally:
+                app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -160,8 +162,14 @@ async def flush_cache():
     await fresh_client.aclose()
 
 
-DEFAULT_PASSWORD = "Valid123!"
-CORRECT_PASSWORD = "Correct123!"
-WRONG_PASSWORD = "Wrong123!"
-NEW_PASSWORD = "NewPassword123!"
-OLD_PASSWORD = "OldPassword123!"
+@pytest.fixture
+def valid_create_user_request(role: UserRole = UserRole.guest):
+    return CreateUserAdmin(
+        username="test_username",
+        first_name="Test",
+        last_name="User",
+        email="test_email@gmail.com",
+        phone_number="+15550000001",
+        date_of_birth="1990-01-01",
+        role=role,
+    )

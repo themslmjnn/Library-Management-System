@@ -6,14 +6,13 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from book.models import BookCategory
 from src.core.cache import get_cache, set_cache
 from src.core.enums import SortOrder
 from src.core.security import decode_access_token
 from src.database import AsyncSessionLocal
 from src.user.repository import UserRepositoryBase
 from src.utils.cache_keys import access_token_version_key
-from src.utils.enums import UserRole
+from src.utils.enums import BookCategory, UserRole
 from src.utils.exception_constants import HTTP401, HTTP403
 from src.utils.exceptions import (
     AccessDeniedError,
@@ -66,12 +65,12 @@ async def get_current_user(
             role=UserRole(payload.get("role")),
         )
 
-    user = await UserRepositoryBase.get_user_by_id(db, user_id)
+    user = await UserRepositoryBase.get_user_with_session(db, user_id)
 
     if user is None:
         raise InvalidAccessTokenError(HTTP401.INVALID_ACCESS_TOKEN)
 
-    if user.access_token_version != token_version:
+    if user.session.access_token_version != token_version:
         raise InvalidAccessTokenError(HTTP401.INVALID_ACCESS_TOKEN)
 
     if not user.is_active:
@@ -79,7 +78,7 @@ async def get_current_user(
 
     await set_cache(
         user_access_token_version_key,
-        user.access_token_version,
+        user.session.access_token_version,
         ttl_seconds=300,
     )
 

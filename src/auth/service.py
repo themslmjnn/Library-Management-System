@@ -6,7 +6,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from jose import ExpiredSignatureError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.cache import delete_cache
 from src.auth.repository import AuthRepository
 from src.auth.schemas import (
     ActivateAccountWithCode,
@@ -15,6 +14,7 @@ from src.auth.schemas import (
     CreateRefreshTokenRequest,
     LoginResponse,
 )
+from src.core.cache import delete_cache
 from src.core.config import settings
 from src.core.logging import get_logger
 from src.core.security import (
@@ -29,6 +29,7 @@ from src.core.security import (
 )
 from src.user.models import User
 from src.user.repository import UserRepositoryBase
+from src.utils.cache_keys import access_token_version_key
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
 from src.utils.exceptions import (
     AccountInactiveError,
@@ -43,7 +44,6 @@ from src.utils.exceptions import (
     InvalidRefreshTokenError,
     RefreshTokenFamilyError,
 )
-from utils.cache_keys import access_token_version_key
 
 logger = get_logger(__name__)
 
@@ -74,7 +74,7 @@ class AuthService:
 
     @staticmethod
     async def _invalidate_all_tokens(db: AsyncSession, current_user_id: int) -> None:
-        user = await UserRepositoryBase.get_user_by_id(db, current_user_id)
+        user = await UserRepositoryBase.get_user_with_session(db, current_user_id)
         if user is None:
             return
 
@@ -100,7 +100,7 @@ class AuthService:
         if form_data.username is None or form_data.password is None:
             raise EmptyCredentialsError("Username and password is required")
 
-        user = await AuthRepository.get_by_login_identifier(db, form_data.username)
+        user = await AuthRepository.get_user_by_login_identifier_with_session(db, form_data.username)
 
         if user is None:
             logger.warning(
@@ -226,7 +226,7 @@ class AuthService:
     async def activate_account_with_token(
         db: AsyncSession, activation_request: ActivateAccountWithToken
     ) -> None:
-        user = await AuthRepository.get_by_login_identifier(
+        user = await AuthRepository.get_user_by_login_identifier_with_activation(
             db, activation_request.email
         )
 
@@ -357,7 +357,7 @@ class AuthService:
 
             raise InvalidRefreshTokenError(HTTP401.INVALID_REFRESH_TOKEN)
 
-        user = await UserRepositoryBase.get_user_by_id(db, user_id)
+        user = await UserRepositoryBase.get_user_with_session(db, user_id)
 
         if user is None or user.session.refresh_token_hash is None:
             logger.warning(

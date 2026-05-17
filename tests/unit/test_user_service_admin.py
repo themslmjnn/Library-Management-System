@@ -2,11 +2,12 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import User, UserRole
-from src.user.schemas import CreateUserAdmin, UpdateUserAdmin, UpdateUserPasswordAdmin
+from src.user.repository import UserRepositoryBase
+from src.user.schemas import CreateUserAdmin, UpdateUser, UpdateUserPasswordAdmin
 from src.user.service import UserServiceAdmin
 from src.utils.exceptions import (
-    CannotAssignSystemAdminRoleError,
     CannotAssignSystemRoleError,
+    CannotCreateSystemAdminError,
     EmailAlreadyTakenError,
     PhonenumberAlreadyTakenError,
     UserAlreadyActiveError,
@@ -14,94 +15,113 @@ from src.utils.exceptions import (
     UsernameAlreadyTakenError,
     UserNotFoundError,
 )
-from tests.conftest import NEW_PASSWORD, OLD_PASSWORD
+from tests.constants import NEW_PASSWORD, OLD_PASSWORD
 from tests.factories import make_library_admin, make_member, make_user
 
 
 class TestCreateAccountAdmin:
     async def test_block_system_admin_creation(
-        self, test_db: AsyncSession, system_admin: User
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request: CreateUserAdmin,
     ):
-        create_request = CreateUserAdmin(
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="test_email@gmail.com",
-            phone_number="+15550000001",
-            date_of_birth="1990-01-01",
-            role=UserRole.system_admin,
-        )
+        valid_create_user_request.role = UserRole.system_admin
 
-        with pytest.raises(CannotAssignSystemAdminRoleError):
+        with pytest.raises(CannotCreateSystemAdminError):
             await UserServiceAdmin.create_account_admin(
-                test_db, create_request, system_admin.id
+                test_db, valid_create_user_request, system_admin.id
             )
 
-    async def test_reject_duplicate_email(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        await make_user(
-            test_db,
-            email="taken@gmail.com",
-        )
-
-        update_request = CreateUserAdmin(
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="taken@gmail.com",
-            phone_number="+15550000001",
-            date_of_birth="1990-01-01",
-            role=UserRole.receptionist,
-        )
-
-        with pytest.raises(EmailAlreadyTakenError):
-            await UserServiceAdmin.create_account_admin(
-                test_db, update_request, system_admin.id
-            )
-
-    async def test_reject_duplicate_username(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        await make_user(
-            test_db,
-            username="taken_username",
-        )
-
-        update_request = CreateUserAdmin(
-            username="taken_username",
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="test_email@gmail.com",
-            phone_number="+15550000001",
-            date_of_birth="1990-01-01",
-            role=UserRole.receptionist,
-        )
-
-        with pytest.raises(UsernameAlreadyTakenError):
-            await UserServiceAdmin.create_account_admin(
-                test_db, update_request, system_admin.id
-            )
-
-    async def test_reject_duplicate_phone_number(
-        self, test_db: AsyncSession, system_admin: User
+    @pytest.mark.parametrize(
+        ("existing_user_data", "request_override", "expected_exception"),
+        [
+            (
+                {"email": "taken@gmail.com"},
+                {"email": "taken@gmail.com"},
+                EmailAlreadyTakenError,
+            ),
+            (
+                {"username": "taken_username"},
+                {"username": "taken_username"},
+                UsernameAlreadyTakenError,
+            ),
+            (
+                {"phone_number": "+992 000 000 000"},
+                {"phone_number": "+992 000 000 000"},
+                PhonenumberAlreadyTakenError,
+            ),
+        ],
+    )
+    async def test_reject_duplicate_fields(
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request: CreateUserAdmin,
+        existing_user_data: dict,
+        request_override: dict,
+        expected_exception,
     ):
         await make_user(
             test_db,
-            phone_number="+992 000 000 000",
+            **existing_user_data,
         )
 
-        update_request = CreateUserAdmin(
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="test_email@gmail.com",
-            phone_number="+992 000 000 000",
-            date_of_birth="1990-01-01",
-            role=UserRole.receptionist,
-        )
+        for field, value in request_override.items():
+            setattr(valid_create_user_request, field, value)
 
-        with pytest.raises(PhonenumberAlreadyTakenError):
+        with pytest.raises(expected_exception):
             await UserServiceAdmin.create_account_admin(
-                test_db, update_request, system_admin.id
+                test_db, valid_create_user_request, system_admin.id
             )
+
+    async def test_create_user_session_table_successfully(
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request: CreateUserAdmin,
+    ):
+        user = await UserServiceAdmin.create_account_admin(
+            test_db, valid_create_user_request, system_admin.id
+        )
+
+        await test_db.refresh(user)
+
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        session = user_session.session
+
+        assert session.id is not None
+        assert session.user_id == user.id
+        assert session.access_token_version == 1
+        assert session.refresh_token_hash is None
+        assert session.refresh_token_expires_at is None
+        assert session.refresh_token_family is None
+        assert session.failed_login_attempts == 0
+        assert session.locked_until is None
+
+    async def test_create_user_activation_table_successfully(
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request: CreateUserAdmin,
+    ):
+        user = await UserServiceAdmin.create_account_admin(
+            test_db, valid_create_user_request, system_admin.id
+        )
+
+        await test_db.refresh(user)
+
+        user_activation = await UserRepositoryBase.get_user_with_activation(
+            test_db, user.id
+        )
+        activation = user_activation.activation
+
+        assert activation.id is not None
+        assert activation.user_id == user.id
+        assert activation.invite_token_hash is not None
+        assert activation.invite_token_expires_at is not None
+        assert activation.account_activation_code_hash is None
+        assert activation.account_activation_code_expires_at is None
 
     async def test_create_user_successfully(
         self, test_db: AsyncSession, system_admin: User
@@ -123,8 +143,8 @@ class TestCreateAccountAdmin:
         assert user.email == "test_email@gmail.com"
         assert user.role == UserRole.library_admin
         assert user.is_active is False
-        assert user.invite_token_hash is not None
         assert user.password_hash is None
+        assert user.created_by == system_admin.id
 
 
 class TestGetUserByIDAdmin:
@@ -132,7 +152,7 @@ class TestGetUserByIDAdmin:
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.get_user_by_id_admin(test_db, 999999)
 
-    async def test_get_user_by_id_admin_return_valid_infon(self, test_db: AsyncSession):
+    async def test_get_user_by_id_admin_return_valid_info(self, test_db: AsyncSession):
         user = await make_member(
             test_db,
             email="test_email@gmail.com",

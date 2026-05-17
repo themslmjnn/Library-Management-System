@@ -42,7 +42,7 @@ from src.utils.enums import UserRole
 from src.utils.exception_constants import HTTP400, HTTP403, HTTP404
 from src.utils.exceptions import (
     AccessDeniedError,
-    CannotCreateSystemAdminRoleError,
+    CannotCreateSystemAdminError,
     IncorrectPasswordError,
     UserAlreadyActiveError,
     UserAlreadyInactiveError,
@@ -66,7 +66,7 @@ class UserServiceAdmin:
                 requested_by=current_user_id,
             )
 
-            raise CannotCreateSystemAdminRoleError(
+            raise CannotCreateSystemAdminError(
                 "Cannot create system_admin accounts through the API"
             )
 
@@ -170,7 +170,7 @@ class UserServiceAdmin:
     async def deactivate_user_admin(
         db: AsyncSession, user_id: int, current_user_id: int
     ) -> None:
-        user = await UserRepositoryBase.get_user_by_id(db, user_id)
+        user = await UserRepositoryBase.get_user_with_session(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if not user.is_active:
@@ -287,7 +287,7 @@ class UserServiceAdmin:
         password_request: UpdateUserPasswordAdmin,
         current_user_id: int,
     ) -> None:
-        user = await UserRepositoryBase.get_user_by_id(db, user_id)
+        user = await UserRepositoryBase.get_user_with_session(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         user.password_hash = hash_password(password_request.new_password)

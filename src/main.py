@@ -26,7 +26,7 @@ from src.utils.exceptions import (
     BookNotAvailableError,
     BookNotFoundError,
     CannotAssignSystemRoleError,
-    CannotCreateSystemAdminRoleError,
+    CannotCreateSystemAdminError,
     EmailAlreadyTakenError,
     EmptyCredentialsError,
     ExpiredActivationCodeError,
@@ -81,13 +81,13 @@ app.add_middleware(SlowAPIMiddleware)
 
 
 app.include_router(auth_router)
-app.include_router(user_router_public)
-app.include_router(user_router_staff)
+# app.include_router(user_router_public)
+# app.include_router(user_router_staff)
 app.include_router(user_router_admin)
-app.include_router(book_router)
-app.include_router(inventory_router)
-app.include_router(loan_router_public)
-app.include_router(loan_staff_router)
+# app.include_router(book_router)
+# app.include_router(inventory_router)
+# app.include_router(loan_router_public)
+# app.include_router(loan_staff_router)
 
 
 EXCEPTION_STATUS_MAP = {
@@ -110,7 +110,7 @@ EXCEPTION_STATUS_MAP = {
     ExpiredActivationCodeError: 400,
     AccountLockedError: 403,
     AccountInactiveError: 403,
-    CannotCreateSystemAdminRoleError: 403,
+    CannotCreateSystemAdminError: 403,
     CannotAssignSystemRoleError: 403,
     IncorrectPasswordError: 400,
     EmailAlreadyTakenError: 409,

@@ -77,7 +77,7 @@ class UserSession(Base):
 
     user: Mapped["User"] = relationship(
         "User", 
-        back_populates="activation",
+        back_populates="session",
     )
 
 
@@ -87,6 +87,7 @@ class UserActivation(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,  
+        unique=True,
     )
 
     invite_token_hash: Mapped[str | None] = mapped_column(nullable=True)

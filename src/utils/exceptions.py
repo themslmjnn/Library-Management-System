@@ -76,7 +76,7 @@ class UserAlreadyInactiveError(AppException):
     pass
 
 
-class CannotCreateSystemAdminRoleError(AppException):
+class CannotCreateSystemAdminError(AppException):
     pass
 
 
