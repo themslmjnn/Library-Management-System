@@ -99,7 +99,7 @@ class UserServiceAdmin:
             new_user_session = UserSession(
                 user_id=new_user.id,
             )
-            
+
             UserRepositoryBase.add_entity(db, new_user_activation)
             UserRepositoryBase.add_entity(db, new_user_session)
 
@@ -414,9 +414,13 @@ class UserServiceStaff:
 
         match current_user.role:
             case UserRole.library_admin:
-                user = await UserRepositoryStaff.get_user_by_id_library_admin(db, user_id)
+                user = await UserRepositoryStaff.get_user_by_id_library_admin(
+                    db, user_id
+                )
             case UserRole.receptionist:
-                user = await UserRepositoryStaff.get_user_by_id_receptionist(db, user_id)
+                user = await UserRepositoryStaff.get_user_by_id_receptionist(
+                    db, user_id
+                )
             case _:
                 raise AccessDeniedError(HTTP403.ACCESS_DENIED)
 
@@ -450,22 +454,23 @@ class UserServicePublic:
             is_active=False,
         )
 
-        await db.flush(new_user)
-
-        new_user_activation = UserActivation(
-            user_id=new_user.id,
-            account_activation_code_hash=hashed_activation_code,
-            account_activation_code_expires_at=account_activation_code_expires_at,
-        )
-
-        new_user_session = UserSession(
-            user_id=new_user.id,
-        )
-
         try:
-            UserRepositoryBase.add_user(db, new_user)
-            UserRepositoryBase.add_user(db, new_user_activation)
-            UserRepositoryBase.add_user(db, new_user_session)
+            UserRepositoryBase.add_entity(db, new_user)
+
+            await db.flush()
+
+            new_user_activation = UserActivation(
+                user_id=new_user.id,
+                account_activation_code_hash=hashed_activation_code,
+                account_activation_code_expires_at=account_activation_code_expires_at,
+            )
+
+            new_user_session = UserSession(
+                user_id=new_user.id,
+            )
+
+            UserRepositoryBase.add_entity(db, new_user_activation)
+            UserRepositoryBase.add_entity(db, new_user_session)
 
             await db.commit()
             await db.refresh(new_user)
@@ -547,7 +552,7 @@ class UserServicePublic:
     async def update_my_password(
         db: AsyncSession, password_request: UpdateUserPasswordPublic, user_id: int
     ) -> None:
-        user = await UserRepositoryBase.get_user_by_id(db, user_id)
+        user = await UserRepositoryBase.get_user_with_session(db, user_id)
 
         if not verify_password(password_request.old_password, user.password_hash):
             raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)

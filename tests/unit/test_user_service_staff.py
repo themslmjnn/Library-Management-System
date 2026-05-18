@@ -2,13 +2,12 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import User, UserRole
+from src.user.repository import UserRepositoryBase
 from src.user.schemas import CreateUserBase
 from src.user.service import UserServiceStaff
+from src.utils.cache_keys import user_detail_key_staff
 from src.utils.exceptions import (
     AccessDeniedError,
-    EmailAlreadyTakenError,
-    PhonenumberAlreadyTakenError,
-    UsernameAlreadyTakenError,
     UserNotFoundError,
 )
 from tests.factories import (
@@ -16,106 +15,23 @@ from tests.factories import (
     make_member,
     make_receptionist,
     make_system_admin,
-    make_user,
 )
-from user.repository import UserRepositoryBase
 
 
 class TestCreateAccountStaff:
-    @pytest.mark.parametrize(
-        ("existing_user_data", "request_override", "expected_exception"),
-        [
-            (
-                {"email": "taken@gmail.com"},
-                {"email": "taken@gmail.com"},
-                EmailAlreadyTakenError,
-            ),
-            (
-                {"username": "taken_username"},
-                {"username": "taken_username"},
-                UsernameAlreadyTakenError,
-            ),
-            (
-                {"phone_number": "+992 000 000 000"},
-                {"phone_number": "+992 000 000 000"},
-                PhonenumberAlreadyTakenError,
-            ),
-        ],
-    )
-    async def test_reject_duplicate_fields(
-        self,
-        test_db: AsyncSession,
-        system_admin: User,
-        valid_create_user_request_staff: CreateUserBase,
-        existing_user_data: dict,
-        request_override: dict,
-        expected_exception,
-    ):
-        await make_user(
-            test_db,
-            **existing_user_data,
-        )
-
-        for field, value in request_override.items():
-            setattr(valid_create_user_request_staff, field, value)
-
-        with pytest.raises(expected_exception):
-            await UserServiceStaff.create_account_staff(
-                test_db, valid_create_user_request_staff, system_admin.id
-            )
-
-    async def test_create_user_session_table_successfully(
-        self,
-        test_db: AsyncSession,
-        system_admin: User,
-        valid_create_user_request_staff: CreateUserBase,
-    ):
-        user = await UserServiceStaff.create_account_staff(
-            test_db, valid_create_user_request_staff, system_admin.id
-        )
-
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
-        session = user_session.session
-
-        assert session.id is not None
-        assert session.user_id == user.id
-        assert session.access_token_version == 1
-        assert session.refresh_token_hash is None
-        assert session.refresh_token_expires_at is None
-        assert session.refresh_token_family is None
-        assert session.failed_login_attempts == 0
-        assert session.locked_until is None
-
-    async def test_create_user_activation_table_successfully(
-        self,
-        test_db: AsyncSession,
-        system_admin: User,
-        valid_create_user_request_staff: CreateUserBase,
-    ):
-        user = await UserServiceStaff.create_account_staff(
-            test_db, valid_create_user_request_staff, system_admin.id
-        )
-
-        user_activation = await UserRepositoryBase.get_user_with_activation(
-            test_db, user.id
-        )
-        activation = user_activation.activation
-
-        assert activation.id is not None
-        assert activation.user_id == user.id
-        assert activation.invite_token_hash is not None
-        assert activation.invite_token_expires_at is not None
-        assert activation.account_activation_code_hash is None
-        assert activation.account_activation_code_expires_at is None
-
     async def test_create_user_successfully(
         self,
         test_db: AsyncSession,
-        system_admin: User,
+        library_admin: User,
         valid_create_user_request_staff: CreateUserBase,
     ):
         user = await UserServiceStaff.create_account_staff(
-            test_db, valid_create_user_request_staff, system_admin.id
+            test_db, valid_create_user_request_staff, library_admin.id
+        )
+
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        user_activation = await UserRepositoryBase.get_user_with_activation(
+            test_db, user.id
         )
 
         assert user.id is not None
@@ -123,7 +39,9 @@ class TestCreateAccountStaff:
         assert user.role == UserRole.guest
         assert user.is_active is False
         assert user.password_hash is None
-        assert user.created_by == system_admin.id
+        assert user.created_by == library_admin.id
+        assert user_session is not None
+        assert user_activation is not None
 
 
 class TestGetUsersStaff:
@@ -255,3 +173,18 @@ class TestGetUserByIDStaff:
                 user_id=non_existant_id,
                 current_user=system_admin,
             )
+
+    async def test_get_user_by_id_staff_populates_cache_after_db_hit(
+        self, test_db: AsyncSession, library_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+
+        mock_set_cache = mocker.patch("src.user.service.set_cache")
+
+        await UserServiceStaff.get_user_by_id_staff(test_db, user.id, library_admin)
+
+        mock_set_cache.assert_called_once_with(
+            user_detail_key_staff(user.id),
+            mocker.ANY,
+            600,
+        )

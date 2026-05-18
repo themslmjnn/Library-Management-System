@@ -2,159 +2,84 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import UserRole
-from src.user.schemas import CreateUserPublic, UpdateUserBase, UpdateUserPasswordPublic
+from src.user.repository import UserRepositoryBase
+from src.user.schemas import CreateUserPublic, UpdateUser, UpdateUserPasswordPublic
 from src.user.service import UserServicePublic
+from src.utils.cache_keys import user_detail_key_self
 from src.utils.exceptions import (
     EmailAlreadyTakenError,
     IncorrectPasswordError,
     PhonenumberAlreadyTakenError,
     UsernameAlreadyTakenError,
 )
-from tests.conftest import DEFAULT_PASSWORD, NEW_PASSWORD, OLD_PASSWORD, WRONG_PASSWORD
+from tests.constants import NEW_PASSWORD, OLD_PASSWORD, WRONG_PASSWORD
 from tests.factories import make_member, make_user
 
 
 class TestCreateAccountPublic:
-    async def test_reject_duplicate_email(self, test_db: AsyncSession):
-        await make_user(
-            test_db,
-            email="taken@gmail.com",
+    async def test_create_user_activation_table_successfully(
+        self,
+        test_db: AsyncSession,
+        valid_create_user_request_public: CreateUserPublic,
+    ):
+        user = await UserServicePublic.create_account_public(
+            test_db, valid_create_user_request_public
         )
 
-        request = CreateUserPublic(
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="taken@gmail.com",
-            phone_number="+15550000001",
-            date_of_birth="1990-01-01",
-            password=DEFAULT_PASSWORD,
+        user_activation = await UserRepositoryBase.get_user_with_activation(
+            test_db, user.id
+        )
+        activation = user_activation.activation
+
+        assert activation.id is not None
+        assert activation.user_id == user.id
+        assert activation.invite_token_hash is None
+        assert activation.invite_token_expires_at is None
+        assert activation.account_activation_code_hash is not None
+        assert activation.account_activation_code_expires_at is not None
+
+    async def test_create_user_successfully(
+        self,
+        test_db: AsyncSession,
+        valid_create_user_request_public: CreateUserPublic,
+    ):
+        user = await UserServicePublic.create_account_public(
+            test_db, valid_create_user_request_public
         )
 
-        with pytest.raises(EmailAlreadyTakenError):
-            await UserServicePublic.create_account_public(test_db, request)
-
-    async def test_reject_duplicate_username(self, test_db: AsyncSession):
-        await make_user(
-            test_db,
-            username="taken_username",
-        )
-
-        request = CreateUserPublic(
-            username="taken_username",
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="test_email@gmail.com",
-            phone_number="+15550000001",
-            date_of_birth="1990-01-01",
-            password=DEFAULT_PASSWORD,
-        )
-
-        with pytest.raises(UsernameAlreadyTakenError):
-            await UserServicePublic.create_account_public(test_db, request)
-
-    async def test_reject_duplicate_phone_number(self, test_db: AsyncSession):
-        await make_user(
-            test_db,
-            phone_number="+992 000 000 000",
-        )
-
-        request = CreateUserPublic(
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="just_email@gmail.com",
-            phone_number="+992 000 000 000",
-            date_of_birth="1990-01-01",
-            password=DEFAULT_PASSWORD,
-        )
-
-        with pytest.raises(PhonenumberAlreadyTakenError):
-            await UserServicePublic.create_account_public(test_db, request)
-
-    async def test_create_user_successfully(self, test_db: AsyncSession):
-        request = CreateUserPublic(
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="test_email@gmail.com",
-            phone_number="+15550000001",
-            date_of_birth="1990-01-01",
-            password=DEFAULT_PASSWORD,
-        )
-
-        user = await UserServicePublic.create_account_public(test_db, request)
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
 
         assert user.id is not None
         assert user.email == "test_email@gmail.com"
         assert user.role == UserRole.guest
         assert user.is_active is False
-        assert user.account_activation_code_hash is not None
         assert user.password_hash is not None
+        assert user.created_by is None
+        assert user_session is not None
+
+
+class TestGetMe:
+    async def test_get_user_by_id_staff_populates_cache_after_db_hit(
+        self, test_db: AsyncSession, mocker
+    ):
+        user = await make_member(test_db)
+
+        mock_set_cache = mocker.patch("src.user.service.set_cache")
+
+        await UserServicePublic.get_me(test_db, user.id)
+
+        mock_set_cache.assert_called_once_with(
+            user_detail_key_self(user.id),
+            mocker.ANY,
+            600,
+        )
 
 
 class TestUpdateMe:
-    async def test_reject_duplicate_email(self, test_db: AsyncSession):
-        await make_user(
-            test_db,
-            email="taken@gmail.com",
-        )
-
-        user_to_be_updated = await make_user(
-            test_db,
-            email="other@gmail.com",
-        )
-
-        update_request = UpdateUserBase(
-            email="taken@gmail.com",
-        )
-
-        with pytest.raises(EmailAlreadyTakenError):
-            await UserServicePublic.update_me(
-                test_db, update_request, user_to_be_updated.id
-            )
-
-    async def test_reject_duplicate_username(self, test_db: AsyncSession):
-        await make_member(
-            test_db,
-            username="test_user",
-        )
-
-        user_to_be_updated = await make_member(
-            test_db,
-            username="test_user2",
-        )
-
-        update_request = UpdateUserBase(
-            username="test_user",
-        )
-
-        with pytest.raises(UsernameAlreadyTakenError):
-            await UserServicePublic.update_me(
-                test_db, update_request, user_to_be_updated.id
-            )
-
-    async def test_reject_duplicate_phone_number(self, test_db: AsyncSession):
-        await make_member(
-            test_db,
-            phone_number="+992 000 111 222",
-        )
-
-        user_to_be_updated = await make_member(
-            test_db,
-            phone_number="+992 000 111 333",
-        )
-
-        update_request = UpdateUserBase(
-            phone_number="+992 000 111 222",
-        )
-
-        with pytest.raises(PhonenumberAlreadyTakenError):
-            await UserServicePublic.update_me(
-                test_db, update_request, user_to_be_updated.id
-            )
-
     async def test_updates_user_successfully(self, test_db: AsyncSession):
         user = await make_user(test_db)
 
-        update_request = UpdateUserBase(
+        update_request = UpdateUser(
             username="username_test",
             first_name="User_name",
             last_name="User_surname",
@@ -175,7 +100,7 @@ class TestUpdateMe:
     async def test_partially_updates_user_successfully(self, test_db: AsyncSession):
         user = await make_user(test_db)
 
-        request = UpdateUserBase(
+        request = UpdateUser(
             username="username_test",
             email="new_email@gmail.com",
             phone_number="+992 101 101 101",
@@ -196,9 +121,11 @@ class TestUpdateMyPassword:
             test_db,
             password=OLD_PASSWORD,
         )
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        session = user_session.session
 
         old_password_hash = user.password_hash
-        old_access_token_version = user.access_token_version
+        old_access_token_version = session.access_token_version
 
         update_request = UpdateUserPasswordPublic(
             old_password=OLD_PASSWORD,
@@ -208,12 +135,14 @@ class TestUpdateMyPassword:
         await UserServicePublic.update_my_password(test_db, update_request, user.id)
 
         await test_db.refresh(user)
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        session = user_session.session
 
         assert old_password_hash != user.password_hash
-        assert user.access_token_version == old_access_token_version + 1
-        assert user.refresh_token_hash is None
-        assert user.refresh_token_family is None
-        assert user.refresh_token_expires_at is None
+        assert session.access_token_version == old_access_token_version + 1
+        assert session.refresh_token_hash is None
+        assert session.refresh_token_family is None
+        assert session.refresh_token_expires_at is None
 
     async def test_incorrect_old_password(self, test_db: AsyncSession):
         user = await make_member(

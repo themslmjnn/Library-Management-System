@@ -753,7 +753,7 @@ class TestUpdateUserAdmin:
             ),
         ],
     )
-    async def test_reject_duplicate_email(
+    async def test_reject_duplicate_fields(
         self,
         test_db: AsyncSession,
         system_admin: User,
