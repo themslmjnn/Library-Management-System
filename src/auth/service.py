@@ -100,7 +100,9 @@ class AuthService:
         if form_data.username is None or form_data.password is None:
             raise EmptyCredentialsError("Username and password is required")
 
-        user = await AuthRepository.get_user_by_login_identifier_with_session(db, form_data.username)
+        user = await AuthRepository.get_user_by_login_identifier_with_session(
+            db, form_data.username
+        )
 
         if user is None:
             logger.warning(
@@ -139,9 +141,9 @@ class AuthService:
             user.session.failed_login_attempts += 1
 
             if user.session.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
-                user.session.locked_until = datetime.now(
-                    timezone.utc
-                ) + timedelta(minutes=LOCKOUT_MINUTES)
+                user.session.locked_until = datetime.now(timezone.utc) + timedelta(
+                    minutes=LOCKOUT_MINUTES
+                )
 
                 logger.warning(
                     "account_locked",
@@ -191,9 +193,9 @@ class AuthService:
         )
 
         user.session.refresh_token_hash = hashed_refresh_token
-        user.session.refresh_token_expires_at = datetime.now(
-            timezone.utc
-        ) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_DAYS)
+        user.session.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(
+            days=settings.REFRESH_TOKEN_EXPIRES_DAYS
+        )
 
         await db.commit()
         await db.refresh(user)
@@ -241,8 +243,7 @@ class AuthService:
 
         if (
             user.activation.invite_token_expires_at is None
-            or datetime.now(timezone.utc)
-            > user.activation.invite_token_expires_at
+            or datetime.now(timezone.utc) > user.activation.invite_token_expires_at
         ):
             logger.warning(
                 "activation_failed",
@@ -390,9 +391,7 @@ class AuthService:
 
             raise ExpiredRefreshTokenError(HTTP401.EXPIRED_REFRESH_TOKEN)
 
-        if not verify_refresh_token(
-            raw_refresh_token, user.session.refresh_token_hash
-        ):
+        if not verify_refresh_token(raw_refresh_token, user.session.refresh_token_hash):
             logger.warning(
                 "refresh_token_rotation_failed",
                 reason="refresh_token_mismatch",
@@ -419,9 +418,9 @@ class AuthService:
         )
 
         user.session.refresh_token_hash = hashed_refresh_token
-        user.session.refresh_token_expires_at = datetime.now(
-            timezone.utc
-        ) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_DAYS)
+        user.session.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(
+            days=settings.REFRESH_TOKEN_EXPIRES_DAYS
+        )
 
         await db.commit()
         await db.refresh(user)

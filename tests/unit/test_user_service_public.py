@@ -6,12 +6,7 @@ from src.user.repository import UserRepositoryBase
 from src.user.schemas import CreateUserPublic, UpdateUser, UpdateUserPasswordPublic
 from src.user.service import UserServicePublic
 from src.utils.cache_keys import user_detail_key_self
-from src.utils.exceptions import (
-    EmailAlreadyTakenError,
-    IncorrectPasswordError,
-    PhonenumberAlreadyTakenError,
-    UsernameAlreadyTakenError,
-)
+from src.utils.exceptions import IncorrectPasswordError
 from tests.constants import NEW_PASSWORD, OLD_PASSWORD, WRONG_PASSWORD
 from tests.factories import make_member, make_user
 

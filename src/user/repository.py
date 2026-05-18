@@ -26,33 +26,31 @@ class UserRepositoryBase:
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
-    
+
     @staticmethod
     async def get_user_with_session(db: AsyncSession, user_id: int) -> User | None:
         query = (
-            select(User)
-            .options(joinedload(User.session))
-            .filter(User.id == user_id)
+            select(User).options(joinedload(User.session)).filter(User.id == user_id)
         )
 
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
-    
+
     @staticmethod
     async def get_user_with_activation(db: AsyncSession, user_id: int) -> User | None:
         query = (
-            select(User)
-            .options(joinedload(User.activation))
-            .filter(User.id == user_id)
+            select(User).options(joinedload(User.activation)).filter(User.id == user_id)
         )
 
         result = await db.execute(query)
-        
+
         return result.scalar_one_or_none()
 
     @staticmethod
-    def apply_base_filters(base_query, filters: SearchUserBase| SearchUserAdmin) -> Select:
+    def apply_base_filters(
+        base_query, filters: SearchUserBase | SearchUserAdmin
+    ) -> Select:
         if filters is None:
             return base_query
 

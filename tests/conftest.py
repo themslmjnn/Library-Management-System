@@ -25,6 +25,7 @@ from tests.factories import (
     make_system_admin,
     make_user,
 )
+from user.repository import UserRepositoryBase
 
 ASYNC_DB_URL = (
     f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
@@ -121,12 +122,14 @@ async def flush_cache():
     await fresh_client.aclose()
 
 
-def make_auth_header(user: User) -> dict:
+async def make_auth_header(test_db: AsyncSession, user: User) -> dict:
+    user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+
     token = create_access_token(
         CreateAccessTokenRequest(
             user_id=user.id,
             role=user.role,
-            access_token_version=user.access_token_version,
+            access_token_version=user_session.session.access_token_version,
         )
     )
 
@@ -167,6 +170,7 @@ create_user_request = {
     "date_of_birth": "1990-01-01",
 }
 
+
 @pytest.fixture
 def valid_create_user_request_admin(role: UserRole = UserRole.guest):
     return CreateUserAdmin(
@@ -174,11 +178,13 @@ def valid_create_user_request_admin(role: UserRole = UserRole.guest):
         role=role,
     )
 
+
 @pytest.fixture
 def valid_create_user_request_staff():
     return CreateUserBase(
         **create_user_request,
     )
+
 
 @pytest.fixture
 def valid_create_user_request_public():

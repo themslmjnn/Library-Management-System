@@ -64,9 +64,9 @@ async def make_user(
     )
 
     new_user_session = UserSession(
-        user_id=new_user.id,            
+        user_id=new_user.id,
     )
-            
+
     UserRepositoryBase.add_entity(test_db, new_user_activation)
     UserRepositoryBase.add_entity(test_db, new_user_session)
 

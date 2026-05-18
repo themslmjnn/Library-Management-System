@@ -76,7 +76,7 @@ class UserSession(Base):
     )
 
     user: Mapped["User"] = relationship(
-        "User", 
+        "User",
         back_populates="session",
     )
 
@@ -86,7 +86,7 @@ class UserActivation(Base):
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,  
+        nullable=False,
         unique=True,
     )
 
@@ -101,6 +101,6 @@ class UserActivation(Base):
     )
 
     user: Mapped["User"] = relationship(
-        "User", 
+        "User",
         back_populates="activation",
     )
