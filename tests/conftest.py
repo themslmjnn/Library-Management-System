@@ -16,6 +16,8 @@ from src.core.security import create_access_token
 from src.database import Base
 from src.main import app
 from src.user.models import User, UserRole
+from src.user.schemas import CreateUserAdmin, CreateUserBase, CreateUserPublic
+from tests.constants import NEW_PASSWORD
 from tests.factories import (
     make_library_admin,
     make_member,
@@ -23,7 +25,6 @@ from tests.factories import (
     make_system_admin,
     make_user,
 )
-from user.schemas import CreateUserAdmin
 
 ASYNC_DB_URL = (
     f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
@@ -157,14 +158,31 @@ async def guest(test_db):
     return await make_user(test_db, role=UserRole.guest)
 
 
+create_user_request = {
+    "username": "test_username",
+    "first_name": "Test",
+    "last_name": "User",
+    "email": "test_email@gmail.com",
+    "phone_number": "+15550000001",
+    "date_of_birth": "1990-01-01",
+}
+
 @pytest.fixture
-def valid_create_user_request(role: UserRole = UserRole.guest):
+def valid_create_user_request_admin(role: UserRole = UserRole.guest):
     return CreateUserAdmin(
-        username="test_username",
-        first_name="Test",
-        last_name="User",
-        email="test_email@gmail.com",
-        phone_number="+15550000001",
-        date_of_birth="1990-01-01",
+        **create_user_request,
         role=role,
+    )
+
+@pytest.fixture
+def valid_create_user_request_staff():
+    return CreateUserBase(
+        **create_user_request,
+    )
+
+@pytest.fixture
+def valid_create_user_request_public():
+    return CreateUserPublic(
+        **create_user_request,
+        password=NEW_PASSWORD,
     )

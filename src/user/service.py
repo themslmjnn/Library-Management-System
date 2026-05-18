@@ -383,16 +383,17 @@ class UserServiceStaff:
         order: str,
     ) -> PaginatedResponse:
 
-        if current_user.role == UserRole.library_admin:
-            users, total = await UserRepositoryStaff.get_users_library_admin(
-                db, skip, limit, filters, sort_by, order
-            )
-        elif current_user.role == UserRole.receptionist:
-            users, total = await UserRepositoryStaff.get_users_receptionist(
-                db, skip, limit, filters, sort_by, order
-            )
-        else:
-            raise AccessDeniedError(HTTP403.ACCESS_DENIED)
+        match current_user.role:
+            case UserRole.library_admin:
+                users, total = await UserRepositoryStaff.get_users_library_admin(
+                    db, skip, limit, filters, sort_by, order
+                )
+            case UserRole.receptionist:
+                users, total = await UserRepositoryStaff.get_users_receptionist(
+                    db, skip, limit, filters, sort_by, order
+                )
+            case _:
+                raise AccessDeniedError(HTTP403.ACCESS_DENIED)
 
         return PaginatedResponse(
             items=users,
@@ -411,12 +412,13 @@ class UserServiceStaff:
         if cached is not None:
             return cached
 
-        if current_user.role == UserRole.library_admin:
-            user = await UserRepositoryStaff.get_user_by_id_library_admin(db, user_id)
-        elif current_user.role == UserRole.receptionist:
-            user = await UserRepositoryStaff.get_user_by_id_receptionist(db, user_id)
-        else:
-            raise AccessDeniedError(HTTP403.ACCESS_DENIED)
+        match current_user.role:
+            case UserRole.library_admin:
+                user = await UserRepositoryStaff.get_user_by_id_library_admin(db, user_id)
+            case UserRole.receptionist:
+                user = await UserRepositoryStaff.get_user_by_id_receptionist(db, user_id)
+            case _:
+                raise AccessDeniedError(HTTP403.ACCESS_DENIED)
 
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 

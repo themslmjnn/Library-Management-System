@@ -5,6 +5,7 @@ from src.user.models import User, UserRole
 from src.user.schemas import CreateUserBase
 from src.user.service import UserServiceStaff
 from src.utils.exceptions import (
+    AccessDeniedError,
     EmailAlreadyTakenError,
     PhonenumberAlreadyTakenError,
     UsernameAlreadyTakenError,
@@ -17,73 +18,112 @@ from tests.factories import (
     make_system_admin,
     make_user,
 )
+from user.repository import UserRepositoryBase
 
 
 class TestCreateAccountStaff:
-    async def test_reject_duplicate_email(
-        self, test_db: AsyncSession, library_admin: User
+    @pytest.mark.parametrize(
+        ("existing_user_data", "request_override", "expected_exception"),
+        [
+            (
+                {"email": "taken@gmail.com"},
+                {"email": "taken@gmail.com"},
+                EmailAlreadyTakenError,
+            ),
+            (
+                {"username": "taken_username"},
+                {"username": "taken_username"},
+                UsernameAlreadyTakenError,
+            ),
+            (
+                {"phone_number": "+992 000 000 000"},
+                {"phone_number": "+992 000 000 000"},
+                PhonenumberAlreadyTakenError,
+            ),
+        ],
+    )
+    async def test_reject_duplicate_fields(
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request_staff: CreateUserBase,
+        existing_user_data: dict,
+        request_override: dict,
+        expected_exception,
     ):
         await make_user(
             test_db,
-            email="taken@gmail.com",
+            **existing_user_data,
         )
 
-        update_request = CreateUserBase(
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="taken@gmail.com",
-            phone_number="+15550000001",
-            date_of_birth="1990-01-01",
-        )
+        for field, value in request_override.items():
+            setattr(valid_create_user_request_staff, field, value)
 
-        with pytest.raises(EmailAlreadyTakenError):
+        with pytest.raises(expected_exception):
             await UserServiceStaff.create_account_staff(
-                test_db, update_request, library_admin.id
+                test_db, valid_create_user_request_staff, system_admin.id
             )
 
-    async def test_reject_duplicate_username(
-        self, test_db: AsyncSession, library_admin: User
+    async def test_create_user_session_table_successfully(
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request_staff: CreateUserBase,
     ):
-        await make_user(
-            test_db,
-            username="taken_username",
+        user = await UserServiceStaff.create_account_staff(
+            test_db, valid_create_user_request_staff, system_admin.id
         )
 
-        update_request = CreateUserBase(
-            username="taken_username",
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="test_email@gmail.com",
-            phone_number="+15550000001",
-            date_of_birth="1990-01-01",
-        )
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        session = user_session.session
 
-        with pytest.raises(UsernameAlreadyTakenError):
-            await UserServiceStaff.create_account_staff(
-                test_db, update_request, library_admin.id
-            )
+        assert session.id is not None
+        assert session.user_id == user.id
+        assert session.access_token_version == 1
+        assert session.refresh_token_hash is None
+        assert session.refresh_token_expires_at is None
+        assert session.refresh_token_family is None
+        assert session.failed_login_attempts == 0
+        assert session.locked_until is None
 
-    async def test_reject_duplicate_phone_number(
-        self, test_db: AsyncSession, library_admin: User
+    async def test_create_user_activation_table_successfully(
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request_staff: CreateUserBase,
     ):
-        await make_user(
-            test_db,
-            phone_number="+992 000 000 000",
+        user = await UserServiceStaff.create_account_staff(
+            test_db, valid_create_user_request_staff, system_admin.id
         )
 
-        update_request = CreateUserBase(
-            first_name="Test_fname",
-            last_name="Test_lname",
-            email="test_email@gmail.com",
-            phone_number="+992 000 000 000",
-            date_of_birth="1990-01-01",
-            role=UserRole.receptionist,
+        user_activation = await UserRepositoryBase.get_user_with_activation(
+            test_db, user.id
+        )
+        activation = user_activation.activation
+
+        assert activation.id is not None
+        assert activation.user_id == user.id
+        assert activation.invite_token_hash is not None
+        assert activation.invite_token_expires_at is not None
+        assert activation.account_activation_code_hash is None
+        assert activation.account_activation_code_expires_at is None
+
+    async def test_create_user_successfully(
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request_staff: CreateUserBase,
+    ):
+        user = await UserServiceStaff.create_account_staff(
+            test_db, valid_create_user_request_staff, system_admin.id
         )
 
-        with pytest.raises(PhonenumberAlreadyTakenError):
-            await UserServiceStaff.create_account_staff(
-                test_db, update_request, library_admin.id
-            )
+        assert user.id is not None
+        assert user.email == "test_email@gmail.com"
+        assert user.role == UserRole.guest
+        assert user.is_active is False
+        assert user.password_hash is None
+        assert user.created_by == system_admin.id
 
 
 class TestGetUsersStaff:
@@ -104,12 +144,11 @@ class TestGetUsersStaff:
             order="desc",
         )
 
-        roles = [i.role for i in result.items]
+        roles = [user.role for user in result.items]
 
         assert UserRole.system_admin not in roles
         assert UserRole.library_admin not in roles
-        assert visible_user.id in [i.id for i in result.items]
-        assert len(result.items) >= 1
+        assert visible_user.id in [user.id for user in result.items]
 
     async def test_get_users_staff_return_valid_info_for_receptionist(
         self, test_db: AsyncSession, receptionist: User
@@ -129,17 +168,30 @@ class TestGetUsersStaff:
             order="desc",
         )
 
-        roles = [i.role for i in result.items]
+        roles = [user.role for user in result.items]
 
         assert UserRole.system_admin not in roles
         assert UserRole.library_admin not in roles
         assert UserRole.receptionist not in roles
-        assert visible_user.id in [i.id for i in result.items]
-        assert len(result.items) >= 1
+        assert visible_user.id in [user.id for user in result.items]
+
+    async def test_get_users_staff_raises_for_unauthorized_role(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        with pytest.raises(AccessDeniedError):
+            await UserServiceStaff.get_users_staff(
+                test_db,
+                skip=0,
+                limit=20,
+                filters=None,
+                current_user=system_admin,
+                sort_by="created_at",
+                order="desc",
+            )
 
 
 class TestGetUserByIDStaff:
-    async def test_get_user_by_id_staff_return_404_for_library_admin(
+    async def test_library_admin_can_not_view_library_and_system_admins(
         self, test_db: AsyncSession, library_admin: User
     ):
         user1 = await make_library_admin(test_db)
@@ -164,9 +216,10 @@ class TestGetUserByIDStaff:
             test_db, user.id, library_admin
         )
 
+        assert result["id"] == user.id
         assert result["role"] == UserRole.receptionist
 
-    async def test_get_user_by_id_staff_return_404_for_receptionist(
+    async def test_receptionist_can_not_view_higher_roles(
         self, test_db: AsyncSession, receptionist: User
     ):
         user1 = await make_receptionist(test_db)
@@ -187,4 +240,18 @@ class TestGetUserByIDStaff:
             test_db, user.id, receptionist
         )
 
+        assert result["id"] == user.id
         assert result["role"] == UserRole.member
+
+    async def test_get_user_by_id_staff_raises_for_unauthorized_role(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        user = await make_member(test_db)
+        non_existant_id = user.id + 999999
+
+        with pytest.raises(AccessDeniedError):
+            await UserServiceStaff.get_user_by_id_staff(
+                test_db,
+                user_id=non_existant_id,
+                current_user=system_admin,
+            )

@@ -36,13 +36,13 @@ class TestCreateAccountAdmin:
         self,
         test_db: AsyncSession,
         system_admin: User,
-        valid_create_user_request: CreateUserAdmin,
+        valid_create_user_request_admin: CreateUserAdmin,
     ):
-        valid_create_user_request.role = UserRole.system_admin
+        valid_create_user_request_admin.role = UserRole.system_admin
 
         with pytest.raises(CannotCreateSystemAdminError):
             await UserServiceAdmin.create_account_admin(
-                test_db, valid_create_user_request, system_admin.id
+                test_db, valid_create_user_request_admin, system_admin.id
             )
 
     @pytest.mark.parametrize(
@@ -69,7 +69,7 @@ class TestCreateAccountAdmin:
         self,
         test_db: AsyncSession,
         system_admin: User,
-        valid_create_user_request: CreateUserAdmin,
+        valid_create_user_request_admin: CreateUserAdmin,
         existing_user_data: dict,
         request_override: dict,
         expected_exception,
@@ -80,21 +80,21 @@ class TestCreateAccountAdmin:
         )
 
         for field, value in request_override.items():
-            setattr(valid_create_user_request, field, value)
+            setattr(valid_create_user_request_admin, field, value)
 
         with pytest.raises(expected_exception):
             await UserServiceAdmin.create_account_admin(
-                test_db, valid_create_user_request, system_admin.id
+                test_db, valid_create_user_request_admin, system_admin.id
             )
 
     async def test_create_user_session_table_successfully(
         self,
         test_db: AsyncSession,
         system_admin: User,
-        valid_create_user_request: CreateUserAdmin,
+        valid_create_user_request_admin: CreateUserAdmin,
     ):
         user = await UserServiceAdmin.create_account_admin(
-            test_db, valid_create_user_request, system_admin.id
+            test_db, valid_create_user_request_admin, system_admin.id
         )
 
         user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
@@ -113,10 +113,10 @@ class TestCreateAccountAdmin:
         self,
         test_db: AsyncSession,
         system_admin: User,
-        valid_create_user_request: CreateUserAdmin,
+        valid_create_user_request_admin: CreateUserAdmin,
     ):
         user = await UserServiceAdmin.create_account_admin(
-            test_db, valid_create_user_request, system_admin.id
+            test_db, valid_create_user_request_admin, system_admin.id
         )
 
         user_activation = await UserRepositoryBase.get_user_with_activation(
@@ -135,10 +135,10 @@ class TestCreateAccountAdmin:
         self,
         test_db: AsyncSession,
         system_admin: User,
-        valid_create_user_request: CreateUserAdmin,
+        valid_create_user_request_admin: CreateUserAdmin,
     ):
         user = await UserServiceAdmin.create_account_admin(
-            test_db, valid_create_user_request, system_admin.id
+            test_db, valid_create_user_request_admin, system_admin.id
         )
 
         assert user.id is not None
