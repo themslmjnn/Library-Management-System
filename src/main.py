@@ -81,8 +81,8 @@ app.add_middleware(SlowAPIMiddleware)
 
 
 app.include_router(auth_router)
-# app.include_router(user_router_public)
-# app.include_router(user_router_staff)
+app.include_router(user_router_public)
+app.include_router(user_router_staff)
 app.include_router(user_router_admin)
 # app.include_router(book_router)
 # app.include_router(inventory_router)
