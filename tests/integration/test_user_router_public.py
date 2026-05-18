@@ -2,7 +2,11 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.conftest import make_auth_header
+from tests.constants import NEW_PASSWORD, OLD_PASSWORD
 from tests.factories import make_member
+from user.repository import UserRepositoryBase
+from user.schemas import CreateUserPublic
+from utils.enums import UserRole
 
 
 class TestGetMe:
@@ -14,9 +18,12 @@ class TestGetMe:
             email="test_email@gmail.com",
         )
 
-        headers = make_auth_header(user)
+        headers = await make_auth_header(test_db, user)
 
-        response = await client.get("/users/me", headers=headers)
+        response = await client.get(
+            "/users/me",
+            headers=headers,
+        )
 
         data = response.json()
 
@@ -31,38 +38,42 @@ class TestGetMe:
 
 
 class TestCreateAccountPublic:
-    async def test_creates_user(self, test_db: AsyncSession, client: AsyncClient):
-        payload = {
-            "first_name": "Jane",
-            "last_name": "Doe",
-            "date_of_birth": "1990-05-15",
-            "email": "jane@gmail.com",
-            "phone_number": "+15550001234",
-            "password": "Valid123!",
-        }
+    async def test_creates_user(
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        valid_create_user_request_public: CreateUserPublic,
+    ):
+        response = await client.post(
+            "/users/me",
+            json=valid_create_user_request_public.model_dump(mode="json"),
+        )
+        data = response.json()
 
-        response = await client.post("/users/me", json=payload)
+        user = await UserRepositoryBase.get_user_by_id(test_db, data["id"])
 
         assert response.status_code == 201
+        assert data["id"] is not None
+        assert user.is_active is False
+        assert user.role == UserRole.guest
 
     async def test_rejects_duplicate_email(
-        self, test_db: AsyncSession, client: AsyncClient
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        valid_create_user_request_public: CreateUserPublic,
     ):
         await make_member(
             test_db,
             email="duplicate@gmail.com",
         )
 
-        payload = {
-            "first_name": "Jane",
-            "last_name": "Doe",
-            "date_of_birth": "1990-05-15",
-            "email": "duplicate@gmail.com",
-            "phone_number": "+15550001234",
-            "password": "Valid123!",
-        }
+        valid_create_user_request_public.email = "duplicate@gmail.com"
 
-        response = await client.post("/users/me", json=payload)
+        response = await client.post(
+            "/users/me",
+            json=valid_create_user_request_public.model_dump(mode="json"),
+        )
 
         assert response.status_code == 409
 
@@ -79,7 +90,10 @@ class TestCreateAccountPublic:
             "date_of_birth": "1990-01-01",
         }
 
-        response = await client.post("/users/me", json=payload)
+        response = await client.post(
+            "/users/me",
+            json=payload,
+        )
 
         assert response.status_code == 422
 
@@ -94,9 +108,13 @@ class TestUpdateUserPublic:
             "username": "new_test_username",
         }
 
-        headers = make_auth_header(user)
+        headers = await make_auth_header(test_db, user)
 
-        response = await client.patch("/users/me", json=update_request, headers=headers)
+        response = await client.patch(
+            "/users/me",
+            json=update_request,
+            headers=headers,
+        )
 
         assert response.status_code == 200
 
@@ -117,9 +135,13 @@ class TestUpdateUserPublic:
             "email": "taken@gmail.com",
         }
 
-        headers = make_auth_header(user_to_be_updated)
+        headers = await make_auth_header(test_db, user_to_be_updated)
 
-        response = await client.patch("/users/me", json=update_request, headers=headers)
+        response = await client.patch(
+            "/users/me",
+            json=update_request,
+            headers=headers,
+        )
 
         assert response.status_code == 409
 
@@ -130,15 +152,15 @@ class TestUpdatePasswordPublic:
     ):
         user = await make_member(
             test_db,
-            password="OldPassword123!",
+            password=OLD_PASSWORD,
         )
 
         update_request = {
-            "old_password": "OldPassword123!",
-            "new_password": "NewPassword123!",
+            "old_password": OLD_PASSWORD,
+            "new_password": NEW_PASSWORD,
         }
 
-        headers = make_auth_header(user)
+        headers = await make_auth_header(test_db, user)
 
         response = await client.put(
             "/users/me/password", json=update_request, headers=headers
@@ -151,15 +173,15 @@ class TestUpdatePasswordPublic:
     ):
         user = await make_member(
             test_db,
-            password="OldPassword123!",
+            password=OLD_PASSWORD,
         )
 
         update_request = {
             "old_password": "IncorrectOldPassword123!",
-            "new_password": "NewPassword123!",
+            "new_password": NEW_PASSWORD,
         }
 
-        headers = make_auth_header(user)
+        headers = await make_auth_header(test_db, user)
 
         response = await client.put(
             "/users/me/password", json=update_request, headers=headers
