@@ -3,19 +3,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import UserRole
 from tests.conftest import make_auth_header
+from tests.constants import (
+    CORRECT_PASSWORD,
+    DEFAULT_PASSWORD,
+    NEW_PASSWORD,
+    WRONG_PASSWORD,
+)
 from tests.factories import (
     make_invited_user,
     make_member,
     make_user_with_activation_code,
 )
-
-DEFAULT_PASSWORD = "Valid123!"
-CORRECT_PASSWORD = "Correct123!"
-WRONG_PASSWORD = "Wrong123!"
-NEW_PASSWORD = "NewPassword123!"
+from user.repository import UserRepositoryBase
 
 
-# LOGIN
 class TestLogin:
     async def test_login_returns_access_token(
         self, test_db: AsyncSession, client: AsyncClient
@@ -142,7 +143,7 @@ class TestLogin:
 class TestLogout:
     async def test_logout_returns_204(self, client: AsyncClient, test_db: AsyncSession):
         user = await make_member(test_db)
-        headers = make_auth_header(user)
+        headers = await make_auth_header(test_db, user)
 
         response = await client.post(
             "/auth/logout",
@@ -167,7 +168,7 @@ class TestLogout:
             },
         )
 
-        headers = make_auth_header(user)
+        headers = await make_auth_header(test_db, user)
 
         response = await client.post(
             "/auth/logout",
@@ -188,7 +189,7 @@ class TestLogout:
         self, client: AsyncClient, test_db: AsyncSession
     ):
         user = await make_member(test_db)
-        headers = make_auth_header(user)
+        headers = await make_auth_header(test_db, user)
 
         await client.post(
             "/auth/logout",
@@ -272,16 +273,25 @@ class TestActivateWithToken:
             "password": NEW_PASSWORD,
         }
 
-        r1 = await client.post("/auth/activate_with_token", json=payload)
-        r2 = await client.post("/auth/activate_with_token", json=payload)
+        r1 = await client.post(
+            "/auth/activate_with_token",
+            json=payload,
+        )
+        r2 = await client.post(
+            "/auth/activate_with_token",
+            json=payload,
+        )
 
         assert r1.status_code == 204
         assert r2.status_code == 400
 
         await test_db.refresh(user)
+        user_activation = await UserRepositoryBase.get_user_with_activation(
+            test_db, user.id
+        )
 
         assert user.is_active is True
-        assert user.invite_token_hash is None
+        assert user_activation.activation.invite_token_hash is None
 
 
 class TestActivateWithCode:
@@ -329,8 +339,14 @@ class TestActivateWithCode:
             "code": raw_code,
         }
 
-        r1 = await client.post("/auth/activate_with_code", json=payload)
-        r2 = await client.post("/auth/activate_with_code", json=payload)
+        r1 = await client.post(
+            "/auth/activate_with_code",
+            json=payload,
+        )
+        r2 = await client.post(
+            "/auth/activate_with_code",
+            json=payload,
+        )
 
         assert r1.status_code == 204
         assert r2.status_code == 400
@@ -338,7 +354,10 @@ class TestActivateWithCode:
     async def test_activation_fails_unknown_email(self, client, test_db):
         response = await client.post(
             "/auth/activate_with_code",
-            json={"email": "nobody@gmail.com", "code": "anycode"},
+            json={
+                "email": "nobody@gmail.com",
+                "code": "anycode",
+            },
         )
 
         assert response.status_code == 400
@@ -399,7 +418,9 @@ class TestRefreshToken:
             password=CORRECT_PASSWORD,
         )
 
-        original_version = user.access_token_version
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+
+        original_version = user_session.session.access_token_version
 
         await client.post(
             "/auth/login",
@@ -411,13 +432,17 @@ class TestRefreshToken:
 
         old_cookie = client.cookies.get("refresh_token")
         await client.post("/auth/refresh_token")
-        client.cookies.set("refresh_token", old_cookie)
+        client.cookies.set(
+            "refresh_token",
+            old_cookie,
+        )
         response = await client.post("/auth/refresh_token")
 
         assert response.status_code == 401
 
-        await test_db.refresh(user)
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
 
-        assert user.refresh_token_hash is None
-        assert user.refresh_token_family is None
-        assert user.access_token_version == original_version + 1
+        assert user_session.session.refresh_token_hash is None
+        assert user_session.session.refresh_token_family is None
+        assert user_session.session.refresh_token_expires_at is None
+        assert user_session.session.access_token_version == original_version + 1

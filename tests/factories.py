@@ -116,12 +116,25 @@ async def make_invited_user(
         password_hash=None,
         role=role,
         is_active=False,
-        invite_token_hash=hashed_invite_token,
-        invite_token_expires_at=datetime.now(timezone.utc) + timedelta(days=2),
         created_by=created_by,
     )
 
     UserRepositoryBase.add_entity(test_db, new_user)
+
+    await test_db.flush()
+
+    new_user_activation = UserActivation(
+        user_id=new_user.id,
+        invite_token_hash=hashed_invite_token,
+        invite_token_expires_at=datetime.now(timezone.utc) + timedelta(days=2),
+    )
+
+    new_user_session = UserSession(
+        user_id=new_user.id,
+    )
+
+    UserRepositoryBase.add_entity(test_db, new_user_activation)
+    UserRepositoryBase.add_entity(test_db, new_user_session)
 
     await test_db.commit()
     await test_db.refresh(new_user)
@@ -137,7 +150,7 @@ async def make_user_with_activation_code(
     raw_code, hashed_code = generate_account_activation_code()
     n = _next()
 
-    user = User(
+    new_user = User(
         username=f"public_{n}",
         first_name="Public",
         last_name="User",
@@ -147,17 +160,30 @@ async def make_user_with_activation_code(
         password_hash=hash_password(NEW_PASSWORD),
         role=UserRole.guest,
         is_active=False,
-        account_activation_code_hash=hashed_code,
+    )
+
+    UserRepositoryBase.add_entity(test_db, new_user)
+
+    await test_db.flush()
+
+    new_user_activation = UserActivation(
+        user_id=new_user.id,
+       account_activation_code_hash=hashed_code,
         account_activation_code_expires_at=datetime.now(timezone.utc)
         + timedelta(days=1),
     )
 
-    UserRepositoryBase.add_entity(test_db, user)
+    new_user_session = UserSession(
+        user_id=new_user.id,
+    )
+
+    UserRepositoryBase.add_entity(test_db, new_user_activation)
+    UserRepositoryBase.add_entity(test_db, new_user_session)
 
     await test_db.commit()
-    await test_db.refresh(user)
+    await test_db.refresh(new_user)
 
-    return user, raw_code
+    return new_user, raw_code
 
 
 async def make_user_with_refresh_token(test_db: AsyncSession):
@@ -172,13 +198,12 @@ async def make_user_with_refresh_token(test_db: AsyncSession):
             family="test_family_abc",
         )
     )
-
-    user.refresh_token_hash = hashed_refresh_token
-    user.refresh_token_family = "test_family_abc"
-    user.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+    user_session.session.refresh_token_hash = hashed_refresh_token
+    user_session.session.refresh_token_family = "test_family_abc"
+    user_session.session.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
 
     await test_db.commit()
-    await test_db.refresh(user)
 
     return user, raw_refresh_token
 

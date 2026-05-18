@@ -3,11 +3,11 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import User, UserRole
+from src.user.repository import UserRepositoryBase
+from src.user.schemas import CreateUserAdmin
 from tests.conftest import make_auth_header
 from tests.constants import NEW_PASSWORD
 from tests.factories import make_library_admin, make_member, make_system_admin
-from user.repository import UserRepositoryBase
-from user.schemas import CreateUserAdmin
 
 
 class TestGetUsersAdmin:

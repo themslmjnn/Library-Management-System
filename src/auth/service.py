@@ -282,7 +282,7 @@ class AuthService:
     async def activate_account_with_code(
         db: AsyncSession, activation_request: ActivateAccountWithCode
     ) -> None:
-        user = await AuthRepository.get_by_login_identifier(
+        user = await AuthRepository.get_user_by_login_identifier_with_activation(
             db, activation_request.email
         )
 
