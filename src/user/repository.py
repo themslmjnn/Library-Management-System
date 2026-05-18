@@ -52,7 +52,7 @@ class UserRepositoryBase:
         return result.scalar_one_or_none()
 
     @staticmethod
-    def apply_base_filters(base_query, filters: SearchUserBase) -> Select:
+    def apply_base_filters(base_query, filters: SearchUserBase| SearchUserAdmin) -> Select:
         if filters is None:
             return base_query
 

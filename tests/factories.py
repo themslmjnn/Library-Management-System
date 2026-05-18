@@ -17,7 +17,6 @@ from src.inventory.repository import InventoryRepository
 from src.user.models import User, UserRole
 from src.user.repository import UserRepositoryBase
 from tests.constants import CORRECT_PASSWORD, DEFAULT_PASSWORD, NEW_PASSWORD
-from user.schemas import CreateUserAdmin
 
 _counter = itertools.count(1)
 
@@ -27,13 +26,15 @@ def _next() -> int:
 
 
 async def make_user(
-    db: AsyncSession,
+    test_db: AsyncSession,
     *,
     role: UserRole = UserRole.guest,
     is_active: bool = True,
     email: str | None = None,
     phone_number: str | None = None,
     username: str | None = None,
+    first_name: str | None = None,
+    last_name: str | None = None,
     password: str = DEFAULT_PASSWORD,
     has_password: bool = True,
     created_by: int | None = None,
@@ -43,8 +44,8 @@ async def make_user(
 
     new_user = User(
         username=username or f"user_{n}",
-        first_name="test_fname",
-        last_name="test_lname",
+        first_name=first_name or "test_fname",
+        last_name=last_name or "test_lname",
         date_of_birth=date(2000, 1, 1),
         email=email or f"user_{n}@gmail.com",
         phone_number=phone_number or f"+992 000 {n:07d}",
@@ -54,36 +55,36 @@ async def make_user(
         created_by=created_by,
     )
 
-    UserRepositoryBase.add_entity(db, new_user)
+    UserRepositoryBase.add_entity(test_db, new_user)
 
-    await db.commit()
-    await db.refresh(new_user)
+    await test_db.commit()
+    await test_db.refresh(new_user)
 
     return new_user
 
 
-async def make_system_admin(db: AsyncSession, **kwargs) -> User:
-    return await make_user(db, role=UserRole.system_admin, **kwargs)
+async def make_system_admin(test_db: AsyncSession, **kwargs) -> User:
+    return await make_user(test_db, role=UserRole.system_admin, **kwargs)
 
 
-async def make_library_admin(db: AsyncSession, **kwargs) -> User:
-    return await make_user(db, role=UserRole.library_admin, **kwargs)
+async def make_library_admin(test_db: AsyncSession, **kwargs) -> User:
+    return await make_user(test_db, role=UserRole.library_admin, **kwargs)
 
 
-async def make_receptionist(db: AsyncSession, **kwargs) -> User:
-    return await make_user(db, role=UserRole.receptionist, **kwargs)
+async def make_receptionist(test_db: AsyncSession, **kwargs) -> User:
+    return await make_user(test_db, role=UserRole.receptionist, **kwargs)
 
 
-async def make_member(db: AsyncSession, **kwargs) -> User:
-    return await make_user(db, role=UserRole.member, **kwargs)
+async def make_member(test_db: AsyncSession, **kwargs) -> User:
+    return await make_user(test_db, role=UserRole.member, **kwargs)
 
 
-async def make_guest(db: AsyncSession, **kwargs) -> User:
-    return await make_user(db, role=UserRole.guest, **kwargs)
+async def make_guest(test_db: AsyncSession, **kwargs) -> User:
+    return await make_user(test_db, role=UserRole.guest, **kwargs)
 
 
 async def make_invited_user(
-    db: AsyncSession,
+    test_db: AsyncSession,
     *,
     role: UserRole = UserRole.guest,
     created_by: int | None = None,
@@ -107,10 +108,10 @@ async def make_invited_user(
         created_by=created_by,
     )
 
-    UserRepositoryBase.add_entity(db, new_user)
+    UserRepositoryBase.add_entity(test_db, new_user)
 
-    await db.commit()
-    await db.refresh(new_user)
+    await test_db.commit()
+    await test_db.refresh(new_user)
 
     return new_user, raw_invite_token
 

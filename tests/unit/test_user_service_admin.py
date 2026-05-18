@@ -3,8 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.user.models import User, UserRole
 from src.user.repository import UserRepositoryBase
-from src.user.schemas import CreateUserAdmin, UpdateUser, UpdateUserPasswordAdmin
+from src.user.schemas import (
+    CreateUserAdmin,
+    SearchUserAdmin,
+    UpdateUser,
+    UpdateUserPasswordAdmin,
+)
 from src.user.service import UserServiceAdmin
+from src.utils.cache_keys import user_detail_key_admin
 from src.utils.exceptions import (
     CannotAssignSystemRoleError,
     CannotCreateSystemAdminError,
@@ -16,8 +22,12 @@ from src.utils.exceptions import (
     UserNotFoundError,
 )
 from tests.constants import NEW_PASSWORD, OLD_PASSWORD
-from tests.factories import make_library_admin, make_member, make_user
-from utils.cache_keys import user_detail_key_admin
+from tests.factories import (
+    make_library_admin,
+    make_member,
+    make_receptionist,
+    make_user,
+)
 
 
 class TestCreateAccountAdmin:
@@ -86,8 +96,6 @@ class TestCreateAccountAdmin:
             test_db, valid_create_user_request, system_admin.id
         )
 
-        await test_db.refresh(user)
-
         user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
         session = user_session.session
 
@@ -109,8 +117,6 @@ class TestCreateAccountAdmin:
         user = await UserServiceAdmin.create_account_admin(
             test_db, valid_create_user_request, system_admin.id
         )
-
-        await test_db.refresh(user)
 
         user_activation = await UserRepositoryBase.get_user_with_activation(
             test_db, user.id
@@ -138,7 +144,404 @@ class TestCreateAccountAdmin:
         assert user.password_hash is None
         assert user.created_by == system_admin.id
 
+class TestGetUsersAdmin:
+    async def test_returns_empty_when_no_users(
+        self, test_db: AsyncSession
+    ):
+        filters = SearchUserAdmin()
 
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert result.items == []
+        assert result.total == 0
+        assert result.has_more is False
+
+    async def test_excludes_system_admin_from_results(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        await make_member(test_db)
+        filters = SearchUserAdmin()
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        returned_ids = [user.id for user in result.items]
+
+        assert system_admin.id not in returned_ids
+
+    async def test_returns_all_non_system_admin_users(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        member = await make_member(test_db)
+        library_admin = await make_library_admin(test_db)
+        receptionist = await make_receptionist(test_db)
+
+        filters = SearchUserAdmin()
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        returned_ids = [user.id for user in result.items]
+
+        assert member.id in returned_ids
+        assert library_admin.id in returned_ids
+        assert receptionist.id in returned_ids
+        assert system_admin.id not in returned_ids
+
+    async def test_has_more_is_true_when_results_exceed_page(
+        self, test_db: AsyncSession
+    ):
+        await make_member(test_db)
+        await make_member(
+            test_db, 
+            email="second@gmail.com", 
+            phone_number="+15550000002",
+        )
+        await make_member(
+            test_db, 
+            email="third@gmail.com", 
+            phone_number="+15550000003",
+        )
+        filters = SearchUserAdmin()
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=2,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert result.has_more is True
+        assert len(result.items) == 2
+
+    async def test_has_more_is_false_when_results_fit_in_page(
+        self, test_db: AsyncSession
+    ):
+        await make_member(test_db)
+        await make_member(
+            test_db, 
+            email="second@gmail.com", 
+            phone_number="+15550000002",
+        )
+        filters = SearchUserAdmin()
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert result.has_more is False
+
+    async def test_skip_and_limit_return_correct_slice(
+        self, test_db: AsyncSession
+    ):
+        await make_member(test_db)
+        await make_member(
+            test_db, 
+            email="second@gmail.com", 
+            phone_number="+15550000002",
+        )
+        await make_member(
+            test_db, 
+            email="third@gmail.com", 
+            phone_number="+15550000003",
+        )
+        filters = SearchUserAdmin()
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=1,
+            limit=1,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert len(result.items) == 1
+        assert result.total == 3
+
+    async def test_filter_by_email(self, test_db: AsyncSession):
+        target = await make_member(
+            test_db, 
+            email="target@gmail.com",
+        )
+        await make_member(
+            test_db, 
+            email="other@gmail.com", 
+            phone_number="+15550000002",
+        )
+        filters = SearchUserAdmin(email="target")
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert len(result.items) == 1
+        assert result.items[0].id == target.id
+
+    async def test_filter_by_first_name(self, test_db: AsyncSession):
+        target = await make_member(
+            test_db, 
+            first_name="Unique",
+        )
+        await make_member(
+            test_db,
+            first_name="Other",
+            email="other@gmail.com",
+            phone_number="+15550000002",
+        )
+        filters = SearchUserAdmin(first_name="Unique")
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert len(result.items) == 1
+        assert result.items[0].id == target.id
+
+    async def test_filter_by_last_name(self, test_db: AsyncSession):
+        target = await make_member(
+            test_db, 
+            last_name="Targetlast",
+        )
+        await make_member(
+            test_db,
+            last_name="Otherlast",
+            email="other@gmail.com",
+            phone_number="+15550000002",
+        )
+        filters = SearchUserAdmin(last_name="Targetlast")
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert len(result.items) == 1
+        assert result.items[0].id == target.id
+
+    async def test_filter_by_phone_number(self, test_db: AsyncSession):
+        target = await make_member(
+            test_db, 
+            phone_number="+15550000099",
+        )
+        await make_member(
+            test_db, 
+            email="other@gmail.com", 
+            phone_number="+15550000002",
+        )
+        filters = SearchUserAdmin(phone_number="+15550000099")
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        assert len(result.items) == 1
+        assert result.items[0].id == target.id
+
+    async def test_filter_by_role(self, test_db: AsyncSession):
+        member = await make_member(test_db)
+        await make_library_admin(test_db)
+        filters = SearchUserAdmin(role=UserRole.member)
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        returned_ids = [user.id for user in result.items]
+
+        assert member.id in returned_ids
+        assert all(user.role == UserRole.member for user in result.items)
+
+    async def test_filter_by_is_active_true(self, test_db: AsyncSession):
+        active_user = await make_member(
+            test_db, 
+            is_active=True,
+        )
+        await make_member(
+            test_db,
+            is_active=False,
+            email="inactive@gmail.com",
+            phone_number="+15550000002",
+        )
+        filters = SearchUserAdmin(is_active=True)
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        returned_ids = [user.id for user in result.items]
+
+        assert active_user.id in returned_ids
+        assert all(user.is_active is True for user in result.items)
+
+    async def test_filter_by_is_active_false(self, test_db: AsyncSession):
+        await make_member(
+            test_db, 
+            is_active=True,
+        )
+        inactive_user = await make_member(
+            test_db,
+            is_active=False,
+            email="inactive@gmail.com",
+            phone_number="+15550000002",
+        )
+        filters = SearchUserAdmin(is_active=False)
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="created_at",
+            order="desc",
+        )
+
+        returned_ids = [user.id for user in result.items]
+
+        assert inactive_user.id in returned_ids
+        assert all(user.is_active is False for user in result.items)
+
+    async def test_sort_by_first_name_asc(self, test_db: AsyncSession):
+        await make_member(
+            test_db, 
+            first_name="Charlie",
+        )
+        await make_member(
+            test_db,
+            first_name="Alice",
+            email="alice@gmail.com",
+            phone_number="+15550000002",
+        )
+        await make_member(
+            test_db,
+            first_name="Bob",
+            email="bob@gmail.com",
+            phone_number="+15550000003",
+        )
+        filters = SearchUserAdmin()
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="first_name",
+            order="asc",
+        )
+
+        first_names = [user.first_name for user in result.items]
+
+        assert first_names == sorted(first_names)
+
+    async def test_sort_by_first_name_desc(self, test_db: AsyncSession):
+        await make_member(
+            test_db, 
+            first_name="Charlie",
+        )
+        await make_member(
+            test_db,
+            first_name="Alice",
+            email="alice@gmail.com",
+            phone_number="+15550000002",
+        )
+        await make_member(
+            test_db,
+            first_name="Bob",
+            email="bob@gmail.com",
+            phone_number="+15550000003",
+        )
+        filters = SearchUserAdmin()
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="first_name",
+            order="desc",
+        )
+
+        first_names = [user.first_name for user in result.items]
+
+        assert first_names == sorted(first_names, reverse=True)
+
+    async def test_invalid_sort_field_falls_back_to_created_at(
+        self, test_db: AsyncSession
+    ):
+        await make_member(test_db)
+        await make_member(
+            test_db, 
+            email="second@gmail.com", 
+            phone_number="+15550000002",
+        )
+        filters = SearchUserAdmin()
+
+        result = await UserServiceAdmin.get_users_admin(
+            test_db,
+            skip=0,
+            limit=10,
+            filters=filters,
+            sort_by="invalid_field",
+            order="desc",
+        )
+
+        assert result.total == 2
+        
 class TestGetUserByIDAdmin:
     async def test_get_user_by_id_admin_raises_not_found(self, test_db: AsyncSession):
         user = await make_user(test_db)
