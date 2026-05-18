@@ -14,7 +14,7 @@ from src.core.security import (
 )
 from src.inventory.models import Inventory
 from src.inventory.repository import InventoryRepository
-from src.user.models import User, UserRole
+from src.user.models import User, UserActivation, UserRole, UserSession
 from src.user.repository import UserRepositoryBase
 from tests.constants import CORRECT_PASSWORD, DEFAULT_PASSWORD, NEW_PASSWORD
 
@@ -56,6 +56,19 @@ async def make_user(
     )
 
     UserRepositoryBase.add_entity(test_db, new_user)
+
+    await test_db.flush()
+
+    new_user_activation = UserActivation(
+        user_id=new_user.id,
+    )
+
+    new_user_session = UserSession(
+        user_id=new_user.id,            
+    )
+            
+    UserRepositoryBase.add_entity(test_db, new_user_activation)
+    UserRepositoryBase.add_entity(test_db, new_user_session)
 
     await test_db.commit()
     await test_db.refresh(new_user)

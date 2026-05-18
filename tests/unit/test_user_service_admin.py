@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,7 +14,6 @@ from src.user.schemas import (
 from src.user.service import UserServiceAdmin
 from src.utils.cache_keys import user_detail_key_admin
 from src.utils.exceptions import (
-    CannotAssignSystemRoleError,
     CannotCreateSystemAdminError,
     EmailAlreadyTakenError,
     PhonenumberAlreadyTakenError,
@@ -131,7 +132,10 @@ class TestCreateAccountAdmin:
         assert activation.account_activation_code_expires_at is None
 
     async def test_create_user_successfully(
-        self, test_db: AsyncSession, system_admin: User, valid_create_user_request: CreateUserAdmin
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request: CreateUserAdmin,
     ):
         user = await UserServiceAdmin.create_account_admin(
             test_db, valid_create_user_request, system_admin.id
@@ -144,10 +148,9 @@ class TestCreateAccountAdmin:
         assert user.password_hash is None
         assert user.created_by == system_admin.id
 
+
 class TestGetUsersAdmin:
-    async def test_returns_empty_when_no_users(
-        self, test_db: AsyncSession
-    ):
+    async def test_returns_empty_when_no_users(self, test_db: AsyncSession):
         filters = SearchUserAdmin()
 
         result = await UserServiceAdmin.get_users_admin(
@@ -212,13 +215,13 @@ class TestGetUsersAdmin:
     ):
         await make_member(test_db)
         await make_member(
-            test_db, 
-            email="second@gmail.com", 
+            test_db,
+            email="second@gmail.com",
             phone_number="+15550000002",
         )
         await make_member(
-            test_db, 
-            email="third@gmail.com", 
+            test_db,
+            email="third@gmail.com",
             phone_number="+15550000003",
         )
         filters = SearchUserAdmin()
@@ -240,8 +243,8 @@ class TestGetUsersAdmin:
     ):
         await make_member(test_db)
         await make_member(
-            test_db, 
-            email="second@gmail.com", 
+            test_db,
+            email="second@gmail.com",
             phone_number="+15550000002",
         )
         filters = SearchUserAdmin()
@@ -257,18 +260,16 @@ class TestGetUsersAdmin:
 
         assert result.has_more is False
 
-    async def test_skip_and_limit_return_correct_slice(
-        self, test_db: AsyncSession
-    ):
+    async def test_skip_and_limit_return_correct_slice(self, test_db: AsyncSession):
         await make_member(test_db)
         await make_member(
-            test_db, 
-            email="second@gmail.com", 
+            test_db,
+            email="second@gmail.com",
             phone_number="+15550000002",
         )
         await make_member(
-            test_db, 
-            email="third@gmail.com", 
+            test_db,
+            email="third@gmail.com",
             phone_number="+15550000003",
         )
         filters = SearchUserAdmin()
@@ -287,12 +288,12 @@ class TestGetUsersAdmin:
 
     async def test_filter_by_email(self, test_db: AsyncSession):
         target = await make_member(
-            test_db, 
+            test_db,
             email="target@gmail.com",
         )
         await make_member(
-            test_db, 
-            email="other@gmail.com", 
+            test_db,
+            email="other@gmail.com",
             phone_number="+15550000002",
         )
         filters = SearchUserAdmin(email="target")
@@ -311,7 +312,7 @@ class TestGetUsersAdmin:
 
     async def test_filter_by_first_name(self, test_db: AsyncSession):
         target = await make_member(
-            test_db, 
+            test_db,
             first_name="Unique",
         )
         await make_member(
@@ -336,7 +337,7 @@ class TestGetUsersAdmin:
 
     async def test_filter_by_last_name(self, test_db: AsyncSession):
         target = await make_member(
-            test_db, 
+            test_db,
             last_name="Targetlast",
         )
         await make_member(
@@ -361,12 +362,12 @@ class TestGetUsersAdmin:
 
     async def test_filter_by_phone_number(self, test_db: AsyncSession):
         target = await make_member(
-            test_db, 
+            test_db,
             phone_number="+15550000099",
         )
         await make_member(
-            test_db, 
-            email="other@gmail.com", 
+            test_db,
+            email="other@gmail.com",
             phone_number="+15550000002",
         )
         filters = SearchUserAdmin(phone_number="+15550000099")
@@ -404,7 +405,7 @@ class TestGetUsersAdmin:
 
     async def test_filter_by_is_active_true(self, test_db: AsyncSession):
         active_user = await make_member(
-            test_db, 
+            test_db,
             is_active=True,
         )
         await make_member(
@@ -431,7 +432,7 @@ class TestGetUsersAdmin:
 
     async def test_filter_by_is_active_false(self, test_db: AsyncSession):
         await make_member(
-            test_db, 
+            test_db,
             is_active=True,
         )
         inactive_user = await make_member(
@@ -458,7 +459,7 @@ class TestGetUsersAdmin:
 
     async def test_sort_by_first_name_asc(self, test_db: AsyncSession):
         await make_member(
-            test_db, 
+            test_db,
             first_name="Charlie",
         )
         await make_member(
@@ -490,7 +491,7 @@ class TestGetUsersAdmin:
 
     async def test_sort_by_first_name_desc(self, test_db: AsyncSession):
         await make_member(
-            test_db, 
+            test_db,
             first_name="Charlie",
         )
         await make_member(
@@ -525,8 +526,8 @@ class TestGetUsersAdmin:
     ):
         await make_member(test_db)
         await make_member(
-            test_db, 
-            email="second@gmail.com", 
+            test_db,
+            email="second@gmail.com",
             phone_number="+15550000002",
         )
         filters = SearchUserAdmin()
@@ -541,7 +542,8 @@ class TestGetUsersAdmin:
         )
 
         assert result.total == 2
-        
+
+
 class TestGetUserByIDAdmin:
     async def test_get_user_by_id_admin_raises_not_found(self, test_db: AsyncSession):
         user = await make_user(test_db)
@@ -550,7 +552,9 @@ class TestGetUserByIDAdmin:
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.get_user_by_id_admin(test_db, non_existent_id)
 
-    async def test_get_user_by_id_admin_returns_correct_data(self, test_db: AsyncSession):
+    async def test_get_user_by_id_admin_returns_correct_data(
+        self, test_db: AsyncSession
+    ):
         user = await make_member(
             test_db,
             email="test_email@gmail.com",
@@ -580,7 +584,9 @@ class TestGetUserByIDAdmin:
             600,
         )
 
-    async def test_get_user_by_id_admin_returns_cached_data(self, test_db: AsyncSession):
+    async def test_get_user_by_id_admin_returns_cached_data(
+        self, test_db: AsyncSession
+    ):
         user = await make_member(test_db)
 
         first_result = await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
@@ -607,9 +613,12 @@ class TestDeactivateUserAdmin:
     async def test_does_not_deactivate_unknown_user(
         self, test_db: AsyncSession, system_admin: User
     ):
+        user = await make_member(test_db)
+        non_existant_id = user.id + 999999
+
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.deactivate_user_admin(
-                test_db, 999999, system_admin.id
+                test_db, non_existant_id, system_admin.id
             )
 
     async def test_does_not_deactivate_already_inactive_user(
@@ -633,32 +642,44 @@ class TestDeactivateUserAdmin:
         await UserServiceAdmin.deactivate_user_admin(test_db, user.id, system_admin.id)
 
         await test_db.refresh(user)
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        session = user_session.session
 
         assert user.is_active is False
-        assert user.refresh_token_hash is None
-        assert user.refresh_token_family is None
-        assert user.refresh_token_expires_at is None
+        assert session.refresh_token_hash is None
+        assert session.refresh_token_family is None
+        assert session.refresh_token_expires_at is None
 
     async def test_increment_access_token_version_on_deactivation(
         self, test_db: AsyncSession, system_admin: User
     ):
         user = await make_member(test_db)
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        session = user_session.session
 
-        original_version = user.access_token_version
+        original_version = session.access_token_version
 
         await UserServiceAdmin.deactivate_user_admin(test_db, user.id, system_admin.id)
 
-        await test_db.refresh(user)
+        user_session_updated = await UserRepositoryBase.get_user_with_session(
+            test_db, user.id
+        )
+        session = user_session_updated.session
 
-        assert user.access_token_version == original_version + 1
+        assert session.access_token_version == original_version + 1
 
 
 class TestActivateUserAdmin:
     async def test_does_not_activate_unknown_user(
         self, test_db: AsyncSession, system_admin: User
     ):
+        user = await make_member(test_db)
+        non_existant_id = user.id + 999999
+
         with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.activate_user_admin(test_db, 999999, system_admin.id)
+            await UserServiceAdmin.activate_user_admin(
+                test_db, non_existant_id, system_admin.id
+            )
 
     async def test_does_not_activate_already_active_user(
         self, test_db: AsyncSession, system_admin: User
@@ -692,105 +713,71 @@ class TestUpdateUserAdmin:
     async def test_does_not_update_unknown_user(
         self, test_db: AsyncSession, system_admin: User
     ):
-        update_request = UpdateUserAdmin(
+        user = await make_member(test_db)
+        non_existant_id = user.id + 999999
+
+        update_request = UpdateUser(
             email="user_email@gmail.com",
         )
 
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.update_user_admin(
-                test_db, 999999, update_request, system_admin.id
+                test_db, non_existant_id, update_request, system_admin.id
             )
 
-    async def test_cannot_assign_system_admin_role(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        user = await make_library_admin(test_db)
-
-        update_request = UpdateUserAdmin(
-            role=UserRole.system_admin,
-        )
-
-        with pytest.raises(CannotAssignSystemAdminRoleError):
-            await UserServiceAdmin.update_user_admin(
-                test_db, user.id, update_request, system_admin.id
-            )
-
-    async def test_cannot_assign_system_role(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        user = await make_member(test_db)
-
-        request = UpdateUserAdmin(
-            role=UserRole.library_admin,
-        )
-
-        with pytest.raises(CannotAssignSystemRoleError):
-            await UserServiceAdmin.update_user_admin(
-                test_db, user.id, request, system_admin.id
-            )
-
+    @pytest.mark.parametrize(
+        (
+            "existing_user_data",
+            "user_to_be_updated_data",
+            "request_override",
+            "expected_exception",
+        ),
+        [
+            (
+                {"email": "taken@gmail.com"},
+                {"email": "other@gmail.com"},
+                {"email": "taken@gmail.com"},
+                EmailAlreadyTakenError,
+            ),
+            (
+                {"username": "taken_username"},
+                {"username": "other_username"},
+                {"username": "taken_username"},
+                UsernameAlreadyTakenError,
+            ),
+            (
+                {"phone_number": "+992 000 000 000"},
+                {"phone_number": "+992 111 111 111"},
+                {"phone_number": "+992 000 000 000"},
+                PhonenumberAlreadyTakenError,
+            ),
+        ],
+    )
     async def test_reject_duplicate_email(
-        self, test_db: AsyncSession, system_admin: User
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        existing_user_data: dict,
+        user_to_be_updated_data: dict,
+        request_override: dict,
+        expected_exception,
     ):
         await make_member(
             test_db,
-            email="taken@gmail.com",
+            **existing_user_data,
         )
 
         user_to_be_updated = await make_member(
             test_db,
-            email="other@gmail.com",
+            **user_to_be_updated_data,
         )
 
-        update_request = UpdateUserAdmin(
-            email="taken@gmail.com",
-        )
+        update_request = UpdateUser()
 
-        with pytest.raises(EmailAlreadyTakenError):
-            await UserServiceAdmin.update_user_admin(
-                test_db, user_to_be_updated.id, update_request, system_admin.id
-            )
+        for field, value in request_override.items():
+            setattr(update_request, field, value)
 
-    async def test_reject_duplicate_username(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        await make_member(
-            test_db,
-            username="test_user",
-        )
-
-        user_to_be_updated = await make_member(
-            test_db,
-            username="test_user2",
-        )
-
-        update_request = UpdateUserAdmin(
-            username="test_user",
-        )
-
-        with pytest.raises(UsernameAlreadyTakenError):
-            await UserServiceAdmin.update_user_admin(
-                test_db, user_to_be_updated.id, update_request, system_admin.id
-            )
-
-    async def test_reject_duplicate_phone_number(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        await make_member(
-            test_db,
-            phone_number="+992 000 111 222",
-        )
-
-        user_to_be_updated = await make_member(
-            test_db,
-            phone_number="+992 000 111 333",
-        )
-
-        update_request = UpdateUserAdmin(
-            phone_number="+992 000 111 222",
-        )
-
-        with pytest.raises(PhonenumberAlreadyTakenError):
+        with pytest.raises(expected_exception):
             await UserServiceAdmin.update_user_admin(
                 test_db, user_to_be_updated.id, update_request, system_admin.id
             )
@@ -800,7 +787,7 @@ class TestUpdateUserAdmin:
     ):
         user = await make_library_admin(test_db)
 
-        update_request = UpdateUserAdmin(
+        update_request = UpdateUser(
             first_name="User_name",
             last_name="User_surname",
         )
@@ -819,13 +806,16 @@ class TestUpdateUserPasswordAdmin:
     async def test_does_not_update_unknown_user(
         self, test_db: AsyncSession, system_admin: User
     ):
-        update_request = UpdateUserAdmin(
-            email="user_email@gmail.com",
+        user = await make_member(test_db)
+        non_existant_id = user.id + 999999
+
+        update_request = UpdateUserPasswordAdmin(
+            new_password=NEW_PASSWORD,
         )
 
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.update_user_password_admin(
-                test_db, 999999, update_request, system_admin.id
+                test_db, non_existant_id, update_request, system_admin.id
             )
 
     async def test_update_password_and_invalidates_tokens(self, test_db, system_admin):
@@ -834,13 +824,18 @@ class TestUpdateUserPasswordAdmin:
             password=OLD_PASSWORD,
         )
 
-        user.refresh_token_hash = "some_token"
-        user.refresh_token_family = "some_family"
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        session = user_session.session
+
+        session.refresh_token_hash = "some_token"
+        session.refresh_token_family = "some_family"
+        session.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(
+            hours=1
+        )
+        original_version = session.access_token_version
+        old_password_hash = user.password_hash
 
         await test_db.commit()
-
-        original_version = user.access_token_version
-        old_password_hash = user.password_hash
 
         update_request = UpdateUserPasswordAdmin(
             new_password=NEW_PASSWORD,
@@ -851,8 +846,11 @@ class TestUpdateUserPasswordAdmin:
         )
 
         await test_db.refresh(user)
+        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        session = user_session.session
 
         assert old_password_hash != user.password_hash
-        assert user.access_token_version == original_version + 1
-        assert user.refresh_token_hash is None
-        assert user.refresh_token_family is None
+        assert session.access_token_version == original_version + 1
+        assert session.refresh_token_hash is None
+        assert session.refresh_token_family is None
+        assert session.refresh_token_expires_at is None
