@@ -2,11 +2,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.book.models import Book
-from src.book.schemas import CreateBook
 from src.core.enums import SortOrder
 from src.utils.enums import BookCategory
 
-ALLOWED_SORT_FIELDS_BOOK = {"created_at", "title", "author", "publishing_date"}
+ALLOWED_SORT_FIELDS_BOOK: frozenset[str] = frozenset({"created_at", "title", "author"})
 
 
 class BookRepository:
@@ -44,6 +43,7 @@ class BookRepository:
         total = count_result.scalar_one()
 
         result = await db.execute(base_query.offset(skip).limit(limit))
+
         return result.scalars().all(), total
 
     @staticmethod
@@ -55,5 +55,5 @@ class BookRepository:
         return result.scalar_one_or_none()
 
     @staticmethod
-    def add_book(db: AsyncSession, new_book: CreateBook) -> None:
+    def add_book(db: AsyncSession, new_book: Book) -> None:
         db.add(new_book)

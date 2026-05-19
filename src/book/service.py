@@ -33,8 +33,6 @@ class BookService:
             await db.commit()
             await db.refresh(new_book)
 
-            await delete_cache(book_detail_key(new_book.id))
-
             logger.info(
                 "book_created",
                 book_id=new_book.id,
@@ -86,7 +84,7 @@ class BookService:
         )
 
     @staticmethod
-    async def get_book_by_id(db: AsyncSession, book_id: int) -> BookResponse:
+    async def get_book_by_id(db: AsyncSession, book_id: int) -> dict:
         key = book_detail_key(book_id)
         cached = await get_cache(key)
         if cached is not None:
@@ -119,8 +117,7 @@ class BookService:
                 updated_by=user_id,
             )
 
-            key = book_detail_key(book_id)
-            await delete_cache(key)
+            await delete_cache(book_detail_key(book_id))
 
             return book
         except IntegrityError as error:

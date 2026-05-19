@@ -1,17 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from src.book.schemas import BookResponse, CreateBook, UpdateBook
 from src.book.service import BookService
 from src.core.dependencies import (
     BookQueryParams,
     async_db_dependency,
-    require_system_admin_and_staff,
+    require_system_and_library_admin,
 )
 from src.pagination import PaginatedResponse
 from src.user.models import User
-from src.utils.exception_constants import path_param_int_ge1
 
 router = APIRouter(
     prefix="/books",
@@ -23,7 +22,7 @@ router = APIRouter(
 async def add_book(
     db: async_db_dependency,
     book_request: CreateBook,
-    current_user: Annotated[User, Depends(require_system_admin_and_staff)],
+    current_user: Annotated[User, Depends(require_system_and_library_admin)],
 ):
     return await BookService.add_book(db, book_request, current_user.id)
 
@@ -50,16 +49,16 @@ async def get_books(
 @router.get("/{book_id}", response_model=BookResponse, status_code=status.HTTP_200_OK)
 async def get_book_by_id(
     db: async_db_dependency,
-    book_id: path_param_int_ge1,
+    book_id: Annotated[int, Path(ge=1)],
 ):
     return await BookService.get_book_by_id(db, book_id)
 
 
-@router.put("/{book_id}", response_model=BookResponse, status_code=status.HTTP_200_OK)
+@router.patch("/{book_id}", response_model=BookResponse, status_code=status.HTTP_200_OK)
 async def update_book(
     db: async_db_dependency,
-    current_user: Annotated[User, Depends(require_system_admin_and_staff)],
+    current_user: Annotated[User, Depends(require_system_and_library_admin)],
     update_request: UpdateBook,
-    book_id: path_param_int_ge1,
+    book_id: Annotated[int, Path(ge=1)],
 ):
     return await BookService.update_book(db, current_user.id, update_request, book_id)
