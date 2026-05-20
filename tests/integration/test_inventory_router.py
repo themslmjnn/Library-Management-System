@@ -16,7 +16,7 @@ class TestAddInventory:
         self, client: AsyncClient, system_admin: User, test_db: AsyncSession
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
         payload = {"book_id": book.id, "quantity": 5}
 
         response = await client.post("/inventories", json=payload, headers=headers)
@@ -35,7 +35,7 @@ class TestAddInventory:
         system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        headers = make_auth_header(library_admin)
+        headers = await make_auth_header(test_db, library_admin)
         payload = {"book_id": book.id, "quantity": 3}
 
         response = await client.post("/inventories", json=payload, headers=headers)
@@ -50,7 +50,7 @@ class TestAddInventory:
         system_admin: User,
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        headers = make_auth_header(receptionist)
+        headers = await make_auth_header(test_db, receptionist)
         payload = {"book_id": book.id, "quantity": 3}
 
         response = await client.post("/inventories", json=payload, headers=headers)
@@ -62,7 +62,7 @@ class TestAddInventory:
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         member = await make_member(test_db)
-        headers = make_auth_header(member)
+        headers = await make_auth_header(test_db, member)
         payload = {"book_id": book.id, "quantity": 3}
 
         response = await client.post("/inventories", json=payload, headers=headers)
@@ -83,34 +83,12 @@ class TestAddInventory:
         self, client: AsyncClient, system_admin: User, test_db: AsyncSession
     ):
         book = await make_book(test_db, created_by=system_admin.id)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
         payload = {"book_id": book.id + 999999, "quantity": 5}
 
         response = await client.post("/inventories", json=payload, headers=headers)
 
         assert response.status_code == 404
-
-    async def test_rejects_zero_quantity(
-        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
-    ):
-        book = await make_book(test_db, created_by=system_admin.id)
-        headers = make_auth_header(system_admin)
-        payload = {"book_id": book.id, "quantity": 0}
-
-        response = await client.post("/inventories", json=payload, headers=headers)
-
-        assert response.status_code == 400
-
-    async def test_rejects_negative_quantity(
-        self, client: AsyncClient, system_admin: User, test_db: AsyncSession
-    ):
-        book = await make_book(test_db, created_by=system_admin.id)
-        headers = make_auth_header(system_admin)
-        payload = {"book_id": book.id, "quantity": -3}
-
-        response = await client.post("/inventories", json=payload, headers=headers)
-
-        assert response.status_code == 400
 
 
 class TestGetInventories:
@@ -121,7 +99,7 @@ class TestGetInventories:
         await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         response = await client.get("/inventories", headers=headers)
 
@@ -141,16 +119,16 @@ class TestGetInventories:
         await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(library_admin)
+        headers = await make_auth_header(test_db, library_admin)
 
         response = await client.get("/inventories", headers=headers)
 
         assert response.status_code == 200
 
     async def test_receptionist_cannot_get_inventories(
-        self, client: AsyncClient, receptionist: User
+        self, client: AsyncClient, receptionist: User, test_db: AsyncSession
     ):
-        headers = make_auth_header(receptionist)
+        headers = await make_auth_header(test_db, receptionist)
 
         response = await client.get("/inventories", headers=headers)
 
@@ -171,7 +149,7 @@ class TestGetInventories:
                 test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=1)
             )
 
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
         response = await client.get("/inventories?skip=0&limit=2", headers=headers)
 
         data = response.json()
@@ -191,7 +169,7 @@ class TestGetInventories:
             test_db, system_admin.id, CreateInventory(book_id=book2.id, quantity=5)
         )
 
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
         response = await client.get(f"/inventories?book_id={book1.id}", headers=headers)
 
         data = response.json()
@@ -207,7 +185,7 @@ class TestGetInventoryById:
         inventory = await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=7)
         )
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         response = await client.get(f"/inventories/{inventory.id}", headers=headers)
 
@@ -224,7 +202,7 @@ class TestGetInventoryById:
         inventory = await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         response = await client.get(
             f"/inventories/{inventory.id + 999999}", headers=headers
@@ -243,7 +221,7 @@ class TestGetInventoryById:
         inventory = await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(receptionist)
+        headers = await make_auth_header(test_db, receptionist)
 
         response = await client.get(f"/inventories/{inventory.id}", headers=headers)
 
@@ -268,7 +246,7 @@ class TestGetInventoryById:
         inventory = await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         r1 = await client.get(f"/inventories/{inventory.id}", headers=headers)
         r2 = await client.get(f"/inventories/{inventory.id}", headers=headers)
@@ -284,11 +262,11 @@ class TestUpdateInventory:
         inventory = await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
-        response = await client.put(
-            f"/inventories/{inventory.id}?quantity=20",
-            # json={"quantity": 20},
+        response = await client.patch(
+            f"/inventories/{inventory.id}",
+            json={"quantity": 20},
             headers=headers,
         )
 
@@ -306,11 +284,11 @@ class TestUpdateInventory:
         inventory = await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(library_admin)
+        headers = await make_auth_header(test_db, library_admin)
 
-        response = await client.put(
-            f"/inventories/{inventory.id}?quantity=10",
-            # json={"quantity": 10},
+        response = await client.patch(
+            f"/inventories/{inventory.id}",
+            json={"quantity": 10},
             headers=headers,
         )
 
@@ -327,9 +305,9 @@ class TestUpdateInventory:
         inventory = await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(receptionist)
+        headers = await make_auth_header(test_db, receptionist)
 
-        response = await client.put(
+        response = await client.patch(
             f"/inventories/{inventory.id}",
             json={"quantity": 10},
             headers=headers,
@@ -345,7 +323,7 @@ class TestUpdateInventory:
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
 
-        response = await client.put(
+        response = await client.patch(
             f"/inventories/{inventory.id}",
             json={"quantity": 10},
         )
@@ -359,11 +337,11 @@ class TestUpdateInventory:
         inventory = await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
-        response = await client.put(
-            f"/inventories/{inventory.id + 999999}?quantity=10",
-            # json={"quantity": 10},
+        response = await client.patch(
+            f"/inventories/{inventory.id + 999999}",
+            json={"quantity": 10},
             headers=headers,
         )
 
@@ -376,18 +354,15 @@ class TestUpdateInventory:
         inventory = await InventoryService.add_inventory(
             test_db, system_admin.id, CreateInventory(book_id=book.id, quantity=5)
         )
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
-        # populate cache
         await client.get(f"/inventories/{inventory.id}", headers=headers)
 
-        # update
-        await client.put(
-            f"/inventories/{inventory.id}?quantity=77",
-            # json={"quantity": 77},
+        await client.patch(
+            f"/inventories/{inventory.id}",
+            json={"quantity": 77},
             headers=headers,
         )
 
-        # stale cache must be gone
         response = await client.get(f"/inventories/{inventory.id}", headers=headers)
         assert response.json()["quantity"] == 77

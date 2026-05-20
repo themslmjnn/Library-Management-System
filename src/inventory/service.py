@@ -6,7 +6,7 @@ from src.core.cache import delete_cache, get_cache, set_cache
 from src.core.logging import get_logger
 from src.inventory.models import Inventory
 from src.inventory.repository import InventoryRepository
-from src.inventory.schemas import CreateInventory, InventoryResponse, SearchInventory
+from src.inventory.schemas import CreateInventory, InventoryResponse, SearchInventory, UpdateInventoryRequest
 from src.pagination import PaginatedResponse
 from src.utils.cache_keys import inventory_detail_key
 from src.utils.exception_constants import HTTP404
@@ -91,12 +91,12 @@ class InventoryService:
 
     @staticmethod
     async def update_inventory(
-        db: AsyncSession, user_id: int, quantity: int, inventory_id: int
+        db: AsyncSession, user_id: int, update_request: UpdateInventoryRequest, inventory_id: int
     ) -> Inventory:
         inventory = await InventoryRepository.get_inventory_by_id(db, inventory_id)
         ensure_exists(inventory, InventoryNotFoundError(HTTP404.INVENTORY))
 
-        inventory.quantity = quantity
+        inventory.quantity = update_request.quantity
 
         await db.commit()
         await db.refresh(inventory)
