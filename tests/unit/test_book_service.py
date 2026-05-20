@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.enums import SortOrder
-from src.book.schemas import BookResponse, CreateBook, SearchBook, UpdateBook
+from src.book.schemas import CreateBook, UpdateBook
 from src.book.service import BookService
 from src.core.dependencies import BookQueryParams
 from src.user.models import User

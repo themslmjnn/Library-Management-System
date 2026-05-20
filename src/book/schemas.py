@@ -16,7 +16,7 @@ class BookBase(BaseModel):
 
 
 class CreateBook(BookBase):
-    @field_validator("publishing_date", mode="before")
+    @field_validator("publishing_date", mode="after")
     @classmethod
     def validate_publishing_date(cls, field: date) -> date:
         return validate_publishing_date(field)
@@ -40,7 +40,7 @@ class UpdateBook(BaseModel):
     description: str | None = Field(max_length=500, default=None)
     publishing_date: date | None = None
 
-    @field_validator("publishing_date", mode="before")
+    @field_validator("publishing_date", mode="after")
     @classmethod
     def validate_publishing_date(cls, field: date) -> date:
         return validate_publishing_date(field)

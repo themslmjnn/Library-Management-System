@@ -93,11 +93,20 @@ def validate_phone_number(phone: str) -> str:
 
     return phone
 
+def validate_publishing_date(publishing_date: date | str) -> date:
+    if isinstance(publishing_date, str):
+        try:
+            publishing_date = date.fromisoformat(publishing_date)
+        except ValueError:
+            raise PydanticCustomError(
+                "invalid_date_format",
+                "Publishing date must be a valid date in YYYY-MM-DD format",
+            )
 
-def validate_publishing_date(publishing_date: date) -> date:
     if publishing_date > date.today():
         raise PydanticCustomError(
             "publishing_date_in_future",
             "Publishing date must be in the past",
         )
+
     return publishing_date
