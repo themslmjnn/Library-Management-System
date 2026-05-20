@@ -3,44 +3,41 @@ from datetime import date
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.book.schemas import CreateBook, SearchBook, UpdateBook
+from core.enums import SortOrder
+from src.book.schemas import BookResponse, CreateBook, SearchBook, UpdateBook
 from src.book.service import BookService
+from src.core.dependencies import BookQueryParams
 from src.user.models import User
 from src.utils.exceptions import BookAlreadyExistsError, BookNotFoundError
 from tests.factories import make_book
+from utils.cache_keys import book_detail_key
+from utils.enums import BookCategory
 
 
 class TestCreateBook:
     async def test_reject_duplicate_books(
         self, test_db: AsyncSession, system_admin: User
     ):
-        await make_book(
+        book = await make_book(
             test_db,
-            title="Book_1",
-            author="Author_1",
-            category="science",
-            description="Awesome book",
-            publishing_date=date(2000, 2, 4),
             created_by=system_admin.id,
         )
 
         book_to_be_created = CreateBook(
-            title="Book_1",
-            author="Author_1",
+            title=book.title,
+            author=book.author,
             category="science",
         )
 
         with pytest.raises(BookAlreadyExistsError):
             await BookService.add_book(test_db, book_to_be_created, system_admin.id)
 
-    async def test_same_title_different_author_is_allowed(self, test_db, system_admin):
-        await make_book(
+    async def test_same_title_different_author_is_allowed(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(
             test_db,
             title="Book_1",
-            author="Author_1",
-            category="science",
-            description="Awesome book",
-            publishing_date=date(2000, 2, 4),
             created_by=system_admin.id,
         )
 
@@ -55,6 +52,9 @@ class TestCreateBook:
         )
 
         assert result.id is not None
+        assert result.title == book.title
+        assert result.author == "Author_2"
+        assert result.category == "science"
 
     async def test_create_book_successfully(
         self, test_db: AsyncSession, system_admin: User
@@ -75,103 +75,6 @@ class TestCreateBook:
         assert new_book.created_by == system_admin.id
 
 
-class TestGetBookByID:
-    async def test_return_valid_book_info(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        book = await make_book(
-            test_db,
-            title="Book_1",
-            author="Author_1",
-            category="science",
-            description="Awesome book",
-            publishing_date=date(2000, 2, 4),
-            created_by=system_admin.id,
-        )
-
-        result = await BookService.get_book_by_id(test_db, book.id)
-
-        assert result["id"] == book.id
-        assert result["title"] == book.title
-        assert result["author"] == book.author
-        assert result["category"] == book.category
-        assert result["created_by"] == system_admin.id
-
-    async def test_raise_404_for_unknown_books(self, test_db: AsyncSession):
-        with pytest.raises(BookNotFoundError):
-            await BookService.get_book_by_id(test_db, 999999)
-
-
-class TestUpdateBook:
-    async def test_raise_404_for_unknown_books(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        with pytest.raises(BookNotFoundError):
-            await BookService.update_book(
-                test_db, system_admin.id, UpdateBook(title="Anything"), 999999
-            )
-
-    async def test_reject_duplicate_fields(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        await make_book(
-            test_db,
-            title="Book_1",
-            author="Author_1",
-            category="science",
-            description="Awesome book",
-            publishing_date=date(2000, 2, 4),
-            created_by=system_admin.id,
-        )
-
-        book_to_be_updated = await make_book(
-            test_db,
-            title="Book_2",
-            author="Author_2",
-            category="science",
-            description="Awesome book",
-            publishing_date=date(2000, 2, 4),
-            created_by=system_admin.id,
-        )
-
-        update_request = UpdateBook(
-            title="Book_1",
-            author="Author_1",
-        )
-
-        with pytest.raises(BookAlreadyExistsError):
-            await BookService.update_book(
-                test_db, system_admin.id, update_request, book_to_be_updated.id
-            )
-
-    async def test_update_book_successfully(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        book = await make_book(
-            test_db,
-            title="Book_1",
-            author="Author_1",
-            category="science",
-            description="Awesome book",
-            publishing_date=date(2000, 2, 4),
-            created_by=system_admin.id,
-        )
-
-        update_request = UpdateBook(
-            title="NewBook_1",
-            author="NewAuthor_1",
-        )
-
-        result = await BookService.update_book(
-            test_db, system_admin.id, update_request, book.id
-        )
-
-        await test_db.refresh(result)
-
-        assert result.title == update_request.title
-        assert result.author == update_request.author
-
-
 class TestGetBooks:
     async def test_returns_paginated_response(
         self, test_db: AsyncSession, system_admin: User
@@ -184,11 +87,7 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(),
-            sort_by="created_at",
-            order="desc",
+            **BookQueryParams().model_dump(),
         )
 
         result_dict = result.model_dump()
@@ -196,7 +95,7 @@ class TestGetBooks:
         assert "items" in result_dict
         assert "total" in result_dict
         assert "has_more" in result_dict
-        assert result.total >= 3
+        assert result.total == 3
 
     async def test_pagination_skip_works(
         self, test_db: AsyncSession, system_admin: User
@@ -209,11 +108,7 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=3,
-            limit=20,
-            filters=SearchBook(),
-            sort_by="created_at",
-            order="desc",
+            **BookQueryParams(skip=3).model_dump(),
         )
 
         assert len(result.items) == 2
@@ -229,11 +124,7 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=2,
-            filters=SearchBook(),
-            sort_by="created_at",
-            order="desc",
+            **BookQueryParams(limit=2).model_dump(),
         )
 
         assert len(result.items) == 2
@@ -250,11 +141,7 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(),
-            sort_by="created_at",
-            order="desc",
+            **BookQueryParams().model_dump(),
         )
 
         assert result.has_more is False
@@ -275,15 +162,11 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(category="fiction"),
-            sort_by="created_at",
-            order="desc",
+            **BookQueryParams(category=BookCategory.fiction).model_dump(),
         )
 
         assert result.total == 2
-        assert all(b.category == "fiction" for b in result.items)
+        assert all(book.category == "fiction" for book in result.items)
 
     async def test_filters_by_title(self, test_db: AsyncSession, system_admin: User):
         await make_book(
@@ -300,11 +183,7 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(title="python"),
-            sort_by="created_at",
-            order="desc",
+            **BookQueryParams(title="python").model_dump(),
         )
 
         assert result.total == 1
@@ -325,35 +204,11 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(author="fowler"),
-            sort_by="created_at",
-            order="desc",
+            **BookQueryParams(author="fowler").model_dump(),
         )
 
         assert result.total == 1
         assert result.items[0].author == "Martin Fowler"
-
-    async def test_title_filter_is_case_insensitive(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        await make_book(
-            test_db,
-            title="The Great Gatsby",
-            created_by=system_admin.id,
-        )
-
-        result = await BookService.get_books(
-            test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(title="great gatsby"),
-            sort_by="created_at",
-            order="desc",
-        )
-
-        assert result.total == 1
 
     async def test_sort_by_title_ascending(
         self, test_db: AsyncSession, system_admin: User
@@ -378,15 +233,13 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(),
-            sort_by="title",
-            order="asc",
+            **BookQueryParams(sort_by="title", order=SortOrder.asc).model_dump(),
         )
 
-        titles = [b.title for b in result.items]
-        assert titles == sorted(titles)
+        titles = sorted(["Zebra Book", "Apple Book", "Mango Book"])
+        results = [book.title for book in result.items]
+
+        assert titles == results
 
     async def test_sort_by_title_descending(
         self, test_db: AsyncSession, system_admin: User
@@ -411,15 +264,13 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(),
-            sort_by="title",
-            order="desc",
+            **BookQueryParams(sort_by="title").model_dump(),
         )
 
-        titles = [b.title for b in result.items]
-        assert titles == sorted(titles, reverse=True)
+        titles = sorted(["Zebra Book", "Apple Book", "Mango Book"], reverse=True)
+        results = [book.title for book in result.items]
+
+        assert results == titles
 
     async def test_invalid_sort_field_falls_back_to_created_at(
         self, test_db: AsyncSession, system_admin: User
@@ -431,14 +282,10 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(),
-            sort_by="nonexistent_field",
-            order="desc",
+            **BookQueryParams(sort_by="invalid_field").model_dump(),
         )
 
-        assert result.total >= 1
+        assert result.total == 1
 
     async def test_empty_result_when_no_match(
         self, test_db: AsyncSession, system_admin: User
@@ -451,11 +298,7 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            skip=0,
-            limit=20,
-            filters=SearchBook(title="zzz_no_match_zzz"),
-            sort_by="created_at",
-            order="desc",
+            **BookQueryParams(title="invalid_title").model_dump(),
         )
 
         assert result.total == 0
@@ -524,3 +367,110 @@ class TestGetBookByIDCache:
 
         with pytest.raises(BookNotFoundError):
             await BookService.get_book_by_id(test_db, non_existent_id)
+
+    async def test_get_book_by_id_populates_cache_after_db_hit(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        book = await make_book(
+            test_db,
+            created_by=system_admin.id,
+        )
+
+        mock_set_cache = mocker.patch("src.book.service.set_cache")
+
+        await BookService.get_book_by_id(test_db, book.id)
+
+        mock_set_cache.assert_called_once_with(
+            book_detail_key(book.id),
+            mocker.ANY,
+            600,
+        )
+
+
+class TestGetBookByID:
+    async def test_return_valid_book_info(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(
+            test_db,
+            created_by=system_admin.id,
+        )
+
+        result = await BookService.get_book_by_id(test_db, book.id)
+
+        assert result["id"] == book.id
+        assert result["title"] == book.title
+        assert result["author"] == book.author
+        assert result["category"] == book.category
+        assert result["created_by"] == system_admin.id
+
+    async def test_raise_404_for_unknown_books(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(
+            test_db,
+            created_by=system_admin.id,
+        )
+
+        with pytest.raises(BookNotFoundError):
+            await BookService.get_book_by_id(test_db, book.id + 999999)
+
+
+class TestUpdateBook:
+    async def test_raise_404_for_unknown_books(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(
+            test_db,
+            created_by=system_admin.id,
+        )
+
+        with pytest.raises(BookNotFoundError):
+            await BookService.update_book(
+                test_db, system_admin.id, UpdateBook(title="Anything"), book.id + 999999
+            )
+
+    async def test_reject_duplicate_fields(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(
+            test_db,
+            created_by=system_admin.id,
+        )
+
+        book_to_be_updated = await make_book(
+            test_db,
+            created_by=system_admin.id,
+        )
+
+        update_request = UpdateBook(
+            title=book.title,
+            author=book.author,
+        )
+
+        with pytest.raises(BookAlreadyExistsError):
+            await BookService.update_book(
+                test_db, system_admin.id, update_request, book_to_be_updated.id
+            )
+
+    async def test_update_book_successfully(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        book = await make_book(
+            test_db,
+            created_by=system_admin.id,
+        )
+
+        update_request = UpdateBook(
+            title="NewBook_1",
+            author="NewAuthor_1",
+        )
+
+        result = await BookService.update_book(
+            test_db, system_admin.id, update_request, book.id
+        )
+
+        await test_db.refresh(result)
+
+        assert result.title == update_request.title
+        assert result.author == update_request.author

@@ -1,14 +1,15 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.dependencies import CurrentUser
 from src.book.models import Book
 from src.book.repository import BookRepository
-from src.book.schemas import BookResponse, CreateBook, UpdateBook
+from src.book.schemas import BookResponse, BookResponsePublic, CreateBook, UpdateBook
 from src.core.cache import delete_cache, get_cache, set_cache
 from src.core.enums import SortOrder
 from src.core.logging import get_logger
 from src.pagination import PaginatedResponse
-from src.utils.cache_keys import book_detail_key
+from src.utils.cache_keys import book_detail_key, book_detail_key_public
 from src.utils.enums import BookCategory
 from src.utils.exception_constants import HTTP404
 from src.utils.exceptions import BookNotFoundError, check_unique_title_and_author
@@ -94,6 +95,21 @@ class BookService:
         ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
 
         serialized = BookResponse.model_validate(book).model_dump(mode="json")
+        await set_cache(key, serialized, 600)
+
+        return serialized
+
+    @staticmethod
+    async def get_book_by_id_public(db: AsyncSession, book_id: int) -> dict:
+        key = book_detail_key_public(book_id)
+        cached = await get_cache(key)
+        if cached is not None:
+            return cached
+
+        book = await BookRepository.get_book_by_id(db, book_id)
+        ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
+
+        serialized = BookResponsePublic.model_validate(book).model_dump(mode="json")
         await set_cache(key, serialized, 600)
 
         return serialized

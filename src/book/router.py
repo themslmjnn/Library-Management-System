@@ -2,11 +2,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status
 
-from src.book.schemas import BookResponse, CreateBook, UpdateBook
+from src.book.schemas import BookResponse, BookResponsePublic, CreateBook, UpdateBook
 from src.book.service import BookService
 from src.core.dependencies import (
     BookQueryParams,
+    CurrentUser,
     async_db_dependency,
+    require_system_admin_and_staff,
     require_system_and_library_admin,
 )
 from src.pagination import PaginatedResponse
@@ -33,6 +35,7 @@ async def add_book(
 async def get_books(
     db: async_db_dependency,
     query_params: Annotated[BookQueryParams, Depends()],
+    _: Annotated[User, Depends(require_system_admin_and_staff)],
 ):
     return await BookService.get_books(
         db,
@@ -50,8 +53,42 @@ async def get_books(
 async def get_book_by_id(
     db: async_db_dependency,
     book_id: Annotated[int, Path(ge=1)],
+    _: Annotated[User, Depends(require_system_admin_and_staff)],
 ):
     return await BookService.get_book_by_id(db, book_id)
+
+
+@router.get(
+    "/public",
+    response_model=PaginatedResponse[BookResponsePublic],
+    status_code=status.HTTP_200_OK,
+)
+async def get_books_public(
+    db: async_db_dependency,
+    query_params: Annotated[BookQueryParams, Depends()],
+):
+    return await BookService.get_books(
+        db,
+        skip=query_params.skip,
+        limit=query_params.limit,
+        title=query_params.title,
+        author=query_params.author,
+        category=query_params.category,
+        sort_by=query_params.sort_by,
+        order=query_params.order,
+    )
+
+
+@router.get(
+    "/{book_id}/public",
+    response_model=BookResponsePublic,
+    status_code=status.HTTP_200_OK,
+)
+async def get_book_by_id_public(
+    db: async_db_dependency,
+    book_id: Annotated[int, Path(ge=1)],
+):
+    return await BookService.get_book_by_id_public(db, book_id)
 
 
 @router.patch("/{book_id}", response_model=BookResponse, status_code=status.HTTP_200_OK)

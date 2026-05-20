@@ -123,8 +123,8 @@ pagination_dependency = Annotated[PaginationParams, Depends(PaginationParams)]
 
 
 class BookQueryParams(PaginationParams):
-    sort_by: str = Query(default="created_at")
-    order: SortOrder = Query(default=SortOrder.desc)
     title: str | None = Query(default=None)
     author: str | None = Query(default=None)
     category: BookCategory | None = Query(default=None)
+    sort_by: str = Query(default="created_at")
+    order: SortOrder = Query(default=SortOrder.desc)

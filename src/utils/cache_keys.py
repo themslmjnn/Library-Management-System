@@ -2,6 +2,10 @@ def book_detail_key(book_id: int) -> str:
     return f"books:detail:{book_id}"
 
 
+def book_detail_key_public(book_id: int) -> str:
+    return f"books:detail:{book_id}:public"
+
+
 def inventory_detail_key(inventory_id: int) -> str:
     return f"inventories:detail:{inventory_id}"
 
