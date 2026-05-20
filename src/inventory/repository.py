@@ -4,7 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.inventory.models import Inventory
 from src.inventory.schemas import CreateInventory, SearchInventory
 
-ALLOWED_SORT_FIELDS_INVENTORY: frozenset[str] = frozenset({"created_at", "book_id", "added_by"})
+ALLOWED_SORT_FIELDS_INVENTORY: frozenset[str] = frozenset(
+    {"created_at", "book_id", "added_by"}
+)
 
 
 class InventoryRepository:

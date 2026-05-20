@@ -221,7 +221,7 @@ class LoanServicePublic:
     ) -> PaginatedResponse:
 
         loans, total = await LoanRepositoryPublic.get_loans_me(
-            db, user_id, skip, limit, filters, sort_by, order
+            db, skip, limit, user_id, filters, sort_by, order
         )
 
         return PaginatedResponse(

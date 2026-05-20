@@ -20,8 +20,10 @@ class InventoryResponse(InventoryBase, BaseSchema):
     created_at: datetime
     updated_at: datetime
 
+
 class UpdateInventoryRequest(BaseModel):
     quantity: int = Field(ge=0)
+
 
 class SearchInventory(BaseModel):
     book_id: int | None = Field(ge=1, default=None)

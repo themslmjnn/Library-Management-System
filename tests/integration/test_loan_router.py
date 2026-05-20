@@ -28,7 +28,7 @@ class TestLoanBook:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         response = await client.post(
             "/loans",
@@ -57,7 +57,7 @@ class TestLoanBook:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(library_admin)
+        headers = await make_auth_header(test_db, library_admin)
 
         response = await client.post(
             "/loans",
@@ -83,7 +83,7 @@ class TestLoanBook:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(receptionist)
+        headers = await make_auth_header(test_db, receptionist)
 
         response = await client.post(
             "/loans",
@@ -106,7 +106,7 @@ class TestLoanBook:
         )
         member = await make_member(test_db)
         borrower = await make_member(test_db)
-        headers = make_auth_header(member)
+        headers = await make_auth_header(test_db, member)
 
         response = await client.post(
             "/loans",
@@ -148,7 +148,7 @@ class TestLoanBook:
             test_db, book_id=book.id, quantity=0, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         response = await client.post(
             "/loans",
@@ -167,7 +167,7 @@ class TestLoanBook:
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         response = await client.post(
             "/loans",
@@ -189,7 +189,7 @@ class TestLoanBook:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         response = await client.post(
             "/loans",
@@ -211,7 +211,7 @@ class TestLoanBook:
             test_db, book_id=book.id, quantity=5, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         await client.post(
             "/loans",
@@ -236,7 +236,7 @@ class TestGetLoans:
             test_db, book_id=book.id, quantity=5, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         await client.post(
             "/loans",
@@ -255,7 +255,7 @@ class TestGetLoans:
         self, client: AsyncClient, test_db: AsyncSession
     ):
         member = await make_member(test_db)
-        headers = make_auth_header(member)
+        headers = await make_auth_header(test_db, member)
 
         response = await client.get("/loans", headers=headers)
 
@@ -273,7 +273,7 @@ class TestGetLoans:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         loan_response = await client.post(
             "/loans",
@@ -295,7 +295,7 @@ class TestGetLoans:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         loan_response = await client.post(
             "/loans",
@@ -316,8 +316,8 @@ class TestGetLoans:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         member = await make_member(test_db)
-        admin_headers = make_auth_header(system_admin)
-        member_headers = make_auth_header(member)
+        admin_headers = await make_auth_header(test_db, system_admin)
+        member_headers = await make_auth_header(test_db, member)
 
         loan_response = await client.post(
             "/loans",
@@ -340,7 +340,7 @@ class TestReturnLoan:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         loan_response = await client.post(
             "/loans",
@@ -361,7 +361,7 @@ class TestReturnLoan:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         loan_response = await client.post(
             "/loans",
@@ -386,7 +386,7 @@ class TestReturnLoan:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         loan_response = await client.post(
             "/loans",
@@ -398,7 +398,7 @@ class TestReturnLoan:
         await client.put(f"/loans/{loan_id}/return", headers=headers)
         response = await client.put(f"/loans/{loan_id}/return", headers=headers)
 
-        assert response.status_code == 400
+        assert response.status_code == 409
 
     async def test_returns_404_for_unknown_loan(
         self, client: AsyncClient, test_db: AsyncSession, system_admin: User
@@ -408,7 +408,7 @@ class TestReturnLoan:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         loan_response = await client.post(
             "/loans",
@@ -431,8 +431,8 @@ class TestReturnLoan:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         member = await make_member(test_db)
-        admin_headers = make_auth_header(system_admin)
-        member_headers = make_auth_header(member)
+        admin_headers = await make_auth_header(test_db, system_admin)
+        member_headers = await make_auth_header(test_db, member)
 
         loan_response = await client.post(
             "/loans",
@@ -453,7 +453,7 @@ class TestReturnLoan:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         borrower = await make_member(test_db)
-        headers = make_auth_header(system_admin)
+        headers = await make_auth_header(test_db, system_admin)
 
         loan_response = await client.post(
             "/loans",

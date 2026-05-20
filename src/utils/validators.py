@@ -93,6 +93,7 @@ def validate_phone_number(phone: str) -> str:
 
     return phone
 
+
 def validate_publishing_date(publishing_date: date | str) -> date:
     if isinstance(publishing_date, str):
         try:

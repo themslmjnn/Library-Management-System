@@ -26,7 +26,7 @@ class TestLoanBookMe:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         member = await make_member(test_db)
-        headers = make_auth_header(member)
+        headers = await make_auth_header(test_db, member)
 
         response = await client.post(
             "/loans/me",
@@ -49,7 +49,7 @@ class TestLoanBookMe:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         guest = await make_guest(test_db)
-        headers = make_auth_header(guest)
+        headers = await make_auth_header(test_db, guest)
 
         response = await client.post(
             "/loans/me",
@@ -88,7 +88,7 @@ class TestLoanBookMe:
             test_db, book_id=book.id, quantity=0, added_by=system_admin.id
         )
         member = await make_member(test_db)
-        headers = make_auth_header(member)
+        headers = await make_auth_header(test_db, member)
 
         response = await client.post(
             "/loans/me",
@@ -106,7 +106,7 @@ class TestLoanBookMe:
     ):
         book = await make_book(test_db, created_by=system_admin.id)
         member = await make_member(test_db)
-        headers = make_auth_header(member)
+        headers = await make_auth_header(test_db, member)
 
         response = await client.post(
             "/loans/me",
@@ -129,7 +129,7 @@ class TestGetLoansMe:
             test_db, book_id=book.id, quantity=5, added_by=system_admin.id
         )
         member = await make_member(test_db)
-        headers = make_auth_header(member)
+        headers = await make_auth_header(test_db, member)
 
         await client.post(
             "/loans/me",
@@ -158,11 +158,13 @@ class TestGetLoansMe:
         await client.post(
             "/loans/me",
             json={"book_id": book.id, "due_at": due_date()},
-            headers=make_auth_header(member1),
+            headers=await make_auth_header(test_db, member1),
         )
 
         # member2 fetches their own loans — must not see member1's loan
-        response = await client.get("/loans/me", headers=make_auth_header(member2))
+        response = await client.get(
+            "/loans/me", headers=await make_auth_header(test_db, member2)
+        )
 
         data = response.json()
         ids = [loan["user_id"] for loan in data["items"]]
@@ -180,7 +182,7 @@ class TestGetLoansMe:
             test_db, book_id=book.id, quantity=3, added_by=system_admin.id
         )
         member = await make_member(test_db)
-        headers = make_auth_header(member)
+        headers = await make_auth_header(test_db, member)
 
         loan_response = await client.post(
             "/loans/me",
@@ -208,14 +210,14 @@ class TestGetLoansMe:
         loan_response = await client.post(
             "/loans/me",
             json={"book_id": book.id, "due_at": due_date()},
-            headers=make_auth_header(member1),
+            headers=await make_auth_header(test_db, member1),
         )
         loan_id = loan_response.json()["id"]
 
         # member2 tries to access member1's loan — must get 404, not 403
         # 404 prevents confirming the loan exists at all
         response = await client.get(
-            f"/loans/{loan_id}/me", headers=make_auth_header(member2)
+            f"/loans/{loan_id}/me", headers=await make_auth_header(test_db, member2)
         )
 
         assert response.status_code == 404
