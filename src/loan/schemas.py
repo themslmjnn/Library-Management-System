@@ -20,7 +20,7 @@ class LoanResponse(LoanBase, BaseSchema):
     id: int
     inventory_id: int
     created_by: int | None = None
-    loaned_at: datetime
+    created_at: datetime
     returned_at: datetime | None = None
 
 

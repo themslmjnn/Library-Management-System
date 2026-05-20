@@ -351,40 +351,6 @@ class TestReturnLoan:
         with pytest.raises(LoanNotFoundError):
             await LoanService.return_loan(test_db, system_admin.id, loan.id + 999999)
 
-    # async def test_public_return_works(
-    #     self, test_db: AsyncSession, system_admin: User
-    # ):
-    #     book = await make_book(test_db, created_by=system_admin.id)
-    #     await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
-    #     borrower = await make_member(test_db)
-
-    #     loan = await LoanServicePublic.loan_book_me(
-    #         test_db,
-    #         CreateLoanPublic(book_id=book.id, due_at=due_date()), borrower.id
-    #     )
-
-    #     await LoanService.return_loan(test_db, borrower.id, loan.id)
-
-    #     await test_db.refresh(loan)
-
-    #     assert loan.returned_at is not None
-
-    # async def test_public_return_raises_if_wrong_user(
-    #     self, test_db: AsyncSession, system_admin: User
-    # ):
-    #     book = await make_book(test_db, created_by=system_admin.id)
-    #     await make_inventory(test_db, book_id=book.id, quantity=3, added_by=system_admin.id)
-    #     borrower = await make_member(test_db)
-    #     other_user = await make_member(test_db)
-
-    #     loan = await LoanServicePublic.loan_book_me(
-    #         test_db, CreateLoanPublic(book_id=book.id, due_at=due_date()), borrower.id
-    #     )
-
-    #     # other_user trying to return borrower's loan
-    #     with pytest.raises(LoanNotFoundError):
-    #         await LoanServicePublic.return_loan_public(test_db, other_user.id, loan.id)
-
 
 class TestGetLoans:
     async def test_staff_sees_all_loans(
@@ -414,7 +380,7 @@ class TestGetLoans:
             skip=0,
             limit=20,
             filters=SearchLoan(),
-            sort_by="loaned_at",
+            sort_by="created_at",
             order="desc",
         )
 

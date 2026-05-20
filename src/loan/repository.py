@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.loan.models import Loan
 from src.loan.schemas import CreateLoanPublic, LoanBase, SearchLoan, SearchLoanPublic
 
-ALLOWED_SORT_FIELDS_LOAN = {"loaned_at", "book_id", "user_id", "created_by", "due_at"}
+ALLOWED_SORT_FIELDS_LOAN = {"created_at", "book_id", "user_id", "created_by", "due_at"}
 
 
 class LoanRepository:
@@ -41,9 +41,9 @@ class LoanRepository:
                 base_query = base_query.filter(Loan.due_at == filters.due_at)
 
         if sort_by not in ALLOWED_SORT_FIELDS_LOAN:
-            sort_by = "loaned_at"
+            sort_by = "created_at"
 
-        sort_column = getattr(Loan, sort_by, Loan.loaned_at)
+        sort_column = getattr(Loan, sort_by, Loan.created_at)
         if order == "desc":
             base_query = base_query.order_by(sort_column.desc())
         else:
@@ -93,9 +93,9 @@ class LoanRepositoryPublic:
                 base_query = base_query.filter(Loan.due_at == filters.due_at)
 
         if sort_by not in ALLOWED_SORT_FIELDS_LOAN:
-            sort_by = "loaned_at"
+            sort_by = "created_at"
 
-        sort_column = getattr(Loan, sort_by, Loan.loaned_at)
+        sort_column = getattr(Loan, sort_by, Loan.created_at)
         if order == "desc":
             base_query = base_query.order_by(sort_column.desc())
         else:
