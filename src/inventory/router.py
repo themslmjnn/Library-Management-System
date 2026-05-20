@@ -11,6 +11,7 @@ from src.inventory.schemas import (
     CreateInventory,
     InventoryResponse,
     SearchInventory,
+    UpdateInventoryRequest,
 )
 from src.inventory.service import InventoryService
 from src.pagination import PaginatedResponse
@@ -51,13 +52,13 @@ async def get_inventories(
     )
 
 
-@router.put(
+@router.patch(
     "/{inventory_id}", response_model=InventoryResponse, status_code=status.HTTP_200_OK
 )
 async def update_inventory(
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_and_library_admin)],
-    quantity: int,
+    quantity: UpdateInventoryRequest,
     inventory_id: path_param_int_ge1,
 ):
     return await InventoryService.update_inventory(

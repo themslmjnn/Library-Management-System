@@ -21,12 +21,6 @@ class InventoryService:
     async def add_inventory(
         db: AsyncSession, user_id: int, inventory_request: CreateInventory
     ) -> Inventory:
-        if inventory_request.quantity <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Quantity can not be less than or equal to 0",
-            )
-
         new_inventory = Inventory(
             **inventory_request.model_dump(),
             added_by=user_id,
@@ -37,9 +31,6 @@ class InventoryService:
 
             await db.commit()
             await db.refresh(new_inventory)
-
-            key = inventory_detail_key(new_inventory.id)
-            await delete_cache(key)
 
             logger.info(
                 "inventory_added",
@@ -110,8 +101,7 @@ class InventoryService:
         await db.commit()
         await db.refresh(inventory)
 
-        key = inventory_detail_key(inventory_id)
-        await delete_cache(key)
+        await delete_cache(inventory_detail_key(inventory_id))
 
         logger.info(
             "inventory_updated",

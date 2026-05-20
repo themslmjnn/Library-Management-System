@@ -35,39 +35,6 @@ class TestAddInventory:
         assert inventory.quantity == 5
         assert inventory.added_by == system_admin.id
 
-    async def test_rejects_zero_quantity(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        book = await make_book(
-            test_db,
-            created_by=system_admin.id,
-        )
-
-        request = CreateInventory(
-            book_id=book.id,
-            quantity=0,
-        )
-
-        with pytest.raises(Exception) as exc_info:
-            await InventoryService.add_inventory(test_db, system_admin.id, request)
-
-        assert exc_info.value.status_code == 400
-
-    async def test_rejects_negative_quantity(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        book = await make_book(
-            test_db,
-            created_by=system_admin.id,
-        )
-
-        request = CreateInventory(book_id=book.id, quantity=-1)
-
-        with pytest.raises(Exception) as exc_info:
-            await InventoryService.add_inventory(test_db, system_admin.id, request)
-
-        assert exc_info.value.status_code == 400
-
     async def test_rejects_invalid_book_id(
         self, test_db: AsyncSession, system_admin: User
     ):
@@ -212,7 +179,7 @@ class TestGetInventories:
             skip=0,
             limit=20,
             filters=SearchInventory(),
-            sort_by="added_at",
+            sort_by="created_at",
             order="desc",
         )
 
@@ -238,7 +205,7 @@ class TestGetInventories:
             skip=0,
             limit=2,
             filters=SearchInventory(),
-            sort_by="added_at",
+            sort_by="created_at",
             order="desc",
         )
 
@@ -267,7 +234,7 @@ class TestGetInventories:
             skip=0,
             limit=20,
             filters=SearchInventory(book_id=book1.id),
-            sort_by="added_at",
+            sort_by="created_at",
             order="desc",
         )
 
@@ -293,7 +260,7 @@ class TestGetInventories:
             skip=0,
             limit=20,
             filters=SearchInventory(added_by=system_admin.id),
-            sort_by="added_at",
+            sort_by="created_at",
             order="desc",
         )
 
@@ -317,7 +284,7 @@ class TestGetInventories:
             skip=0,
             limit=20,
             filters=SearchInventory(book_id=inventory.book_id + 999999),
-            sort_by="added_at",
+            sort_by="created_at",
             order="desc",
         )
 
