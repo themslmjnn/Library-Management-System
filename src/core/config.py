@@ -23,6 +23,16 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = ""
     REDIS_DB: int = 0
 
+    MAIL_HOST: str = "sandbox.smtp.mailtrap.io"
+    MAIL_PORT: int = 587
+    MAIL_USERNAME: str
+    MAIL_PASSWORD: str
+    MAIL_FROM: str = "noreply@library.local"
+    MAIL_FROM_NAME: str = "Library Management System"
+ 
+    INVITE_TOKEN_EXPIRES_HOURS: int = 24
+    ACTIVATION_CODE_EXPIRES_HOURS: int = 15
+
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_secret_key(cls, v: str) -> str:
@@ -104,6 +114,12 @@ class Settings(BaseSettings):
     @property
     def cookie_secure(self) -> bool:
         return self.ENVIRONMENT == "production"
+    
+    @property
+    def APP_URL(self) -> str:
+        if self.ENVIRONMENT == "production":
+            return "https://yourdomain.com"
+        return "http://localhost:8000"
 
     model_config = SettingsConfigDict(env_file=".env")
 

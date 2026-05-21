@@ -36,11 +36,10 @@ def verify_invite_token(raw_invite_token: str, hashed_invite_token: str) -> bool
 
 
 def generate_account_activation_code() -> tuple[str, str]:
-    raw_activation_code = secrets.token_hex(8)
+    raw_activation_code = str(secrets.randbelow(900_000) + 100_000)
     hashed_activation_code = hashlib.sha256(raw_activation_code.encode()).hexdigest()
 
     return raw_activation_code, hashed_activation_code
-
 
 def verify_account_activation_code(
     raw_activation_code: str, hashed_activation_code: str

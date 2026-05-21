@@ -1,7 +1,6 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import CurrentUser
 from src.book.models import Book
 from src.book.repository import BookRepository
 from src.book.schemas import BookResponse, BookResponsePublic, CreateBook, UpdateBook

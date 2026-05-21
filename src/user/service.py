@@ -1,9 +1,11 @@
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.cache import delete_cache, get_cache, set_cache
+from src.core.config import settings
 from src.core.logging import get_logger
 from src.core.security import (
     generate_account_activation_code,
@@ -71,7 +73,7 @@ class UserServiceAdmin:
             )
 
         raw_invite_token, hashed_invite_token = generate_invite_token()
-        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=1)
+        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=settings.INVITE_TOKEN_EXPIRES_HOURS)
 
         new_user = User(
             username=user_request.username,
@@ -106,7 +108,9 @@ class UserServiceAdmin:
             await db.commit()
             await db.refresh(new_user)
 
-            send_invite_email(new_user.email, raw_invite_token)
+            invite_email_task = asyncio.create_task(
+                send_invite_email(new_user.email, raw_invite_token)
+            )
 
             logger.info(
                 "user_created",
@@ -314,7 +318,7 @@ class UserServiceStaff:
         db: AsyncSession, user_request: CreateUserBase, current_user_id: int
     ) -> User:
         raw_invite_token, invite_token_hash = generate_invite_token()
-        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(days=2)
+        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(settings.INVITE_TOKEN_EXPIRES_HOURS)
 
         new_user = User(
             username=user_request.username,
@@ -349,7 +353,9 @@ class UserServiceStaff:
             await db.commit()
             await db.refresh(new_user)
 
-            send_invite_email(new_user.email, raw_invite_token)
+            invite_email_task = asyncio.create_task(
+                send_invite_email(new_user.email, raw_invite_token)
+            )
 
             logger.info(
                 "user_created",
@@ -439,7 +445,7 @@ class UserServicePublic:
     ) -> User:
         raw_activation_code, hashed_activation_code = generate_account_activation_code()
         account_activation_code_expires_at = datetime.now(timezone.utc) + timedelta(
-            days=1
+            hours=settings.ACTIVATION_CODE_EXPIRES_HOURS
         )
 
         new_user = User(
@@ -475,7 +481,9 @@ class UserServicePublic:
             await db.commit()
             await db.refresh(new_user)
 
-            send_account_activation_code(new_user.email, raw_activation_code)
+            activation_task = asyncio.create_task(
+                send_account_activation_code(new_user.email, raw_activation_code)
+            )
 
             logger.info(
                 "user_registered",
