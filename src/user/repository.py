@@ -141,6 +141,38 @@ class UserRepositoryAdmin:
             limit=limit,
         )
 
+    @staticmethod
+    async def get_user_by_id_admin(db: AsyncSession, user_id: int) -> User | None:
+        query = select(User).filter(
+            and_(
+                User.role != UserRole.system_admin,
+                User.id == user_id,
+            )
+        )
+
+        result = await db.execute(query)
+
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def get_user_with_session_admin(
+        db: AsyncSession, user_id: int
+    ) -> User | None:
+        query = (
+            select(User)
+            .options(joinedload(User.session))
+            .filter(
+                and_(
+                    User.role != UserRole.system_admin,
+                    User.id == user_id,
+                )
+            )
+        )
+
+        result = await db.execute(query)
+
+        return result.scalar_one_or_none()
+
 
 class UserRepositoryStaff:
     @staticmethod

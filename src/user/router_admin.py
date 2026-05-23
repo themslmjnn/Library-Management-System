@@ -28,11 +28,11 @@ router = APIRouter(
 @router.post("", response_model=UserResponseAdmin, status_code=status.HTTP_201_CREATED)
 async def create_account_admin(
     db: async_db_dependency,
-    user_request: CreateUserAdmin,
     current_user: Annotated[User, Depends(require_system_admin)],
+    user_request: CreateUserAdmin,
 ):
     return await UserServiceAdmin.create_account_admin(
-        db, user_request, current_user.id
+        db, current_user.id, user_request
     )
 
 
@@ -43,9 +43,9 @@ async def create_account_admin(
 )
 async def get_users_admin(
     db: async_db_dependency,
+    _: Annotated[User, Depends(require_system_admin)],
     pagination: pagination_dependency,
     filters: Annotated[SearchUserAdmin, Depends()],
-    _: Annotated[User, Depends(require_system_admin)],
     sort_by: str = "created_at",
     order: str = "desc",
 ):
@@ -64,8 +64,8 @@ async def get_users_admin(
 )
 async def get_user_by_id_admin(
     db: async_db_dependency,
-    user_id: Annotated[int, Path(ge=1)],
     _: Annotated[User, Depends(require_system_admin)],
+    user_id: Annotated[int, Path(ge=1)],
 ):
     return await UserServiceAdmin.get_user_by_id_admin(db, user_id)
 
@@ -73,19 +73,19 @@ async def get_user_by_id_admin(
 @router.patch("/{user_id}/deactivate", status_code=status.HTTP_204_NO_CONTENT)
 async def deactivate_user_admin(
     db: async_db_dependency,
-    user_id: Annotated[int, Path(ge=1)],
     current_user: Annotated[User, Depends(require_system_admin)],
+    user_id: Annotated[int, Path(ge=1)],
 ):
-    return await UserServiceAdmin.deactivate_user_admin(db, user_id, current_user.id)
+    return await UserServiceAdmin.deactivate_user_admin(db, current_user.id, user_id)
 
 
 @router.patch("/{user_id}/activate", status_code=status.HTTP_204_NO_CONTENT)
 async def activate_user_admin(
     db: async_db_dependency,
-    user_id: Annotated[int, Path(ge=1)],
     current_user: Annotated[User, Depends(require_system_admin)],
+    user_id: Annotated[int, Path(ge=1)],
 ):
-    return await UserServiceAdmin.activate_user_admin(db, user_id, current_user.id)
+    return await UserServiceAdmin.activate_user_admin(db, current_user.id, user_id)
 
 
 @router.patch(
@@ -93,22 +93,22 @@ async def activate_user_admin(
 )
 async def update_user_admin(
     db: async_db_dependency,
-    user_id: path_param_int_ge1,
-    update_request: UpdateUser,
     current_user: Annotated[User, Depends(require_system_admin)],
+    user_id: Annotated[int, Path(ge=1)],
+    update_request: UpdateUser,
 ):
     return await UserServiceAdmin.update_user_admin(
-        db, user_id, update_request, current_user.id
+        db, current_user.id, user_id, update_request
     )
 
 
 @router.put("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
 async def update_user_password_admin(
     db: async_db_dependency,
+    current_user: Annotated[User, Depends(require_system_admin)],
     user_id: int,
     password_request: UpdateUserPasswordAdmin,
-    current_user: Annotated[User, Depends(require_system_admin)],
 ):
     await UserServiceAdmin.update_user_password_admin(
-        db, user_id, password_request, current_user.id
+        db, current_user.id, user_id, password_request
     )

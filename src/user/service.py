@@ -59,21 +59,23 @@ logger = get_logger(__name__)
 class UserServiceAdmin:
     @staticmethod
     async def create_account_admin(
-        db: AsyncSession, user_request: CreateUserAdmin, current_user_id: int
+        db: AsyncSession, current_user_id: int, user_request: CreateUserAdmin
     ) -> User:
         if user_request.role == UserRole.system_admin:
             logger.warning(
                 "create_user_denied",
-                reason="cannot_create_system_admin",
+                reason="cannot_create_system_admin_through_the_api",
                 requested_by=current_user_id,
             )
 
             raise CannotCreateSystemAdminError(
-                "Cannot create system_admin accounts through the API"
+                "Cannot create system admin through the API"
             )
 
         raw_invite_token, hashed_invite_token = generate_invite_token()
-        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=settings.INVITE_TOKEN_EXPIRES_HOURS)
+        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(
+            hours=settings.INVITE_TOKEN_EXPIRES_HOURS
+        )
 
         new_user = User(
             username=user_request.username,
@@ -108,14 +110,14 @@ class UserServiceAdmin:
             await db.commit()
             await db.refresh(new_user)
 
-            invite_email_task = asyncio.create_task(
-                send_invite_email(new_user.email, raw_invite_token)
-            )
+            # invite_email_task = asyncio.create_task(
+            #     send_invite_email(new_user.email, raw_invite_token)
+            # )
 
             logger.info(
                 "user_created",
                 new_user_id=new_user.id,
-                role=user_request.role,
+                role=new_user.role,
                 created_by=current_user_id,
             )
 
@@ -156,25 +158,25 @@ class UserServiceAdmin:
         )
 
     @staticmethod
-    async def get_user_by_id_admin(db: AsyncSession, user_id: int) -> UserResponseAdmin:
+    async def get_user_by_id_admin(db: AsyncSession, user_id: int) -> dict:
         cache_key = user_detail_key_admin(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
             return cached
 
-        user = await UserRepositoryBase.get_user_by_id(db, user_id)
+        user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseAdmin.model_validate(user).model_dump(mode="json")
-        await set_cache(cache_key, serialized, 600)
+        await set_cache(cache_key, serialized, 900)
 
         return serialized
 
     @staticmethod
     async def deactivate_user_admin(
-        db: AsyncSession, user_id: int, current_user_id: int
+        db: AsyncSession, current_user_id: int, user_id: int
     ) -> None:
-        user = await UserRepositoryBase.get_user_with_session(db, user_id)
+        user = await UserRepositoryAdmin.get_user_with_session_admin(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if not user.is_active:
@@ -195,11 +197,7 @@ class UserServiceAdmin:
 
         await db.commit()
 
-        await delete_cache(
-            user_detail_key_admin(user_id),
-            user_detail_key_staff(user_id),
-            user_detail_key_self(user_id),
-        )
+        await delete_cache(user_detail_key_admin(user_id))
         await delete_cache(access_token_version_key(user_id))
 
         logger.info(
@@ -210,9 +208,9 @@ class UserServiceAdmin:
 
     @staticmethod
     async def activate_user_admin(
-        db: AsyncSession, user_id: int, current_user_id: int
+        db: AsyncSession, current_user_id: int, user_id: int
     ) -> None:
-        user = await UserRepositoryBase.get_user_by_id(db, user_id)
+        user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if user.is_active:
@@ -229,11 +227,7 @@ class UserServiceAdmin:
 
         await db.commit()
 
-        await delete_cache(
-            user_detail_key_admin(user_id),
-            user_detail_key_staff(user_id),
-            user_detail_key_self(user_id),
-        )
+        await delete_cache(user_detail_key_admin(user_id))
 
         logger.info(
             "user_activated",
@@ -244,11 +238,11 @@ class UserServiceAdmin:
     @staticmethod
     async def update_user_admin(
         db: AsyncSession,
+        current_user_id: int,
         user_id: int,
         update_request: UpdateUser,
-        current_user_id: int,
     ) -> User:
-        user = await UserRepositoryBase.get_user_by_id(db, user_id)
+        user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         try:
@@ -287,11 +281,11 @@ class UserServiceAdmin:
     @staticmethod
     async def update_user_password_admin(
         db: AsyncSession,
+        current_user_id: int,
         user_id: int,
         password_request: UpdateUserPasswordAdmin,
-        current_user_id: int,
     ) -> None:
-        user = await UserRepositoryBase.get_user_with_session(db, user_id)
+        user = await UserRepositoryAdmin.get_user_with_session_admin(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         user.password_hash = hash_password(password_request.new_password)
@@ -318,7 +312,9 @@ class UserServiceStaff:
         db: AsyncSession, user_request: CreateUserBase, current_user_id: int
     ) -> User:
         raw_invite_token, invite_token_hash = generate_invite_token()
-        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(settings.INVITE_TOKEN_EXPIRES_HOURS)
+        invite_token_expires_at = datetime.now(timezone.utc) + timedelta(
+            settings.INVITE_TOKEN_EXPIRES_HOURS
+        )
 
         new_user = User(
             username=user_request.username,

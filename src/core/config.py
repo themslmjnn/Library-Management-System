@@ -15,6 +15,8 @@ class Settings(BaseSettings):
 
     ACCESS_TOKEN_EXPIRES_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRES_DAYS: int = 7
+    INVITE_TOKEN_EXPIRES_HOURS: int = 24
+    ACTIVATION_CODE_EXPIRES_MINUTES: int = 15
 
     ENVIRONMENT: str = "development"
 
@@ -23,15 +25,9 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = ""
     REDIS_DB: int = 0
 
-    MAIL_HOST: str = "sandbox.smtp.mailtrap.io"
-    MAIL_PORT: int = 587
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: str
-    MAIL_FROM: str = "noreply@library.local"
+    RESEND_API_KEY: str
+    MAIL_FROM: str = "onboarding@resend.dev"
     MAIL_FROM_NAME: str = "Library Management System"
- 
-    INVITE_TOKEN_EXPIRES_HOURS: int = 24
-    ACTIVATION_CODE_EXPIRES_HOURS: int = 15
 
     @field_validator("JWT_SECRET_KEY")
     @classmethod
@@ -83,7 +79,7 @@ class Settings(BaseSettings):
             raise ValueError("ACCESS_TOKEN_EXPIRES_MINUTES must be at least 1")
         if v > 1440:
             raise ValueError(
-                "ACCESS_TOKEN_EXPIRES_MINUTES should not exceed 1440 (24 hours)"
+                "ACCESS_TOKEN_EXPIRES_MINUTES should not exceed 900 (15 minutes)"
             )
         return v
 
@@ -118,7 +114,7 @@ class Settings(BaseSettings):
     @property
     def APP_URL(self) -> str:
         if self.ENVIRONMENT == "production":
-            return "https://yourdomain.com"
+            return "https://lms.com"
         return "http://localhost:8000"
 
     model_config = SettingsConfigDict(env_file=".env")
