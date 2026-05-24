@@ -176,7 +176,7 @@ class UserServiceAdmin:
     async def deactivate_user_admin(
         db: AsyncSession, current_user_id: int, user_id: int
     ) -> None:
-        user = await UserRepositoryAdmin.get_user_with_session_admin(db, user_id)
+        user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if not user.is_active:
@@ -309,7 +309,7 @@ class UserServiceAdmin:
 class UserServiceStaff:
     @staticmethod
     async def create_account_staff(
-        db: AsyncSession, user_request: CreateUserBase, current_user_id: int
+        db: AsyncSession, current_user_id: int, user_request: CreateUserBase
     ) -> User:
         raw_invite_token, invite_token_hash = generate_invite_token()
         invite_token_expires_at = datetime.now(timezone.utc) + timedelta(
@@ -349,9 +349,9 @@ class UserServiceStaff:
             await db.commit()
             await db.refresh(new_user)
 
-            invite_email_task = asyncio.create_task(
-                send_invite_email(new_user.email, raw_invite_token)
-            )
+            # invite_email_task = asyncio.create_task(
+            #     send_invite_email(new_user.email, raw_invite_token)
+            # )
 
             logger.info(
                 "user_created",
@@ -377,10 +377,10 @@ class UserServiceStaff:
     @staticmethod
     async def get_users_staff(
         db: AsyncSession,
+        current_user: User,
         skip: int,
         limit: int,
         filters: SearchUserBase,
-        current_user: User,
         sort_by: str,
         order: str,
     ) -> PaginatedResponse:
@@ -407,8 +407,8 @@ class UserServiceStaff:
 
     @staticmethod
     async def get_user_by_id_staff(
-        db: AsyncSession, user_id: int, current_user: User
-    ) -> UserResponseStaff:
+        db: AsyncSession, current_user: User, user_id: int
+    ) -> dict:
         cache_key = user_detail_key_staff(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:

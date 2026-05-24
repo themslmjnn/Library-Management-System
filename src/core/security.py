@@ -41,6 +41,7 @@ def generate_account_activation_code() -> tuple[str, str]:
 
     return raw_activation_code, hashed_activation_code
 
+
 def verify_account_activation_code(
     raw_activation_code: str, hashed_activation_code: str
 ) -> bool:
@@ -89,7 +90,6 @@ def create_refresh_token(payload: CreateRefreshTokenRequest) -> tuple[str, str]:
     raw_refresh_token = jwt.encode(
         {
             "sub": str(payload.user_id),
-            "family": payload.family,
             "type": "refresh",
             "jti": secrets.token_urlsafe(16),
             "exp": datetime.now(timezone.utc)

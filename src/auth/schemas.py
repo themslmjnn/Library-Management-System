@@ -12,7 +12,6 @@ class CreateAccessTokenRequest(BaseModel):
 
 class CreateRefreshTokenRequest(BaseModel):
     user_id: int
-    family: str
 
 
 class LoginResponse(BaseModel):

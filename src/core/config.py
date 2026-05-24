@@ -110,7 +110,7 @@ class Settings(BaseSettings):
     @property
     def cookie_secure(self) -> bool:
         return self.ENVIRONMENT == "production"
-    
+
     @property
     def APP_URL(self) -> str:
         if self.ENVIRONMENT == "production":

@@ -24,11 +24,11 @@ router = APIRouter(
 )
 async def create_account_staff(
     db: async_db_dependency,
-    user_request: CreateUserBase,
     current_user: Annotated[User, Depends(require_staff)],
+    user_request: CreateUserBase,
 ):
     return await UserServiceStaff.create_account_staff(
-        db, user_request, current_user.id
+        db, current_user.id, user_request
     )
 
 
@@ -39,18 +39,18 @@ async def create_account_staff(
 )
 async def get_users_staff(
     db: async_db_dependency,
+    current_user: Annotated[User, Depends(require_staff)],
     pagination: pagination_dependency,
     filters: Annotated[SearchUserBase, Depends()],
-    current_user: Annotated[User, Depends(require_staff)],
     sort_by: str = "created_at",
     order: str = "desc",
 ):
     return await UserServiceStaff.get_users_staff(
         db,
+        current_user,
         pagination.skip,
         pagination.limit,
         filters,
-        current_user,
         sort_by,
         order,
     )
@@ -61,7 +61,7 @@ async def get_users_staff(
 )
 async def get_user_by_id_staff(
     db: async_db_dependency,
-    user_id: path_param_int_ge1,
     current_user: Annotated[User, Depends(require_staff)],
+    user_id: path_param_int_ge1,
 ):
-    return await UserServiceStaff.get_user_by_id_staff(db, user_id, current_user)
+    return await UserServiceStaff.get_user_by_id_staff(db, current_user, user_id)

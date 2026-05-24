@@ -1,3 +1,4 @@
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -69,6 +70,25 @@ class AuthService:
     def _clear_refresh_cookie(response: Response) -> None:
         response.delete_cookie(
             key="refresh_token",
+            path="/auth/refresh_token",
+        )
+
+    @staticmethod
+    def _set_refresh_family_cookie(response: Response, family: str) -> None:
+        response.set_cookie(
+            key="refresh_token_family",
+            value=family,
+            httponly=True,
+            secure=settings.cookie_secure,
+            samesite="strict",
+            max_age=COOKIE_MAX_AGE,
+            path="/auth/refresh_token",
+        )
+
+    @staticmethod
+    def _clear_refres_family_cookie(response: Response) -> None:
+        response.delete_cookie(
+            key="refresh_token_family",
             path="/auth/refresh_token",
         )
 
@@ -186,10 +206,7 @@ class AuthService:
             )
         )
         raw_refresh_token, hashed_refresh_token = create_refresh_token(
-            CreateRefreshTokenRequest(
-                user_id=user.id,
-                family=new_family,
-            )
+            CreateRefreshTokenRequest(user_id=user.id)
         )
 
         user.session.refresh_token_hash = hashed_refresh_token
@@ -208,6 +225,8 @@ class AuthService:
 
         AuthService._set_refresh_cookie(response, raw_refresh_token)
 
+        AuthService._set_refresh_family_cookie(response, new_family)
+
         return {
             "access_token": access_token,
             "token_type": "bearer",
@@ -218,6 +237,7 @@ class AuthService:
         await AuthService._invalidate_all_tokens(db, current_user.id)
 
         AuthService._clear_refresh_cookie(response)
+        AuthService._clear_refres_family_cookie(response)
 
         logger.info(
             "logout",
@@ -335,7 +355,10 @@ class AuthService:
 
     @staticmethod
     async def refresh_token(
-        db: AsyncSession, response: Response, raw_refresh_token: str
+        db: AsyncSession,
+        response: Response,
+        raw_refresh_token: str,
+        refresh_token_family: str,
     ) -> LoginResponse:
         try:
             payload = decode_refresh_token(raw_refresh_token)
@@ -369,19 +392,6 @@ class AuthService:
 
             raise InvalidRefreshTokenError(HTTP401.INVALID_REFRESH_TOKEN)
 
-        if refresh_token_family != user.session.refresh_token_family:
-            await AuthService._invalidate_all_tokens(db, user.id)
-
-            logger.warning(
-                "refresh_token_reuse_detected",
-                user_id=user.id,
-                action="all_tokens_invalidated",
-            )
-
-            raise RefreshTokenFamilyError(
-                "Security violation detected. Please log in again"
-            )
-
         if datetime.now(timezone.utc) > user.session.refresh_token_expires_at:
             logger.warning(
                 "refresh_token_rotation_failed",
@@ -391,11 +401,22 @@ class AuthService:
 
             raise ExpiredRefreshTokenError(HTTP401.EXPIRED_REFRESH_TOKEN)
 
-        if not verify_refresh_token(raw_refresh_token, user.session.refresh_token_hash):
+        refresh_token_family_valid = hmac.compare_digest(
+            refresh_token_family, user.session.refresh_token_family
+        )
+        refresh_token_hash_valid = verify_refresh_token(
+            raw_refresh_token, user.session.refresh_token_hash
+        )
+
+        if not refresh_token_family_valid or not refresh_token_hash_valid:
+            await AuthService._invalidate_all_tokens(db, user.id)
+
             logger.warning(
-                "refresh_token_rotation_failed",
-                reason="refresh_token_mismatch",
+                "refresh_token_security_violation",
                 user_id=user.id,
+                refresh_token_family_valid=refresh_token_family_valid,
+                refresh_token_hash_valid=refresh_token_hash_valid,
+                action="all_tokens_invalidated",
             )
 
             raise InvalidRefreshTokenError(HTTP401.INVALID_REFRESH_TOKEN)
@@ -411,10 +432,7 @@ class AuthService:
             )
         )
         raw_refresh_token, hashed_refresh_token = create_refresh_token(
-            CreateRefreshTokenRequest(
-                user_id=user.id,
-                family=new_family,
-            )
+            CreateRefreshTokenRequest(user_id=user.id)
         )
 
         user.session.refresh_token_hash = hashed_refresh_token
@@ -432,6 +450,7 @@ class AuthService:
         )
 
         AuthService._set_refresh_cookie(response, raw_refresh_token)
+        AuthService._set_refresh_family_cookie(response, new_family)
 
         return {
             "access_token": access_token,

@@ -9,7 +9,9 @@ from src.user.schemas import (
 )
 from src.utils.enums import UserRole
 
-ALLOWED_SORT_FIELDS_USER = {"created_at", "first_name", "last_name"}
+ALLOWED_SORT_FIELDS_USER: frozenset[str] = frozenset(
+    {"created_at", "first_name", "last_name"}
+)
 
 
 class UserRepositoryBase:
@@ -28,7 +30,9 @@ class UserRepositoryBase:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_user_with_session(db: AsyncSession, user_id: int) -> User | None:
+    async def get_user_by_id_with_session(
+        db: AsyncSession, user_id: int
+    ) -> User | None:
         query = (
             select(User).options(joinedload(User.session)).filter(User.id == user_id)
         )
@@ -38,7 +42,9 @@ class UserRepositoryBase:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_user_with_activation(db: AsyncSession, user_id: int) -> User | None:
+    async def get_user_by_id_with_activation(
+        db: AsyncSession, user_id: int
+    ) -> User | None:
         query = (
             select(User).options(joinedload(User.activation)).filter(User.id == user_id)
         )
@@ -155,7 +161,7 @@ class UserRepositoryAdmin:
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def get_user_with_session_admin(
+    async def get_user_by_id_with_session_admin(
         db: AsyncSession, user_id: int
     ) -> User | None:
         query = (
@@ -245,7 +251,10 @@ class UserRepositoryStaff:
         db: AsyncSession, user_id: int
     ) -> User | None:
         query = select(User).filter(
-            and_(User.id == user_id, User.role.in_([UserRole.member, UserRole.guest]))
+            and_(
+                User.id == user_id,
+                User.role.in_([UserRole.member, UserRole.guest]),
+            )
         )
 
         result = await db.execute(query)
