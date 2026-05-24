@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from src.user.models import UserRole
+from src.users.models import UserRole
 from src.utils.base_schema import BaseSchema
 from src.utils.validators import (
     validate_date_of_birth,
@@ -73,12 +73,12 @@ class UpdateUser(BaseModel):
     email: EmailStr | None = None
     phone_number: str | None = Field(min_length=10, max_length=20, default=None)
 
-    @field_validator("date_of_birth")
+    @field_validator("date_of_birth", mode="after")
     @classmethod
     def validate_date_of_birth(cls, field: date) -> date:
         return validate_date_of_birth(field)
 
-    @field_validator("phone_number")
+    @field_validator("phone_number", mode="after")
     @classmethod
     def validate_phone_number(cls, field: str) -> date:
         return validate_phone_number(field)

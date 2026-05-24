@@ -10,7 +10,7 @@ from src.core.dependencies import (
 from src.loan.schemas import LoanBase, LoanResponse, SearchLoan
 from src.loan.service import LoanService
 from src.pagination import PaginatedResponse
-from src.user.models import User, UserRole
+from src.users.models import User, UserRole
 from src.utils.exception_constants import path_param_int_ge1
 
 router = APIRouter(prefix="/loans", tags=["Loans"])

@@ -2,8 +2,8 @@ from sqlalchemy import Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from src.user.models import User, UserActivation, UserSession
-from src.user.schemas import (
+from src.users.models import User, UserActivation, UserSession
+from src.users.schemas import (
     SearchUserAdmin,
     SearchUserBase,
 )
@@ -55,7 +55,7 @@ class UserRepositoryBase:
 
     @staticmethod
     def apply_base_filters(
-        base_query, filters: SearchUserBase | SearchUserAdmin
+        base_query: Select, filters: SearchUserBase | SearchUserAdmin
     ) -> Select:
         if filters is None:
             return base_query
@@ -80,7 +80,7 @@ class UserRepositoryBase:
         return base_query
 
     @staticmethod
-    def apply_sorting(base_query, sort_by: str, order: str) -> Select:
+    def apply_sorting(base_query: Select, sort_by: str, order: str) -> Select:
         if sort_by not in ALLOWED_SORT_FIELDS_USER:
             sort_by = "created_at"
 

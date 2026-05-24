@@ -8,16 +8,15 @@ from src.core.dependencies import (
     require_system_admin,
 )
 from src.pagination import PaginatedResponse
-from src.user.models import User
-from src.user.schemas import (
+from src.users.models import User
+from src.users.schemas import (
     CreateUserAdmin,
     SearchUserAdmin,
     UpdateUser,
     UpdateUserPasswordAdmin,
     UserResponseAdmin,
 )
-from src.user.service import UserServiceAdmin
-from src.utils.exception_constants import path_param_int_ge1
+from src.users.service import UserServiceAdmin
 
 router = APIRouter(
     prefix="/users",

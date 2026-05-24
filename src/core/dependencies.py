@@ -10,7 +10,7 @@ from src.core.cache import get_cache, set_cache
 from src.core.enums import SortOrder
 from src.core.security import decode_access_token
 from src.database import AsyncSessionLocal
-from src.user.repository import UserRepositoryBase
+from src.users.repository import UserRepositoryBase
 from src.utils.cache_keys import access_token_version_key
 from src.utils.enums import BookCategory, UserRole
 from src.utils.exception_constants import HTTP401, HTTP403
@@ -65,7 +65,7 @@ async def get_current_user(
             role=UserRole(payload.get("role")),
         )
 
-    user = await UserRepositoryBase.get_user_with_session(db, user_id)
+    user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
 
     if user is None:
         raise InvalidAccessTokenError(HTTP401.INVALID_ACCESS_TOKEN)

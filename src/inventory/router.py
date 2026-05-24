@@ -15,7 +15,7 @@ from src.inventory.schemas import (
 )
 from src.inventory.service import InventoryService
 from src.pagination import PaginatedResponse
-from src.user.models import User
+from src.users.models import User
 from src.utils.exception_constants import path_param_int_ge1
 
 router = APIRouter(

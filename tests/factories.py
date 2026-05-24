@@ -14,8 +14,8 @@ from src.core.security import (
 )
 from src.inventory.models import Inventory
 from src.inventory.repository import InventoryRepository
-from src.user.models import User, UserActivation, UserRole, UserSession
-from src.user.repository import UserRepositoryBase
+from src.users.models import User, UserActivation, UserRole, UserSession
+from src.users.repository import UserRepositoryBase
 from tests.constants import CORRECT_PASSWORD, DEFAULT_PASSWORD, NEW_PASSWORD
 
 _counter = itertools.count(1)

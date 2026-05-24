@@ -15,8 +15,8 @@ from src.core.limiter import ip_limiter
 from src.core.security import create_access_token
 from src.database import Base
 from src.main import app
-from src.user.models import User, UserRole
-from src.user.schemas import CreateUserAdmin, CreateUserBase, CreateUserPublic
+from src.users.models import User, UserRole
+from src.users.schemas import CreateUserAdmin, CreateUserBase, CreateUserPublic
 from tests.constants import NEW_PASSWORD
 from tests.factories import (
     make_library_admin,
@@ -25,7 +25,7 @@ from tests.factories import (
     make_system_admin,
     make_user,
 )
-from user.repository import UserRepositoryBase
+from users.repository import UserRepositoryBase
 
 ASYNC_DB_URL = (
     f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"

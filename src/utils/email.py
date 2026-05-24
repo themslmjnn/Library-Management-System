@@ -1,13 +1,3 @@
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
-import aiosmtplib
-
-from src.core.config import settings
-from src.core.logging import get_logger
-
-logger = get_logger(__name__)
-
 import httpx
 
 from src.core.config import settings
@@ -73,7 +63,7 @@ async def _send(
 
 
 def _invite_email_html(invite_token: str) -> str:
-    activation_link = f"{settings.APP_URL}/activate-account?token={invite_token}"
+    activation_link = f"{settings.APP_URL}/activate_with_token?token={invite_token}"
 
     return f"""
     <!DOCTYPE html>

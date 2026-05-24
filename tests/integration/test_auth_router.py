@@ -1,7 +1,7 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.user.models import UserRole
+from src.users.models import UserRole
 from tests.conftest import make_auth_header
 from tests.constants import (
     CORRECT_PASSWORD,
@@ -14,7 +14,7 @@ from tests.factories import (
     make_member,
     make_user_with_activation_code,
 )
-from user.repository import UserRepositoryBase
+from users.repository import UserRepositoryBase
 
 
 class TestLogin:

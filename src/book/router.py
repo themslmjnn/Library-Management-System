@@ -12,7 +12,7 @@ from src.core.dependencies import (
     require_system_and_library_admin,
 )
 from src.pagination import PaginatedResponse
-from src.user.models import User
+from src.users.models import User
 
 router = APIRouter(
     prefix="/books",

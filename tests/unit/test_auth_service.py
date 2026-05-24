@@ -11,7 +11,7 @@ from src.auth.schemas import (
 )
 from src.auth.service import AuthService
 from src.core.security import create_refresh_token, decode_access_token
-from src.user.models import UserRole
+from src.users.models import UserRole
 from src.utils.exceptions import (
     AccountInactiveError,
     AccountLockedError,
@@ -37,7 +37,7 @@ from tests.factories import (
     make_user_with_activation_code,
     make_user_with_refresh_token,
 )
-from user.repository import UserRepositoryBase
+from users.repository import UserRepositoryBase
 
 
 class _MockForm:

@@ -1,8 +1,8 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.user.repository import UserRepositoryBase
-from src.user.schemas import CreateUserPublic
+from src.users.repository import UserRepositoryBase
+from src.users.schemas import CreateUserPublic
 from src.utils.enums import UserRole
 from tests.conftest import make_auth_header
 from tests.constants import NEW_PASSWORD, OLD_PASSWORD

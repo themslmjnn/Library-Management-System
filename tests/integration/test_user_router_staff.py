@@ -1,8 +1,8 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.user.models import User
-from src.user.schemas import CreateUserBase
+from src.users.models import User
+from src.users.schemas import CreateUserBase
 from tests.conftest import make_auth_header
 from tests.factories import make_member, make_system_admin
 

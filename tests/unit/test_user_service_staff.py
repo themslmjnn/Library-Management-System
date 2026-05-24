@@ -1,10 +1,10 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.user.models import User, UserRole
-from src.user.repository import UserRepositoryBase
-from src.user.schemas import CreateUserBase
-from src.user.service import UserServiceStaff
+from src.users.models import User, UserRole
+from src.users.repository import UserRepositoryBase
+from src.users.schemas import CreateUserBase
+from src.users.service import UserServiceStaff
 from src.utils.cache_keys import user_detail_key_staff
 from src.utils.exceptions import (
     AccessDeniedError,

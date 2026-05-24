@@ -18,7 +18,7 @@ from src.loan.schemas import (
     SearchLoanPublic,
 )
 from src.pagination import PaginatedResponse
-from src.user.repository import UserRepositoryBase
+from src.users.repository import UserRepositoryBase
 from src.utils.cache_keys import loan_detail_key
 from src.utils.exception_constants import HTTP404, HTTP409
 from src.utils.exceptions import (

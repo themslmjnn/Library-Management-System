@@ -2,13 +2,13 @@ from fastapi import APIRouter, Request, status
 
 from src.core.dependencies import async_db_dependency, current_user_dependency
 from src.core.limiter import ip_limiter
-from src.user.schemas import (
+from src.users.schemas import (
     CreateUserPublic,
     UpdateUser,
     UpdateUserPasswordPublic,
     UserResponseBase,
 )
-from src.user.service import UserServicePublic
+from src.users.service import UserServicePublic
 
 router = APIRouter(
     prefix="/users",
@@ -39,16 +39,16 @@ async def get_me(
 @router.patch("/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK)
 async def update_me(
     db: async_db_dependency,
-    update_request: UpdateUser,
     current_user: current_user_dependency,
+    update_request: UpdateUser,
 ):
-    return await UserServicePublic.update_me(db, update_request, current_user.id)
+    return await UserServicePublic.update_me(db, current_user.id, update_request)
 
 
 @router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
 async def update_my_password(
     db: async_db_dependency,
-    password_request: UpdateUserPasswordPublic,
     current_user: current_user_dependency,
+    password_request: UpdateUserPasswordPublic,
 ):
-    await UserServicePublic.update_my_password(db, password_request, current_user.id)
+    await UserServicePublic.update_my_password(db, current_user.id, password_request)

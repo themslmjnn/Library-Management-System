@@ -14,13 +14,13 @@ from src.core.security import (
     verify_password,
 )
 from src.pagination import PaginatedResponse
-from src.user.models import User, UserActivation, UserSession
-from src.user.repository import (
+from src.users.models import User, UserActivation, UserSession
+from src.users.repository import (
     UserRepositoryAdmin,
     UserRepositoryBase,
     UserRepositoryStaff,
 )
-from src.user.schemas import (
+from src.users.schemas import (
     CreateUserAdmin,
     CreateUserBase,
     CreateUserPublic,
@@ -110,9 +110,9 @@ class UserServiceAdmin:
             await db.commit()
             await db.refresh(new_user)
 
-            # invite_email_task = asyncio.create_task(
-            #     send_invite_email(new_user.email, raw_invite_token)
-            # )
+            invite_email_task = asyncio.create_task(
+                send_invite_email(new_user.email, raw_invite_token)
+            )
 
             logger.info(
                 "user_created",
@@ -349,9 +349,9 @@ class UserServiceStaff:
             await db.commit()
             await db.refresh(new_user)
 
-            # invite_email_task = asyncio.create_task(
-            #     send_invite_email(new_user.email, raw_invite_token)
-            # )
+            invite_email_task = asyncio.create_task(
+                send_invite_email(new_user.email, raw_invite_token)
+            )
 
             logger.info(
                 "user_created",
@@ -441,7 +441,7 @@ class UserServicePublic:
     ) -> User:
         raw_activation_code, hashed_activation_code = generate_account_activation_code()
         account_activation_code_expires_at = datetime.now(timezone.utc) + timedelta(
-            hours=settings.ACTIVATION_CODE_EXPIRES_HOURS
+            hours=settings.ACTIVATION_CODE_EXPIRES_MINUTES
         )
 
         new_user = User(
@@ -501,7 +501,7 @@ class UserServicePublic:
             raise
 
     @staticmethod
-    async def get_me(db: AsyncSession, user_id: int) -> UserResponseBase:
+    async def get_me(db: AsyncSession, user_id: int) -> dict:
         cache_key = user_detail_key_self(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
@@ -517,7 +517,7 @@ class UserServicePublic:
 
     @staticmethod
     async def update_me(
-        db: AsyncSession, update_request: UpdateUser, user_id: int
+        db: AsyncSession, user_id: int, update_request: UpdateUser
     ) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
 
@@ -554,9 +554,9 @@ class UserServicePublic:
 
     @staticmethod
     async def update_my_password(
-        db: AsyncSession, password_request: UpdateUserPasswordPublic, user_id: int
+        db: AsyncSession, user_id: int, password_request: UpdateUserPasswordPublic
     ) -> None:
-        user = await UserRepositoryBase.get_user_with_session(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
 
         if not verify_password(password_request.old_password, user.password_hash):
             raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)

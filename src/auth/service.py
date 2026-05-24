@@ -28,8 +28,8 @@ from src.core.security import (
     verify_password,
     verify_refresh_token,
 )
-from src.user.models import User
-from src.user.repository import UserRepositoryBase
+from src.users.models import User
+from src.users.repository import UserRepositoryBase
 from src.utils.cache_keys import access_token_version_key
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
 from src.utils.exceptions import (
@@ -43,7 +43,6 @@ from src.utils.exceptions import (
     InvalidCredentialsError,
     InvalidInviteTokenError,
     InvalidRefreshTokenError,
-    RefreshTokenFamilyError,
 )
 
 logger = get_logger(__name__)
@@ -74,10 +73,12 @@ class AuthService:
         )
 
     @staticmethod
-    def _set_refresh_family_cookie(response: Response, family: str) -> None:
+    def _set_refresh_family_cookie(
+        response: Response, refresh_token_family: str
+    ) -> None:
         response.set_cookie(
             key="refresh_token_family",
-            value=family,
+            value=refresh_token_family,
             httponly=True,
             secure=settings.cookie_secure,
             samesite="strict",
@@ -86,7 +87,7 @@ class AuthService:
         )
 
     @staticmethod
-    def _clear_refres_family_cookie(response: Response) -> None:
+    def _clear_refresh_family_cookie(response: Response) -> None:
         response.delete_cookie(
             key="refresh_token_family",
             path="/auth/refresh_token",
@@ -224,7 +225,6 @@ class AuthService:
         )
 
         AuthService._set_refresh_cookie(response, raw_refresh_token)
-
         AuthService._set_refresh_family_cookie(response, new_family)
 
         return {
@@ -233,15 +233,17 @@ class AuthService:
         }
 
     @staticmethod
-    async def logout(db: AsyncSession, response: Response, current_user: User) -> None:
-        await AuthService._invalidate_all_tokens(db, current_user.id)
+    async def logout(
+        db: AsyncSession, response: Response, current_user_id: int
+    ) -> None:
+        await AuthService._invalidate_all_tokens(db, current_user_id)
 
         AuthService._clear_refresh_cookie(response)
-        AuthService._clear_refres_family_cookie(response)
+        AuthService._clear_refresh_family_cookie(response)
 
         logger.info(
             "logout",
-            user_id=current_user.id,
+            user_id=current_user_id,
         )
 
     @staticmethod

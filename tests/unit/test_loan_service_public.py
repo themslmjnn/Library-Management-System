@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.loan.schemas import CreateLoanPublic
 from src.loan.service import LoanServicePublic
-from src.user.models import User
+from src.users.models import User
 from src.utils.exceptions import (
     BookNotAvailableError,
     BookNotFoundError,

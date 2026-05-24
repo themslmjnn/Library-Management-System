@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.inventory.repository import InventoryRepository
 from src.inventory.schemas import CreateInventory, SearchInventory
 from src.inventory.service import InventoryService
-from src.user.models import User
+from src.users.models import User
 from src.utils.exceptions import BookNotFoundError, InventoryNotFoundError
 from tests.factories import (
     make_book,

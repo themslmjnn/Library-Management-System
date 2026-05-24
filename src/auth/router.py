@@ -23,8 +23,8 @@ router = APIRouter(
 @ip_limiter.limit("10/minute")
 async def login(
     request: Request,
-    db: async_db_dependency,
     response: Response,
+    db: async_db_dependency,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 ):
     return await AuthService.login(db, response, form_data)
@@ -32,15 +32,15 @@ async def login(
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(
-    db: async_db_dependency,
     response: Response,
+    db: async_db_dependency,
     current_user: current_user_dependency,
 ):
-    await AuthService.logout(db, response, current_user)
+    await AuthService.logout(db, response, current_user.id)
 
 
 @router.post("/activate_with_token", status_code=status.HTTP_204_NO_CONTENT)
-@ip_limiter.limit("5/minute")
+@ip_limiter.limit("3/minute")
 async def activate_with_token(
     request: Request,
     db: async_db_dependency,
@@ -68,8 +68,9 @@ async def refresh(
     response: Response,
     db: async_db_dependency,
     refresh_token: str | None = Cookie(default=None),
+    refresh_token_family: str | None = Cookie(default=None),
 ):
-    if refresh_token is None:
+    if refresh_token is None or refresh_token_family is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=HTTP401.INVALID_REFRESH_TOKEN,
