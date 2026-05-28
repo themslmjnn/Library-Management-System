@@ -6,14 +6,19 @@ import structlog.testing
 
 from src.core.config import settings
 from src.utils.email import (
+    _activation_code_html,
+    _activation_code_text,
     _invite_email_html,
     _invite_email_text,
     _send,
+    send_account_activation_code,
     send_invite_email,
 )
 
 FAKE_TOKEN = "raw_invite_token_abc123"
-FAKE_EMAIL = "invited_user@example.com"
+FAKE_CODE = "847291"
+FAKE_EMAIL = "fake_user@example.com"
+FAKE_EMAIL = "fake__user@example.com"
 RESEND_URL = "https://api.resend.com/emails"
 
 
@@ -407,3 +412,123 @@ class TestInviteEmailText:
 
         assert expected_link in html
         assert expected_link in text
+
+
+class TestSendAccountActivationCode:
+    async def test_delegates_to_send_with_correct_email(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_activation_code(FAKE_EMAIL, FAKE_CODE)
+
+        mock_send.assert_awaited_once()
+        assert mock_send.call_args.kwargs["to_email"] == FAKE_EMAIL
+
+    async def test_delegates_correct_subject(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_activation_code(FAKE_EMAIL, FAKE_CODE)
+
+        subject = mock_send.call_args.kwargs["subject"]
+
+        assert subject
+        assert len(subject) > 5
+
+    async def test_passes_raw_code_in_both_bodies(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_activation_code(FAKE_EMAIL, FAKE_CODE)
+
+        kwargs = mock_send.call_args.kwargs
+
+        assert FAKE_CODE in kwargs["html_body"]
+        assert FAKE_CODE in kwargs["text_body"]
+
+    async def test_called_exactly_once(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_activation_code(FAKE_EMAIL, FAKE_CODE)
+
+        assert mock_send.await_count == 1
+
+
+class TestActivationCodeHtml:
+    def test_code_appears_in_body(self):
+        html = _activation_code_html(FAKE_CODE)
+
+        assert FAKE_CODE in html
+
+    def test_expiry_minutes_mentioned(self):
+        html = _activation_code_html(FAKE_CODE)
+
+        assert str(settings.ACTIVATION_CODE_EXPIRES_MINUTES) in html
+
+    def test_is_valid_html_string(self):
+        html = _activation_code_html(FAKE_CODE)
+
+        assert "<!DOCTYPE html>" in html or "<html" in html
+        assert "</html>" in html
+
+    def test_sender_name_in_footer(self):
+        html = _activation_code_html(FAKE_CODE)
+
+        assert settings.MAIL_FROM_NAME in html
+
+    def test_different_codes_produce_different_output(self):
+        html_a = _activation_code_html("111111")
+        html_b = _activation_code_html("999999")
+
+        assert html_a != html_b
+
+    def test_no_activation_link(self):
+        html = _activation_code_html(FAKE_CODE)
+
+        assert "?token=" not in html
+
+
+class TestActivationCodeText:
+    def test_code_appears_in_body(self):
+        text = _activation_code_text(FAKE_CODE)
+
+        assert FAKE_CODE in text
+
+    def test_expiry_minutes_mentioned(self):
+        text = _activation_code_text(FAKE_CODE)
+
+        assert str(settings.ACTIVATION_CODE_EXPIRES_MINUTES) in text
+
+    def test_is_plain_text_no_html_tags(self):
+        text = _activation_code_text(FAKE_CODE)
+
+        assert "<" not in text
+        assert ">" not in text
+
+    def test_different_codes_produce_different_output(self):
+        text_a = _activation_code_text("111111")
+        text_b = _activation_code_text("999999")
+
+        assert text_a != text_b
+
+    def test_no_activation_link(self):
+        text = _activation_code_text(FAKE_CODE)
+
+        assert "?token=" not in text
+
+    def test_html_and_text_carry_identical_code(self):
+        code = "563847"
+        html = _activation_code_html(code)
+        text = _activation_code_text(code)
+
+        assert code in html
+        assert code in text
