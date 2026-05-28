@@ -263,10 +263,61 @@ class TestSendExceptionSwallowing:
         mock_client_instance.post = AsyncMock(
             side_effect=httpx.TimeoutException("timed out")
         )
-        
+
         mocker.patch(
             "src.utils.email.httpx.AsyncClient", 
             return_value=mock_client_instance,
         )
  
         await _send("s", FAKE_EMAIL, "<p>x</p>", "x")
+
+class TestSendInviteEmail:
+    async def test_delegates_to_send_with_correct_email(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+ 
+        await send_invite_email(FAKE_EMAIL, FAKE_TOKEN)
+ 
+        mock_send.assert_awaited_once()
+        call_kwargs = mock_send.call_args.kwargs
+
+        assert call_kwargs["to_email"] == FAKE_EMAIL
+ 
+    async def test_delegates_correct_subject(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+ 
+        await send_invite_email(FAKE_EMAIL, FAKE_TOKEN)
+ 
+        subject = mock_send.call_args.kwargs["subject"]
+
+        assert subject
+        assert len(subject) > 5
+ 
+    async def test_passes_raw_token_not_hash(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+ 
+        await send_invite_email(FAKE_EMAIL, FAKE_TOKEN)
+ 
+        kwargs = mock_send.call_args.kwargs
+
+        assert FAKE_TOKEN in kwargs["html_body"]
+        assert FAKE_TOKEN in kwargs["text_body"]
+ 
+    @pytest.mark.asyncio
+    async def test_token_not_empty_string(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+ 
+        await send_invite_email(FAKE_EMAIL, "")
+ 
+        mock_send.assert_awaited_once()
