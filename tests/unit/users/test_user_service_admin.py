@@ -42,7 +42,7 @@ class TestCreateAccountAdmin:
 
         with pytest.raises(CannotCreateSystemAdminError):
             await UserServiceAdmin.create_account_admin(
-                test_db, valid_create_user_request_admin, system_admin.id
+                test_db, system_admin.id, valid_create_user_request_admin
             )
 
     @pytest.mark.parametrize(
@@ -84,7 +84,7 @@ class TestCreateAccountAdmin:
 
         with pytest.raises(expected_exception):
             await UserServiceAdmin.create_account_admin(
-                test_db, valid_create_user_request_admin, system_admin.id
+                test_db, system_admin.id, valid_create_user_request_admin
             )
 
     async def test_create_user_session_table_successfully(
@@ -94,10 +94,10 @@ class TestCreateAccountAdmin:
         valid_create_user_request_admin: CreateUserAdmin,
     ):
         user = await UserServiceAdmin.create_account_admin(
-            test_db, valid_create_user_request_admin, system_admin.id
+            test_db, system_admin.id, valid_create_user_request_admin
         )
 
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
         session = user_session.session
 
         assert session.id is not None
@@ -116,10 +116,10 @@ class TestCreateAccountAdmin:
         valid_create_user_request_admin: CreateUserAdmin,
     ):
         user = await UserServiceAdmin.create_account_admin(
-            test_db, valid_create_user_request_admin, system_admin.id
+            test_db, system_admin.id, valid_create_user_request_admin
         )
 
-        user_activation = await UserRepositoryBase.get_user_with_activation(
+        user_activation = await UserRepositoryBase.get_user_by_id_with_activation(
             test_db, user.id
         )
         activation = user_activation.activation
@@ -138,7 +138,7 @@ class TestCreateAccountAdmin:
         valid_create_user_request_admin: CreateUserAdmin,
     ):
         user = await UserServiceAdmin.create_account_admin(
-            test_db, valid_create_user_request_admin, system_admin.id
+            test_db, system_admin.id, valid_create_user_request_admin
         )
 
         assert user.id is not None
@@ -574,14 +574,14 @@ class TestGetUserByIDAdmin:
     ):
         user = await make_member(test_db)
 
-        mock_set_cache = mocker.patch("src.user.service.set_cache")
+        mock_set_cache = mocker.patch("src.users.service.set_cache")
 
         await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
 
         mock_set_cache.assert_called_once_with(
             user_detail_key_admin(user.id),
             mocker.ANY,
-            600,
+            900,
         )
 
     async def test_get_user_by_id_admin_returns_cached_data(
@@ -618,7 +618,7 @@ class TestDeactivateUserAdmin:
 
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.deactivate_user_admin(
-                test_db, non_existant_id, system_admin.id
+                test_db, system_admin.id, non_existant_id
             )
 
     async def test_does_not_deactivate_already_inactive_user(
@@ -631,7 +631,7 @@ class TestDeactivateUserAdmin:
 
         with pytest.raises(UserAlreadyInactiveError):
             await UserServiceAdmin.deactivate_user_admin(
-                test_db, user.id, system_admin.id
+                test_db, system_admin.id, user.id
             )
 
     async def test_deactivate_active_user(
@@ -639,10 +639,10 @@ class TestDeactivateUserAdmin:
     ):
         user = await make_member(test_db)
 
-        await UserServiceAdmin.deactivate_user_admin(test_db, user.id, system_admin.id)
+        await UserServiceAdmin.deactivate_user_admin(test_db, system_admin.id, user.id)
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
         session = user_session.session
 
         assert user.is_active is False
@@ -654,14 +654,14 @@ class TestDeactivateUserAdmin:
         self, test_db: AsyncSession, system_admin: User
     ):
         user = await make_member(test_db)
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
         session = user_session.session
 
         original_version = session.access_token_version
 
-        await UserServiceAdmin.deactivate_user_admin(test_db, user.id, system_admin.id)
+        await UserServiceAdmin.deactivate_user_admin(test_db, system_admin.id, user.id)
 
-        user_session_updated = await UserRepositoryBase.get_user_with_session(
+        user_session_updated = await UserRepositoryBase.get_user_by_id_with_session(
             test_db, user.id
         )
         session = user_session_updated.session
@@ -678,7 +678,7 @@ class TestActivateUserAdmin:
 
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.activate_user_admin(
-                test_db, non_existant_id, system_admin.id
+                test_db, system_admin.id, non_existant_id
             )
 
     async def test_does_not_activate_already_active_user(
@@ -691,7 +691,7 @@ class TestActivateUserAdmin:
 
         with pytest.raises(UserAlreadyActiveError):
             await UserServiceAdmin.activate_user_admin(
-                test_db, user.id, system_admin.id
+                test_db, system_admin.id, user.id
             )
 
     async def test_activate_inactive_user(
@@ -702,7 +702,7 @@ class TestActivateUserAdmin:
             is_active=False,
         )
 
-        await UserServiceAdmin.activate_user_admin(test_db, user.id, system_admin.id)
+        await UserServiceAdmin.activate_user_admin(test_db, system_admin.id, user.id)
 
         await test_db.refresh(user)
 
@@ -722,7 +722,7 @@ class TestUpdateUserAdmin:
 
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.update_user_admin(
-                test_db, non_existant_id, update_request, system_admin.id
+                test_db, system_admin.id, non_existant_id, update_request
             )
 
     @pytest.mark.parametrize(
@@ -779,7 +779,7 @@ class TestUpdateUserAdmin:
 
         with pytest.raises(expected_exception):
             await UserServiceAdmin.update_user_admin(
-                test_db, user_to_be_updated.id, update_request, system_admin.id
+                test_db, system_admin.id, user_to_be_updated.id, update_request
             )
 
     async def test_update_user_successfully(
@@ -793,7 +793,7 @@ class TestUpdateUserAdmin:
         )
 
         await UserServiceAdmin.update_user_admin(
-            test_db, user.id, update_request, system_admin.id
+           test_db, system_admin.id, user.id, update_request
         )
 
         await test_db.refresh(user)
@@ -815,7 +815,7 @@ class TestUpdateUserPasswordAdmin:
 
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.update_user_password_admin(
-                test_db, non_existant_id, update_request, system_admin.id
+                test_db, system_admin.id, non_existant_id, update_request
             )
 
     async def test_update_password_and_invalidates_tokens(self, test_db, system_admin):
@@ -824,7 +824,7 @@ class TestUpdateUserPasswordAdmin:
             password=OLD_PASSWORD,
         )
 
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
         session = user_session.session
 
         session.refresh_token_hash = "some_token"
@@ -842,11 +842,11 @@ class TestUpdateUserPasswordAdmin:
         )
 
         await UserServiceAdmin.update_user_password_admin(
-            test_db, user.id, update_request, system_admin.id
+            test_db, system_admin.id, user.id, update_request
         )
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
         session = user_session.session
 
         assert old_password_hash != user.password_hash

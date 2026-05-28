@@ -285,7 +285,7 @@ class UserServiceAdmin:
         user_id: int,
         password_request: UpdateUserPasswordAdmin,
     ) -> None:
-        user = await UserRepositoryAdmin.get_user_with_session_admin(db, user_id)
+        user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         user.password_hash = hash_password(password_request.new_password)
@@ -429,7 +429,7 @@ class UserServiceStaff:
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseStaff.model_validate(user).model_dump(mode="json")
-        await set_cache(cache_key, serialized, 600)
+        await set_cache(cache_key, serialized, 900)
 
         return serialized
 
@@ -511,7 +511,7 @@ class UserServicePublic:
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         serialized = UserResponseBase.model_validate(user).model_dump(mode="json")
-        await set_cache(cache_key, serialized, 600)
+        await set_cache(cache_key, serialized, 900)
 
         return serialized
 

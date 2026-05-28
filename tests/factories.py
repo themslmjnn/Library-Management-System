@@ -198,7 +198,7 @@ async def make_user_with_refresh_token(test_db: AsyncSession):
             family="test_family_abc",
         )
     )
-    user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+    user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
     user_session.session.refresh_token_hash = hashed_refresh_token
     user_session.session.refresh_token_family = "test_family_abc"
     user_session.session.refresh_token_expires_at = datetime.now(

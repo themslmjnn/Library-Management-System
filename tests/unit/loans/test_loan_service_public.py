@@ -15,7 +15,7 @@ from tests.factories import (
     make_inventory,
     make_member,
 )
-from tests.unit.test_loan_service import due_date
+from tests.unit.loans.test_loan_service import due_date
 
 
 class TestLoanBookMe:

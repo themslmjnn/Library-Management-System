@@ -28,7 +28,6 @@ from src.core.security import (
     verify_password,
     verify_refresh_token,
 )
-from src.users.models import User
 from src.users.repository import UserRepositoryBase
 from src.utils.cache_keys import access_token_version_key
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
@@ -95,7 +94,7 @@ class AuthService:
 
     @staticmethod
     async def _invalidate_all_tokens(db: AsyncSession, current_user_id: int) -> None:
-        user = await UserRepositoryBase.get_user_with_session(db, current_user_id)
+        user = await UserRepositoryBase.get_user_by_id_with_session(db, current_user_id)
         if user is None:
             return
 
@@ -365,7 +364,6 @@ class AuthService:
         try:
             payload = decode_refresh_token(raw_refresh_token)
             user_id = int(payload.get("sub"))
-            refresh_token_family = payload.get("family")
 
         except ExpiredSignatureError:
             logger.warning(
@@ -383,7 +381,7 @@ class AuthService:
 
             raise InvalidRefreshTokenError(HTTP401.INVALID_REFRESH_TOKEN)
 
-        user = await UserRepositoryBase.get_user_with_session(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
 
         if user is None or user.session.refresh_token_hash is None:
             logger.warning(

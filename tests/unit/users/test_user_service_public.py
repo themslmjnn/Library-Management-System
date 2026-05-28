@@ -21,7 +21,7 @@ class TestCreateAccountPublic:
             test_db, valid_create_user_request_public
         )
 
-        user_activation = await UserRepositoryBase.get_user_with_activation(
+        user_activation = await UserRepositoryBase.get_user_by_id_with_activation(
             test_db, user.id
         )
         activation = user_activation.activation
@@ -42,7 +42,7 @@ class TestCreateAccountPublic:
             test_db, valid_create_user_request_public
         )
 
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
 
         assert user.id is not None
         assert user.email == "test_email@gmail.com"
@@ -59,14 +59,14 @@ class TestGetMe:
     ):
         user = await make_member(test_db)
 
-        mock_set_cache = mocker.patch("src.user.service.set_cache")
+        mock_set_cache = mocker.patch("src.users.service.set_cache")
 
         await UserServicePublic.get_me(test_db, user.id)
 
         mock_set_cache.assert_called_once_with(
             user_detail_key_self(user.id),
             mocker.ANY,
-            600,
+            900,
         )
 
 
@@ -82,7 +82,7 @@ class TestUpdateMe:
             phone_number="+992 101 101 101",
         )
 
-        await UserServicePublic.update_me(test_db, update_request, user.id)
+        await UserServicePublic.update_me(test_db, user.id, update_request)
 
         await test_db.refresh(user)
 
@@ -95,13 +95,13 @@ class TestUpdateMe:
     async def test_partially_updates_user_successfully(self, test_db: AsyncSession):
         user = await make_user(test_db)
 
-        request = UpdateUser(
+        update_request = UpdateUser(
             username="username_test",
             email="new_email@gmail.com",
             phone_number="+992 101 101 101",
         )
 
-        await UserServicePublic.update_me(test_db, request, user.id)
+        await UserServicePublic.update_me(test_db, user.id, update_request)
 
         await test_db.refresh(user)
 
@@ -116,7 +116,7 @@ class TestUpdateMyPassword:
             test_db,
             password=OLD_PASSWORD,
         )
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
         session = user_session.session
 
         old_password_hash = user.password_hash
@@ -127,10 +127,10 @@ class TestUpdateMyPassword:
             new_password=NEW_PASSWORD,
         )
 
-        await UserServicePublic.update_my_password(test_db, update_request, user.id)
+        await UserServicePublic.update_my_password(test_db, user.id, update_request)
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
         session = user_session.session
 
         assert old_password_hash != user.password_hash
@@ -151,4 +151,4 @@ class TestUpdateMyPassword:
         )
 
         with pytest.raises(IncorrectPasswordError):
-            await UserServicePublic.update_my_password(test_db, update_request, user.id)
+            await UserServicePublic.update_my_password(test_db, user.id, update_request)

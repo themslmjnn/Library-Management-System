@@ -26,11 +26,11 @@ class TestCreateAccountStaff:
         valid_create_user_request_staff: CreateUserBase,
     ):
         user = await UserServiceStaff.create_account_staff(
-            test_db, valid_create_user_request_staff, library_admin.id
+            test_db, library_admin.id, valid_create_user_request_staff
         )
 
-        user_session = await UserRepositoryBase.get_user_with_session(test_db, user.id)
-        user_activation = await UserRepositoryBase.get_user_with_activation(
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_activation = await UserRepositoryBase.get_user_by_id_with_activation(
             test_db, user.id
         )
 
@@ -99,10 +99,10 @@ class TestGetUsersStaff:
         with pytest.raises(AccessDeniedError):
             await UserServiceStaff.get_users_staff(
                 test_db,
+                current_user=system_admin,
                 skip=0,
                 limit=20,
                 filters=None,
-                current_user=system_admin,
                 sort_by="created_at",
                 order="desc",
             )
@@ -117,12 +117,12 @@ class TestGetUserByIDStaff:
 
         with pytest.raises(UserNotFoundError):
             await UserServiceStaff.get_user_by_id_staff(
-                test_db, user1.id, library_admin
+                test_db, library_admin, user1.id
             )
 
         with pytest.raises(UserNotFoundError):
             await UserServiceStaff.get_user_by_id_staff(
-                test_db, user2.id, library_admin
+                test_db, library_admin, user2.id
             )
 
     async def test_get_user_by_id_staff_return_valid_info_for_library_admin(
@@ -131,7 +131,7 @@ class TestGetUserByIDStaff:
         user = await make_receptionist(test_db)
 
         result = await UserServiceStaff.get_user_by_id_staff(
-            test_db, user.id, library_admin
+            test_db, library_admin, user.id
         )
 
         assert result["id"] == user.id
@@ -144,10 +144,10 @@ class TestGetUserByIDStaff:
         user2 = await make_library_admin(test_db)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceStaff.get_user_by_id_staff(test_db, user1.id, receptionist)
+            await UserServiceStaff.get_user_by_id_staff(test_db, receptionist, user1.id)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceStaff.get_user_by_id_staff(test_db, user2.id, receptionist)
+            await UserServiceStaff.get_user_by_id_staff(test_db, receptionist, user2.id)
 
     async def test_get_user_by_id_staff_return_valid_info_for_receptionist(
         self, test_db: AsyncSession, receptionist: User
@@ -155,7 +155,7 @@ class TestGetUserByIDStaff:
         user = await make_member(test_db)
 
         result = await UserServiceStaff.get_user_by_id_staff(
-            test_db, user.id, receptionist
+            test_db, receptionist, user.id
         )
 
         assert result["id"] == user.id
@@ -170,8 +170,8 @@ class TestGetUserByIDStaff:
         with pytest.raises(AccessDeniedError):
             await UserServiceStaff.get_user_by_id_staff(
                 test_db,
-                user_id=non_existant_id,
                 current_user=system_admin,
+                user_id=non_existant_id,
             )
 
     async def test_get_user_by_id_staff_populates_cache_after_db_hit(
@@ -179,12 +179,12 @@ class TestGetUserByIDStaff:
     ):
         user = await make_member(test_db)
 
-        mock_set_cache = mocker.patch("src.user.service.set_cache")
+        mock_set_cache = mocker.patch("src.users.service.set_cache")
 
-        await UserServiceStaff.get_user_by_id_staff(test_db, user.id, library_admin)
+        await UserServiceStaff.get_user_by_id_staff(test_db, library_admin, user.id)
 
         mock_set_cache.assert_called_once_with(
             user_detail_key_staff(user.id),
             mocker.ANY,
-            600,
+            900,
         )

@@ -14,9 +14,9 @@ from src.core.logging import get_logger, setup_logging
 from src.inventory.router import router as inventory_router
 from src.loan.router import router as loan_staff_router
 from src.loan.router_public import router as loan_router_public
-from src.user.router_admin import router as user_router_admin
-from src.user.router_public import router as user_router_public
-from src.user.router_staff import router as user_router_staff
+from src.users.router_admin import router as user_router_admin
+from src.users.router_public import router as user_router_public
+from src.users.router_staff import router as user_router_staff
 from src.utils.exceptions import (
     AccessDeniedError,
     AccountInactiveError,
@@ -81,13 +81,13 @@ app.add_middleware(SlowAPIMiddleware)
 
 
 app.include_router(auth_router)
-app.include_router(user_router_public)
-app.include_router(user_router_staff)
+# app.include_router(user_router_public)
+# app.include_router(user_router_staff)
 app.include_router(user_router_admin)
-app.include_router(book_router)
-app.include_router(inventory_router)
-app.include_router(loan_router_public)
-app.include_router(loan_staff_router)
+# app.include_router(book_router)
+# app.include_router(inventory_router)
+# app.include_router(loan_router_public)
+# app.include_router(loan_staff_router)
 
 
 EXCEPTION_STATUS_MAP = {
