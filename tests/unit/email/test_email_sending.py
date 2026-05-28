@@ -68,8 +68,8 @@ class TestSendTransport:
         assert call_args[0][0] == RESEND_URL
  
     async def test_payload_structure(self, mocker):
-        mock_resp = _make_mock_response(200)
-        mock_client, mock_post = _patch_async_client(mock_resp)
+        mock_response = _make_mock_response(200)
+        mock_client, mock_post = _patch_async_client(mock_response)
 
         mocker.patch(
             "src.utils.email.httpx.AsyncClient", 
@@ -97,8 +97,8 @@ class TestSendTransport:
         assert settings.MAIL_FROM_NAME in payload["from"]
  
     async def test_authorization_header(self, mocker):
-        mock_resp = _make_mock_response(200)
-        mock_client, mock_post = _patch_async_client(mock_resp)
+        mock_response = _make_mock_response(200)
+        mock_client, mock_post = _patch_async_client(mock_response)
 
         mocker.patch(
             "src.utils.email.httpx.AsyncClient", 
@@ -118,8 +118,8 @@ class TestSendTransport:
         assert headers["Content-Type"] == "application/json"
  
     async def test_timeout_is_set(self, mocker):
-        mock_resp = _make_mock_response(200)
-        mock_client, mock_post = _patch_async_client(mock_resp)
+        mock_response = _make_mock_response(200)
+        mock_client, mock_post = _patch_async_client(mock_response)
 
         mocker.patch(
             "src.utils.email.httpx.AsyncClient", 
@@ -139,8 +139,8 @@ class TestSendTransport:
         assert timeout > 0
  
     async def test_raise_for_status_is_called_on_success(self, mocker):
-        mock_resp = _make_mock_response(200)
-        mock_client, _ = _patch_async_client(mock_resp)
+        mock_response = _make_mock_response(200)
+        mock_client, _ = _patch_async_client(mock_response)
 
         mocker.patch(
             "src.utils.email.httpx.AsyncClient", 
@@ -154,12 +154,12 @@ class TestSendTransport:
             text_body="x",
         )
  
-        mock_resp.raise_for_status.assert_called_once()
+        mock_response.raise_for_status.assert_called_once()
 
 class TestSendLogging:
     async def test_logs_email_sent_on_success(self, mocker):
-        mock_resp = _make_mock_response(200)
-        mock_client, _ = _patch_async_client(mock_resp)
+        mock_response = _make_mock_response(200)
+        mock_client, _ = _patch_async_client(mock_response)
 
         mocker.patch(
             "src.utils.email.httpx.AsyncClient", 
@@ -181,8 +181,8 @@ class TestSendLogging:
         assert sent_log["subject"] == "Log Test"
  
     async def test_logs_email_send_failed_on_http_error(self, mocker):
-        mock_resp = _make_mock_response(422)
-        mock_client, _ = _patch_async_client(mock_resp)
+        mock_response = _make_mock_response(422)
+        mock_client, _ = _patch_async_client(mock_response)
 
         mocker.patch(
             "src.utils.email.httpx.AsyncClient", 
@@ -229,3 +229,44 @@ class TestSendLogging:
         assert any(log["event"] == "email_send_failed" for log in logs)
         assert "connection refused" in failed_log["error"]
         assert failed_log["error_type"] == "Exception"
+
+class TestSendExceptionSwallowing: 
+    async def test_swallows_http_status_error(self, mocker):
+        mock_response = _make_mock_response(500)
+        mock_client, _ = _patch_async_client(mock_response)
+
+        mocker.patch(
+            "src.utils.email.httpx.AsyncClient", 
+            return_value=mock_client,
+        )
+ 
+        await _send("s", FAKE_EMAIL, "<p>x</p>", "x")
+ 
+    async def test_swallows_connection_error(self, mocker):
+        mock_client_instance = AsyncMock()
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_client_instance.post = AsyncMock(
+            side_effect=httpx.ConnectError("unreachable")
+        )
+        mocker.patch(
+            "src.utils.email.httpx.AsyncClient", 
+            return_value=mock_client_instance,
+        )
+ 
+        await _send("s", FAKE_EMAIL, "<p>x</p>", "x")
+ 
+    async def test_swallows_timeout_error(self, mocker):
+        mock_client_instance = AsyncMock()
+        mock_client_instance.__aenter__ = AsyncMock(return_value=mock_client_instance)
+        mock_client_instance.__aexit__ = AsyncMock(return_value=False)
+        mock_client_instance.post = AsyncMock(
+            side_effect=httpx.TimeoutException("timed out")
+        )
+        
+        mocker.patch(
+            "src.utils.email.httpx.AsyncClient", 
+            return_value=mock_client_instance,
+        )
+ 
+        await _send("s", FAKE_EMAIL, "<p>x</p>", "x")
