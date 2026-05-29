@@ -29,6 +29,7 @@ from tests.constants import (
     NEW_PASSWORD,
 )
 from tests.conftest import make_auth_header, make_member
+from tests.factories import make_user_with_reset_token
 
 class TestResetPasswordHtml:
     def test_token_appears_in_body(self):
@@ -320,3 +321,153 @@ class TestCreateResetPasswordRequestService:
         ]
         assert failed_logs, "Expected a log event for unknown identifier"
         assert all(l["log_level"] == "info" for l in failed_logs)
+
+
+class TestResetPasswordService:
+ 
+    @pytest.mark.asyncio
+    async def test_valid_token_updates_password_hash(self, test_db):
+        user, raw_token = await make_user_with_reset_token(test_db)
+        old_hash = user.password_hash
+ 
+        await AuthService.reset_password(
+            test_db,
+            ResetPasswordRequest(
+                identifier=user.email,
+                reset_token=raw_token,
+                new_password=NEW_PASSWORD,
+            ),
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
+        assert user_with_session.password_hash != old_hash
+ 
+    @pytest.mark.asyncio
+    async def test_valid_token_clears_reset_token_fields(self, test_db):
+        """
+        After a successful reset the token must be consumed — reuse within
+        the expiry window must not be possible.
+        """
+        user, raw_token = await make_user_with_reset_token(test_db)
+ 
+        await AuthService.reset_password(
+            test_db,
+            ResetPasswordRequest(
+                identifier=user.email,
+                reset_token=raw_token,
+                new_password=NEW_PASSWORD,
+            ),
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
+        assert user_with_session.session.reset_password_token_hash is None
+        assert user_with_session.session.reset_password_token_expires_at is None
+ 
+    @pytest.mark.asyncio
+    async def test_valid_token_invalidates_existing_sessions(self, test_db):
+        """
+        access_token_version must be incremented and refresh token cleared
+        so all existing sessions are invalidated after a password reset.
+        """
+        user, raw_token = await make_user_with_reset_token(test_db)
+        user_with_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
+        old_version = user_with_session.session.access_token_version
+ 
+        await AuthService.reset_password(
+            test_db,
+            ResetPasswordRequest(
+                identifier=user.email,
+                reset_token=raw_token,
+                new_password=NEW_PASSWORD,
+            ),
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
+        assert user_with_session.session.access_token_version == old_version + 1
+        assert user_with_session.session.refresh_token_hash is None
+        assert user_with_session.session.refresh_token_expires_at is None
+        assert user_with_session.session.refresh_token_family is None
+ 
+    @pytest.mark.asyncio
+    async def test_unknown_identifier_raises_invalid_credentials(self, test_db):
+        with pytest.raises(InvalidCredentialsError):
+            await AuthService.reset_password(
+                test_db,
+                ResetPasswordRequest(
+                    identifier="nobody@example.com",
+                    reset_token=FAKE_TOKEN,
+                    new_password=NEW_PASSWORD,
+                ),
+            )
+ 
+    @pytest.mark.asyncio
+    async def test_expired_token_raises_expired_error(self, test_db):
+        user, raw_token = await make_user_with_reset_token(test_db, expired=True)
+ 
+        with pytest.raises(ExpiredResetPasswordTokenError):
+            await AuthService.reset_password(
+                test_db,
+                ResetPasswordRequest(
+                    identifier=user.email,
+                    reset_token=raw_token,
+                    new_password=NEW_PASSWORD,
+                ),
+            )
+ 
+    @pytest.mark.asyncio
+    async def test_null_expiry_raises_expired_error(self, test_db):
+        """
+        A user with no expiry set (reset never requested) must be treated
+        as expired, not as an invalid token — matches the service branch order.
+        """
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
+ 
+        with pytest.raises(ExpiredResetPasswordTokenError):
+            await AuthService.reset_password(
+                test_db,
+                ResetPasswordRequest(
+                    identifier=user.email,
+                    reset_token=FAKE_TOKEN,
+                    new_password=NEW_PASSWORD,
+                ),
+            )
+ 
+    @pytest.mark.asyncio
+    async def test_wrong_token_raises_invalid_token_error(self, test_db):
+        user, _ = await make_user_with_reset_token(test_db)
+ 
+        with pytest.raises(InvalidResetPasswordTokenError):
+            await AuthService.reset_password(
+                test_db,
+                ResetPasswordRequest(
+                    identifier=user.email,
+                    reset_token="completely_wrong_token",
+                    new_password=NEW_PASSWORD,
+                ),
+            )
+ 
+    @pytest.mark.asyncio
+    async def test_token_cannot_be_reused_after_successful_reset(self, test_db):
+        """
+        Using the same token a second time must fail — the first successful
+        reset must have cleared the token from the session.
+        """
+        user, raw_token = await make_user_with_reset_token(test_db)
+        request = ResetPasswordRequest(
+            identifier=user.email,
+            reset_token=raw_token,
+            new_password=NEW_PASSWORD,
+        )
+ 
+        await AuthService.reset_password(test_db, request)
+ 
+        with pytest.raises(ExpiredResetPasswordTokenError):
+            await AuthService.reset_password(test_db, request)
