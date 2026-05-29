@@ -14,7 +14,6 @@ from src.users.schemas import (
     CreateUserAdmin,
     SearchUserAdmin,
     UpdateUser,
-    UpdateUserPasswordAdmin,
     UserResponseAdmin,
 )
 from src.users.service import UserServiceAdmin
