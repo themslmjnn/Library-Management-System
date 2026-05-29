@@ -59,6 +59,14 @@ class InvalidAccessTokenError(AppException):
     pass
 
 
+class InvalidResetPasswordTokenError(AppException):
+    pass
+
+
+class ExpiredResetPasswordTokenError(AppException):
+    pass
+
+
 class AccessDeniedError(AppException):
     pass
 

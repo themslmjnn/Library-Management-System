@@ -208,3 +208,72 @@ async def send_account_activation_code(email: str, code: str) -> None:
         html_body=_activation_code_html(code),
         text_body=_activation_code_text(code),
     )
+
+
+def _reset_password_html(reset_password_token: str) -> str:
+    reset_password_link = (
+        f"{settings.APP_URL}/reset_password_request?token={reset_password_token}"
+    )
+
+    return f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+        <div style="max-width:560px;margin:auto;background:white;padding:40px;border-radius:8px;">
+            
+            <h1 style="color:#1d4ed8;">
+                Library Management System
+            </h1>
+
+            <p>
+                Click the button below to reset your password.
+                This link expires in
+                <strong>{settings.RESET_PASSWORD_EXPIRES_MINUTES} minutes</strong>.
+            </p>
+
+            <div style="margin:40px 0;text-align:center;">
+                <a href="{reset_password_link}"
+                    style="
+                        background:#1d4ed8;
+                        color:white;
+                        padding:14px 28px;
+                        border-radius:6px;
+                        text-decoration:none;
+                        font-weight:bold;
+                    ">
+                    Reset Password
+                </a>
+            </div>
+
+            <p style="font-size:13px;color:#6b7280;">
+                If you were not expecting this email, ignore it.
+            </p>
+
+        </div>
+    </body>
+    </html>
+    """
+
+
+def _reset_password_text(reset_password_token: str) -> str:
+    reset_password_link = (
+        f"{settings.APP_URL}/reset_password?token={reset_password_token}"
+    )
+
+    return (
+        f"Library Management System.\n\n"
+        f"Reset your account password using the link below:\n\n"
+        f"{reset_password_link}\n\n"
+        f"This link expires in "
+        f"{settings.RESET_PASSWORD_EXPIRES_MINUTES} minutes.\n\n"
+        f"If you were not expecting this email, ignore it."
+    )
+
+
+async def send_reset_password_token(email: str, raw_reset_token: str) -> None:
+    await _send(
+        subject="Your Library reset password link",
+        to_email=email,
+        html_body=_reset_password_html(raw_reset_token),
+        text_body=_reset_password_text(raw_reset_token),
+    )

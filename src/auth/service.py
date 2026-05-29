@@ -1,3 +1,4 @@
+import asyncio
 import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -13,7 +14,9 @@ from src.auth.schemas import (
     ActivateAccountWithToken,
     CreateAccessTokenRequest,
     CreateRefreshTokenRequest,
+    CreateResetPasswordRequest,
     LoginResponse,
+    ResetPasswordRequest,
 )
 from src.core.cache import delete_cache
 from src.core.config import settings
@@ -22,11 +25,13 @@ from src.core.security import (
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
+    generate_reset_password_token,
     hash_password,
     verify_account_activation_code,
     verify_invite_token,
     verify_password,
     verify_refresh_token,
+    verify_reset_password_token,
 )
 from src.users.repository import UserRepositoryBase
 from src.utils.cache_keys import access_token_version_key
@@ -38,11 +43,14 @@ from src.utils.exceptions import (
     ExpiredActivationCodeError,
     ExpiredInviteTokenError,
     ExpiredRefreshTokenError,
+    ExpiredResetPasswordTokenError,
     InvalidActivationCodeError,
     InvalidCredentialsError,
     InvalidInviteTokenError,
     InvalidRefreshTokenError,
+    InvalidResetPasswordTokenError,
 )
+from utils.email import send_reset_password_token
 
 logger = get_logger(__name__)
 
@@ -285,7 +293,7 @@ class AuthService:
 
             raise InvalidInviteTokenError(HTTP400.INVALID_INVITE_TOKEN)
 
-        user.password_hash = hash_password(activation_request.password)
+        user.password_hash = hash_password(activation_request.new_password)
         user.is_active = True
         user.activation.invite_token_hash = None
         user.activation.invite_token_expires_at = None
@@ -456,3 +464,92 @@ class AuthService:
             "access_token": access_token,
             "token_type": "bearer",
         }
+
+    @staticmethod
+    async def create_reset_password_request(
+        db: AsyncSession, reset_password_request: CreateResetPasswordRequest
+    ):
+        user = await AuthRepository.get_user_by_login_identifier_with_session(
+            db, reset_password_request.identifier
+        )
+
+        if user is not None:
+            raw_reset_token, hashed_reset_token = generate_reset_password_token()
+
+            user.session.reset_password_token_hash = hashed_reset_token
+            user.session.reset_password_token_expires_at = datetime.now(
+                timezone.utc
+            ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
+
+            await db.commit()
+            await db.refresh(user)
+
+            reset_password_token_task = asyncio.create_task(
+                send_reset_password_token(
+                    reset_password_request.identifier, raw_reset_token
+                )
+            )
+
+            logger.info(
+                "reset_password_request_created",
+                user_id=user.id,
+            )
+        else:
+            logger.info(
+                "reset_password_request_creation_failed",
+                reason="user_not_found",
+            )
+
+    @staticmethod
+    async def reset_password(db: AsyncSession, update_request: ResetPasswordRequest):
+        user = await AuthRepository.get_user_by_login_identifier_with_session(
+            db, update_request.identifier
+        )
+
+        if user is None:
+            logger.warning(
+                "password_reset_failed",
+                reason="user_not_found",
+                targeted_user_identifier=update_request.identifier,
+            )
+
+            raise InvalidCredentialsError(HTTP401.INVALID_CREDENTIALS)
+
+        if (
+            user.session.reset_password_token_expires_at is None
+            or datetime.now(timezone.utc) > user.session.reset_password_token_expires_at
+        ):
+            logger.warning(
+                "reset_password_failed",
+                reason="reset_password_token_expired",
+                user_id=user.id,
+            )
+
+            raise ExpiredResetPasswordTokenError(HTTP400.EXPIRED_RESET_PASSWORD_TOKEN)
+
+        if not verify_reset_password_token(
+            update_request.reset_token, user.session.reset_password_token_hash
+        ):
+            logger.warning(
+                "reset_password_failed",
+                reason="invalid_reset_password_token",
+                targeted_user_identifier=update_request.identifier,
+            )
+
+            raise InvalidResetPasswordTokenError(HTTP400.INVALID_RESET_PASSWORD_TOKEN)
+
+        user.password_hash = hash_password(update_request.new_password)
+        user.session.reset_password_token_hash = None
+        user.session.reset_password_token_expires_at = None
+        user.session.access_token_version += 1
+        user.session.refresh_token_hash = None
+        user.session.refresh_token_expires_at = None
+        user.session.refresh_token_family = None
+
+        await db.commit()
+        await db.refresh(user)
+
+        logger.info(
+            "password_changed",
+            user_id=user.id,
+        )

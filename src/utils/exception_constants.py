@@ -13,6 +13,8 @@ class HTTP400:
     EXPIRED_INVITE_TOKEN = "Invite token has expired"
     INVALID_INVITE_TOKEN = "Invalid invite token"
     EXPIRED_ACTIVATION_CODE = "Expired activation code"
+    INVALID_RESET_PASSWORD_TOKEN = "Invalid reset password token"
+    EXPIRED_RESET_PASSWORD_TOKEN = "Expired reset password token"
     INVALID_ACTIVATION_CODE = "Invalid activation code"
 
 

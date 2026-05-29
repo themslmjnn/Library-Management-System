@@ -32,12 +32,14 @@ from src.utils.exceptions import (
     ExpiredActivationCodeError,
     ExpiredInviteTokenError,
     ExpiredRefreshTokenError,
+    ExpiredResetPasswordTokenError,
     IncorrectPasswordError,
     InvalidAccessTokenError,
     InvalidActivationCodeError,
     InvalidCredentialsError,
     InvalidInviteTokenError,
     InvalidRefreshTokenError,
+    InvalidResetPasswordTokenError,
     InventoryNotFoundError,
     LoanAlreadyReturnedError,
     LoanNotFoundError,
@@ -81,13 +83,13 @@ app.add_middleware(SlowAPIMiddleware)
 
 
 app.include_router(auth_router)
-# app.include_router(user_router_public)
-# app.include_router(user_router_staff)
+app.include_router(user_router_public)
+app.include_router(user_router_staff)
 app.include_router(user_router_admin)
-# app.include_router(book_router)
-# app.include_router(inventory_router)
-# app.include_router(loan_router_public)
-# app.include_router(loan_staff_router)
+app.include_router(book_router)
+app.include_router(inventory_router)
+app.include_router(loan_router_public)
+app.include_router(loan_staff_router)
 
 
 EXCEPTION_STATUS_MAP = {
@@ -120,6 +122,8 @@ EXCEPTION_STATUS_MAP = {
     RefreshTokenFamilyError: 401,
     InvalidAccessTokenError: 401,
     AccessDeniedError: 403,
+    InvalidResetPasswordTokenError: 400,
+    ExpiredResetPasswordTokenError: 400,
 }
 
 

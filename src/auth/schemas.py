@@ -22,9 +22,9 @@ class LoginResponse(BaseModel):
 class ActivateAccountWithToken(BaseModel):
     email: EmailStr
     invite_token: str
-    password: str
+    new_password: str
 
-    @field_validator("password")
+    @field_validator("new_password")
     @classmethod
     def validate_password_strength(cls, field: str) -> str:
         return validate_password(field)
@@ -33,3 +33,13 @@ class ActivateAccountWithToken(BaseModel):
 class ActivateAccountWithCode(BaseModel):
     email: EmailStr
     code: str
+
+
+class ResetPasswordRequest(BaseModel):
+    identifier: EmailStr
+    reset_token: str
+    new_password: str
+
+
+class CreateResetPasswordRequest(BaseModel):
+    identifier: str | EmailStr

@@ -6,7 +6,10 @@ from fastapi.security import OAuth2PasswordRequestForm
 from src.auth.schemas import (
     ActivateAccountWithCode,
     ActivateAccountWithToken,
+    CreateResetPassword,
+    CreateResetPasswordRequest,
     LoginResponse,
+    ResetPasswordRequest,
 )
 from src.auth.service import AuthService
 from src.core.dependencies import async_db_dependency, current_user_dependency
@@ -77,3 +80,21 @@ async def refresh(
         )
 
     return await AuthService.refresh_token(db, response, refresh_token)
+
+
+@router.post("/reset_password_request", status_code=status.HTTP_204_NO_CONTENT)
+@ip_limiter.limit("5/minute")
+async def create_reset_password_request(
+    request: Request,
+    db: async_db_dependency,
+    reset_password_request: CreateResetPasswordRequest,
+):
+    return await AuthService.create_reset_password_request(db, reset_password_request)
+
+
+@router.post("/reset_password", status_code=status.HTTP_204_NO_CONTENT)
+@ip_limiter.limit("5/minute")
+async def reset_password(
+    request: Request, db: async_db_dependency, update_request: ResetPasswordRequest
+):
+    return await AuthService.reset_password(db, update_request)

@@ -126,3 +126,17 @@ def verify_refresh_token(raw_refresh_token: str, hashed_refresh_token: str) -> b
         hashlib.sha256(raw_refresh_token.encode()).hexdigest(),
         hashed_refresh_token,
     )
+
+
+def generate_reset_password_token():
+    raw_reset_token = secrets.token_urlsafe(32)
+    hashed_reset_token = hashlib.sha256(raw_reset_token.encode()).hexdigest()
+
+    return raw_reset_token, hashed_reset_token
+
+
+def verify_reset_password_token(raw_reset_token: str, hashed_reset_token: str) -> bool:
+    return hmac.compare_digest(
+        hashlib.sha256(raw_reset_token.encode()).hexdigest(),
+        hashed_reset_token,
+    )
