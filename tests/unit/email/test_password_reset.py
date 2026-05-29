@@ -1,36 +1,34 @@
-# from datetime import datetime, timedelta, timezone
-# from unittest.mock import AsyncMock, patch
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
-# import pytest
-# import pytest_asyncio
-# import structlog.testing
-# from httpx import ASGITransport, AsyncClient
-# from sqlalchemy.ext.asyncio import AsyncSession
+import pytest
+import pytest_asyncio
+import structlog.testing
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# from src.modules.auth.exceptions import (
-#     ExpiredResetPasswordTokenError,
-#     InvalidCredentialsError,
-#     InvalidResetPasswordTokenError,
-# )
-# from src.modules.auth.schemas import CreateResetPasswordRequest, ResetPasswordRequest
-# from src.modules.auth.service import AuthService
-# from src.modules.users.repository import UserRepositoryBase
-# from src.utils.security import generate_reset_password_token, hash_password
+from src.auth.schemas import CreateResetPasswordRequest, ResetPasswordRequest
+from src.auth.service import AuthService
 from src.core.config import settings
+from src.core.security import generate_reset_password_token, hash_password
+from src.users.repository import UserRepositoryBase
 from src.utils.email import (
     _reset_password_html,
     _reset_password_text,
-    # send_reset_password_token,
+    send_reset_password_token,
 )
-
-# from tests.conftest import (
-#     CORRECT_PASSWORD,
-#     NEW_PASSWORD,
-#     make_auth_header,
-#     make_member,
-# )
-from tests.constants import FAKE_RESET_TOKEN
-
+from src.utils.exceptions import (
+    ExpiredResetPasswordTokenError,
+    InvalidCredentialsError,
+    InvalidResetPasswordTokenError,
+)
+from tests.constants import (
+    CORRECT_PASSWORD,
+    FAKE_EMAIL,
+    FAKE_RESET_TOKEN,
+    NEW_PASSWORD,
+)
+from tests.conftest import make_auth_header, make_member
 
 class TestResetPasswordHtml:
     def test_token_appears_in_body(self):
@@ -123,3 +121,202 @@ class TestResetPasswordText:
 
         assert expected_link in _reset_password_html(token)
         assert expected_link in _reset_password_text(token)
+
+class TestSendResetPasswordToken:
+    async def test_delegates_to_send_with_correct_email(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+        await send_reset_password_token(FAKE_EMAIL, FAKE_RESET_TOKEN)
+ 
+        mock_send.assert_awaited_once()
+        assert mock_send.call_args.kwargs["to_email"] == FAKE_EMAIL
+ 
+    async def test_delegates_correct_subject(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+        await send_reset_password_token(FAKE_EMAIL, FAKE_RESET_TOKEN)
+ 
+        subject = mock_send.call_args.kwargs["subject"]
+        assert subject
+        assert len(subject) > 5
+ 
+    async def test_passes_raw_token_in_both_bodies(self, mocker):
+        """
+        The raw token (not its hash) must appear in both bodies — it is what
+        the frontend extracts from the link and sends to /reset_password.
+        """
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+        await send_reset_password_token(FAKE_EMAIL, FAKE_RESET_TOKEN)
+ 
+        kwargs = mock_send.call_args.kwargs
+        assert FAKE_RESET_TOKEN in kwargs["html_body"]
+        assert FAKE_RESET_TOKEN in kwargs["text_body"]
+ 
+    async def test_called_exactly_once(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+        await send_reset_password_token(FAKE_EMAIL, FAKE_RESET_TOKEN)
+ 
+        assert mock_send.await_count == 1
+
+class TestCreateResetPasswordRequestService:
+ 
+    async def test_stores_token_hash_for_known_user(self, test_db):
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
+ 
+        with patch(
+            "src.utils.email.send_reset_password_token",
+            new_callable=AsyncMock,
+        ):
+            await AuthService.create_reset_password_request(
+                test_db,
+                CreateResetPasswordRequest(identifier=user.email),
+            )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
+        assert user_with_session.session.reset_password_token_hash is not None
+ 
+    async def test_stores_expiry_for_known_user(self, test_db):
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
+ 
+        with patch(
+            "src.utils.email.send_reset_password_token",
+            new_callable=AsyncMock,
+        ):
+            await AuthService.create_reset_password_request(
+                test_db,
+                CreateResetPasswordRequest(identifier=user.email),
+            )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
+        assert user_with_session.session.reset_password_token_expires_at is not None
+        assert (
+            user_with_session.session.reset_password_token_expires_at
+            > datetime.now(timezone.utc)
+        )
+ 
+    async def test_fires_email_task_for_known_user(self, test_db, mocker):
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
+        mock_email = mocker.patch(
+            "src.utils.email.send_reset_password_token",
+            new_callable=AsyncMock,
+        )
+ 
+        await AuthService.create_reset_password_request(
+            test_db,
+            CreateResetPasswordRequest(identifier=user.email),
+        )
+ 
+        # Give the event loop a chance to schedule the task
+        import asyncio
+        await asyncio.sleep(0)
+ 
+        mock_email.assert_awaited_once()
+        assert mock_email.call_args.args[0] == user.email
+ 
+    async def test_does_not_raise_for_unknown_identifier(self, test_db):
+        """
+        create_reset_password_request must never reveal whether an identifier
+        exists — it silently does nothing for unknown users.
+        """
+        with patch(
+            "src.utils.email.send_reset_password_token",
+            new_callable=AsyncMock,
+        ):
+            # must not raise
+            await AuthService.create_reset_password_request(
+                test_db,
+                CreateResetPasswordRequest(identifier="nobody@example.com"),
+            )
+ 
+    async def test_does_not_fire_email_for_unknown_identifier(self, test_db, mocker):
+        mock_email = mocker.patch(
+            "src.utils.email.send_reset_password_token",
+            new_callable=AsyncMock,
+        )
+ 
+        await AuthService.create_reset_password_request(
+            test_db,
+            CreateResetPasswordRequest(identifier="nobody@example.com"),
+        )
+ 
+        mock_email.assert_not_awaited()
+ 
+    async def test_accepts_username_as_identifier(self, test_db, mocker):
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
+        mocker.patch(
+            "src.utils.email.send_reset_password_token",
+            new_callable=AsyncMock,
+        )
+ 
+        await AuthService.create_reset_password_request(
+            test_db,
+            CreateResetPasswordRequest(identifier=user.username),
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
+        assert user_with_session.session.reset_password_token_hash is not None
+ 
+    async def test_accepts_phone_number_as_identifier(self, test_db, mocker):
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
+        mocker.patch(
+            "src.utils.email.send_reset_password_token",
+            new_callable=AsyncMock,
+        )
+ 
+        await AuthService.create_reset_password_request(
+            test_db,
+            CreateResetPasswordRequest(identifier=user.phone_number),
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
+        assert user_with_session.session.reset_password_token_hash is not None
+ 
+    async def test_logs_info_on_success(self, test_db, mocker):
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
+        mocker.patch(
+            "src.utils.email.send_reset_password_token",
+            new_callable=AsyncMock,
+        )
+ 
+        with structlog.testing.capture_logs() as logs:
+            await AuthService.create_reset_password_request(
+                test_db,
+                CreateResetPasswordRequest(identifier=user.email),
+            )
+ 
+        assert any(l["event"] == "reset_password_request_created" for l in logs)
+
+    async def test_logs_info_not_warning_for_unknown_user(self, test_db):
+        """
+        Unknown identifier is expected noise on a public endpoint — must
+        log at info level, not warning.
+        """
+        with structlog.testing.capture_logs() as logs:
+            await AuthService.create_reset_password_request(
+                test_db,
+                CreateResetPasswordRequest(identifier="nobody@example.com"),
+            )
+ 
+        failed_logs = [
+            l for l in logs if l["event"] == "reset_password_request_creation_failed"
+        ]
+        assert failed_logs, "Expected a log event for unknown identifier"
+        assert all(l["log_level"] == "info" for l in failed_logs)
