@@ -1,17 +1,13 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
-import pytest_asyncio
 import structlog.testing
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.schemas import CreateResetPasswordRequest, ResetPasswordRequest
 from src.auth.service import AuthService
 from src.core.config import settings
-from src.core.security import generate_reset_password_token, hash_password
 from src.users.repository import UserRepositoryBase
 from src.utils.email import (
     _reset_password_html,
@@ -23,7 +19,7 @@ from src.utils.exceptions import (
     InvalidCredentialsError,
     InvalidResetPasswordTokenError,
 )
-from tests.conftest import make_auth_header, make_member
+from tests.conftest import make_member
 from tests.constants import (
     CORRECT_PASSWORD,
     FAKE_EMAIL,
@@ -309,7 +305,9 @@ class TestCreateResetPasswordRequestService:
             )
 
         failed_logs = [
-            log for log in logs if log["event"] == "reset_password_request_creation_failed"
+            log
+            for log in logs
+            if log["event"] == "reset_password_request_creation_failed"
         ]
 
         assert failed_logs, "Expected a log event for unknown identifier"

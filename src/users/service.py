@@ -296,8 +296,10 @@ class UserServiceAdmin:
                     db, user_id
                 )
             case UserRole.library_admin:
-                user = await UserRepositoryStaff.get_user_by_id_with_session_library_admin(
-                    db, user_id
+                user = (
+                    await UserRepositoryStaff.get_user_by_id_with_session_library_admin(
+                        db, user_id
+                    )
                 )
             case _:
                 raise AccessDeniedError(HTTP403.ACCESS_DENIED)
