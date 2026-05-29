@@ -97,7 +97,9 @@ class TestCreateAccountAdmin:
             test_db, system_admin.id, valid_create_user_request_admin
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         session = user_session.session
 
         assert session.id is not None
@@ -642,7 +644,9 @@ class TestDeactivateUserAdmin:
         await UserServiceAdmin.deactivate_user_admin(test_db, system_admin.id, user.id)
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         session = user_session.session
 
         assert user.is_active is False
@@ -654,7 +658,9 @@ class TestDeactivateUserAdmin:
         self, test_db: AsyncSession, system_admin: User
     ):
         user = await make_member(test_db)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         session = user_session.session
 
         original_version = session.access_token_version
@@ -793,7 +799,7 @@ class TestUpdateUserAdmin:
         )
 
         await UserServiceAdmin.update_user_admin(
-           test_db, system_admin.id, user.id, update_request
+            test_db, system_admin.id, user.id, update_request
         )
 
         await test_db.refresh(user)
@@ -824,7 +830,9 @@ class TestUpdateUserPasswordAdmin:
             password=OLD_PASSWORD,
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         session = user_session.session
 
         session.refresh_token_hash = "some_token"
@@ -846,7 +854,9 @@ class TestUpdateUserPasswordAdmin:
         )
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         session = user_session.session
 
         assert old_password_hash != user.password_hash

@@ -212,7 +212,7 @@ async def send_account_activation_code(email: str, code: str) -> None:
 
 def _reset_password_html(reset_password_token: str) -> str:
     reset_password_link = (
-        f"{settings.APP_URL}/reset_password_request?token={reset_password_token}"
+        f"{settings.APP_URL}/reset_password?token={reset_password_token}"
     )
 
     return f"""

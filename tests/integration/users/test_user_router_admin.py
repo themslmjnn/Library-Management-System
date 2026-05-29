@@ -202,7 +202,9 @@ class TestDeactivateUserAdmin:
     ):
         user = await make_member(test_db)
         headers = await make_auth_header(test_db, system_admin)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         session = user_session.session
         original_access_token_version = session.access_token_version
 
@@ -212,7 +214,9 @@ class TestDeactivateUserAdmin:
         )
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         session = user_session.session
 
         assert response.status_code == 204

@@ -6,10 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.schemas import CreateRefreshTokenRequest
 from src.book.models import Book
 from src.book.repository import BookRepository
+from src.core.config import settings
 from src.core.security import (
     create_refresh_token,
     generate_account_activation_code,
     generate_invite_token,
+    generate_reset_password_token,
     hash_password,
 )
 from src.inventory.models import Inventory
@@ -198,7 +200,9 @@ async def make_user_with_refresh_token(test_db: AsyncSession):
             family="test_family_abc",
         )
     )
-    user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+    user_session = await UserRepositoryBase.get_user_by_id_with_session(
+        test_db, user.id
+    )
     user_session.session.refresh_token_hash = hashed_refresh_token
     user_session.session.refresh_token_family = "test_family_abc"
     user_session.session.refresh_token_expires_at = datetime.now(
@@ -208,6 +212,34 @@ async def make_user_with_refresh_token(test_db: AsyncSession):
     await test_db.commit()
 
     return user, raw_refresh_token
+
+
+async def make_user_with_reset_token(
+    test_db: AsyncSession,
+    *,
+    expired: bool = False,
+) -> tuple:
+    user = await make_member(test_db, password=CORRECT_PASSWORD)
+
+    raw_reset_token, hashed_reset_token = generate_reset_password_token()
+
+    user_with_session = await UserRepositoryBase.get_user_by_id_with_session(
+        test_db, user.id
+    )
+
+    if expired:
+        expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+    else:
+        expires_at = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES
+        )
+
+    user_with_session.session.reset_password_token_hash = hashed_reset_token
+    user_with_session.session.reset_password_token_expires_at = expires_at
+
+    await test_db.commit()
+
+    return user, raw_reset_token
 
 
 async def make_book(

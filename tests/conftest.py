@@ -16,6 +16,7 @@ from src.core.security import create_access_token
 from src.database import Base
 from src.main import app
 from src.users.models import User, UserRole
+from src.users.repository import UserRepositoryBase
 from src.users.schemas import CreateUserAdmin, CreateUserBase, CreateUserPublic
 from tests.constants import NEW_PASSWORD
 from tests.factories import (
@@ -25,7 +26,6 @@ from tests.factories import (
     make_system_admin,
     make_user,
 )
-from users.repository import UserRepositoryBase
 
 ASYNC_DB_URL = (
     f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
@@ -123,7 +123,9 @@ async def flush_cache():
 
 
 async def make_auth_header(test_db: AsyncSession, user: User) -> dict:
-    user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+    user_session = await UserRepositoryBase.get_user_by_id_with_session(
+        test_db, user.id
+    )
 
     token = create_access_token(
         CreateAccessTokenRequest(

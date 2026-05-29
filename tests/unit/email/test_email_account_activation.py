@@ -14,12 +14,12 @@ from src.utils.email import (
     send_account_activation_code,
     send_invite_email,
 )
-
-FAKE_TOKEN = "raw_invite_token_abc123"
-FAKE_CODE = "847291"
-FAKE_EMAIL = "fake_user@example.com"
-FAKE_EMAIL = "fake__user@example.com"
-RESEND_URL = "https://api.resend.com/emails"
+from tests.constants import (
+    FAKE_ACTIVATION_CODE,
+    FAKE_EMAIL,
+    FAKE_INVITE_TOKEN,
+    RESEND_URL,
+)
 
 
 def _make_mock_response(status_code: int = 200) -> MagicMock:
@@ -285,7 +285,7 @@ class TestSendInviteEmail:
             new_callable=AsyncMock,
         )
 
-        await send_invite_email(FAKE_EMAIL, FAKE_TOKEN)
+        await send_invite_email(FAKE_EMAIL, FAKE_INVITE_TOKEN)
 
         mock_send.assert_awaited_once()
         call_kwargs = mock_send.call_args.kwargs
@@ -298,7 +298,7 @@ class TestSendInviteEmail:
             new_callable=AsyncMock,
         )
 
-        await send_invite_email(FAKE_EMAIL, FAKE_TOKEN)
+        await send_invite_email(FAKE_EMAIL, FAKE_INVITE_TOKEN)
 
         subject = mock_send.call_args.kwargs["subject"]
 
@@ -311,12 +311,12 @@ class TestSendInviteEmail:
             new_callable=AsyncMock,
         )
 
-        await send_invite_email(FAKE_EMAIL, FAKE_TOKEN)
+        await send_invite_email(FAKE_EMAIL, FAKE_INVITE_TOKEN)
 
         kwargs = mock_send.call_args.kwargs
 
-        assert FAKE_TOKEN in kwargs["html_body"]
-        assert FAKE_TOKEN in kwargs["text_body"]
+        assert FAKE_INVITE_TOKEN in kwargs["html_body"]
+        assert FAKE_INVITE_TOKEN in kwargs["text_body"]
 
     @pytest.mark.asyncio
     async def test_token_not_empty_string(self, mocker):
@@ -332,27 +332,27 @@ class TestSendInviteEmail:
 
 class TestInviteEmailHtml:
     def test_activation_link_contains_raw_token(self):
-        html = _invite_email_html(FAKE_TOKEN)
+        html = _invite_email_html(FAKE_INVITE_TOKEN)
 
-        assert FAKE_TOKEN in html
+        assert FAKE_INVITE_TOKEN in html
 
     def test_activation_link_contains_app_url(self):
-        html = _invite_email_html(FAKE_TOKEN)
+        html = _invite_email_html(FAKE_INVITE_TOKEN)
 
         assert settings.APP_URL in html
 
     def test_activation_link_has_token_query_param(self):
-        html = _invite_email_html(FAKE_TOKEN)
+        html = _invite_email_html(FAKE_INVITE_TOKEN)
 
-        assert f"token={FAKE_TOKEN}" in html
+        assert f"token={FAKE_INVITE_TOKEN}" in html
 
     def test_expiry_hours_mentioned_in_body(self):
-        html = _invite_email_html(FAKE_TOKEN)
+        html = _invite_email_html(FAKE_INVITE_TOKEN)
 
         assert str(settings.INVITE_TOKEN_EXPIRES_HOURS) in html
 
     def test_is_valid_html_string(self):
-        html = _invite_email_html(FAKE_TOKEN)
+        html = _invite_email_html(FAKE_INVITE_TOKEN)
 
         assert html.strip().startswith("<!DOCTYPE html>") or "<html" in html
         assert "</html>" in html
@@ -364,35 +364,35 @@ class TestInviteEmailHtml:
         assert html_a != html_b
 
     def test_token_appears_in_href(self):
-        html = _invite_email_html(FAKE_TOKEN)
+        html = _invite_email_html(FAKE_INVITE_TOKEN)
 
         assert 'href="' in html
-        assert f"token={FAKE_TOKEN}" in html
+        assert f"token={FAKE_INVITE_TOKEN}" in html
 
 
 class TestInviteEmailText:
     def test_activation_link_contains_raw_token(self):
-        text = _invite_email_text(FAKE_TOKEN)
+        text = _invite_email_text(FAKE_INVITE_TOKEN)
 
-        assert FAKE_TOKEN in text
+        assert FAKE_INVITE_TOKEN in text
 
     def test_activation_link_contains_app_url(self):
-        text = _invite_email_text(FAKE_TOKEN)
+        text = _invite_email_text(FAKE_INVITE_TOKEN)
 
         assert settings.APP_URL in text
 
     def test_activation_link_has_token_query_param(self):
-        text = _invite_email_text(FAKE_TOKEN)
+        text = _invite_email_text(FAKE_INVITE_TOKEN)
 
-        assert f"token={FAKE_TOKEN}" in text
+        assert f"token={FAKE_INVITE_TOKEN}" in text
 
     def test_expiry_hours_mentioned_in_body(self):
-        text = _invite_email_text(FAKE_TOKEN)
+        text = _invite_email_text(FAKE_INVITE_TOKEN)
 
         assert str(settings.INVITE_TOKEN_EXPIRES_HOURS) in text
 
     def test_is_plain_text_no_html_tags(self):
-        text = _invite_email_text(FAKE_TOKEN)
+        text = _invite_email_text(FAKE_INVITE_TOKEN)
 
         assert "<" not in text
         assert ">" not in text
@@ -421,7 +421,7 @@ class TestSendAccountActivationCode:
             new_callable=AsyncMock,
         )
 
-        await send_account_activation_code(FAKE_EMAIL, FAKE_CODE)
+        await send_account_activation_code(FAKE_EMAIL, FAKE_ACTIVATION_CODE)
 
         mock_send.assert_awaited_once()
         assert mock_send.call_args.kwargs["to_email"] == FAKE_EMAIL
@@ -432,7 +432,7 @@ class TestSendAccountActivationCode:
             new_callable=AsyncMock,
         )
 
-        await send_account_activation_code(FAKE_EMAIL, FAKE_CODE)
+        await send_account_activation_code(FAKE_EMAIL, FAKE_ACTIVATION_CODE)
 
         subject = mock_send.call_args.kwargs["subject"]
 
@@ -445,12 +445,12 @@ class TestSendAccountActivationCode:
             new_callable=AsyncMock,
         )
 
-        await send_account_activation_code(FAKE_EMAIL, FAKE_CODE)
+        await send_account_activation_code(FAKE_EMAIL, FAKE_ACTIVATION_CODE)
 
         kwargs = mock_send.call_args.kwargs
 
-        assert FAKE_CODE in kwargs["html_body"]
-        assert FAKE_CODE in kwargs["text_body"]
+        assert FAKE_ACTIVATION_CODE in kwargs["html_body"]
+        assert FAKE_ACTIVATION_CODE in kwargs["text_body"]
 
     async def test_called_exactly_once(self, mocker):
         mock_send = mocker.patch(
@@ -458,30 +458,30 @@ class TestSendAccountActivationCode:
             new_callable=AsyncMock,
         )
 
-        await send_account_activation_code(FAKE_EMAIL, FAKE_CODE)
+        await send_account_activation_code(FAKE_EMAIL, FAKE_ACTIVATION_CODE)
 
         assert mock_send.await_count == 1
 
 
 class TestActivationCodeHtml:
     def test_code_appears_in_body(self):
-        html = _activation_code_html(FAKE_CODE)
+        html = _activation_code_html(FAKE_ACTIVATION_CODE)
 
-        assert FAKE_CODE in html
+        assert FAKE_ACTIVATION_CODE in html
 
     def test_expiry_minutes_mentioned(self):
-        html = _activation_code_html(FAKE_CODE)
+        html = _activation_code_html(FAKE_ACTIVATION_CODE)
 
         assert str(settings.ACTIVATION_CODE_EXPIRES_MINUTES) in html
 
     def test_is_valid_html_string(self):
-        html = _activation_code_html(FAKE_CODE)
+        html = _activation_code_html(FAKE_ACTIVATION_CODE)
 
         assert "<!DOCTYPE html>" in html or "<html" in html
         assert "</html>" in html
 
     def test_sender_name_in_footer(self):
-        html = _activation_code_html(FAKE_CODE)
+        html = _activation_code_html(FAKE_ACTIVATION_CODE)
 
         assert settings.MAIL_FROM_NAME in html
 
@@ -492,24 +492,24 @@ class TestActivationCodeHtml:
         assert html_a != html_b
 
     def test_no_activation_link(self):
-        html = _activation_code_html(FAKE_CODE)
+        html = _activation_code_html(FAKE_ACTIVATION_CODE)
 
         assert "?token=" not in html
 
 
 class TestActivationCodeText:
     def test_code_appears_in_body(self):
-        text = _activation_code_text(FAKE_CODE)
+        text = _activation_code_text(FAKE_ACTIVATION_CODE)
 
-        assert FAKE_CODE in text
+        assert FAKE_ACTIVATION_CODE in text
 
     def test_expiry_minutes_mentioned(self):
-        text = _activation_code_text(FAKE_CODE)
+        text = _activation_code_text(FAKE_ACTIVATION_CODE)
 
         assert str(settings.ACTIVATION_CODE_EXPIRES_MINUTES) in text
 
     def test_is_plain_text_no_html_tags(self):
-        text = _activation_code_text(FAKE_CODE)
+        text = _activation_code_text(FAKE_ACTIVATION_CODE)
 
         assert "<" not in text
         assert ">" not in text
@@ -521,7 +521,7 @@ class TestActivationCodeText:
         assert text_a != text_b
 
     def test_no_activation_link(self):
-        text = _activation_code_text(FAKE_CODE)
+        text = _activation_code_text(FAKE_ACTIVATION_CODE)
 
         assert "?token=" not in text
 

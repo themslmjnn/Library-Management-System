@@ -42,7 +42,9 @@ class TestCreateAccountPublic:
             test_db, valid_create_user_request_public
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
 
         assert user.id is not None
         assert user.email == "test_email@gmail.com"
@@ -116,7 +118,9 @@ class TestUpdateMyPassword:
             test_db,
             password=OLD_PASSWORD,
         )
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         session = user_session.session
 
         old_password_hash = user.password_hash
@@ -130,7 +134,9 @@ class TestUpdateMyPassword:
         await UserServicePublic.update_my_password(test_db, user.id, update_request)
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         session = user_session.session
 
         assert old_password_hash != user.password_hash

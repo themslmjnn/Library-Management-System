@@ -29,7 +29,9 @@ class TestCreateAccountStaff:
             test_db, library_admin.id, valid_create_user_request_staff
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id_with_session(
+            test_db, user.id
+        )
         user_activation = await UserRepositoryBase.get_user_by_id_with_activation(
             test_db, user.id
         )

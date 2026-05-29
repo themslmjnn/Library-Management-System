@@ -6,7 +6,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from src.auth.schemas import (
     ActivateAccountWithCode,
     ActivateAccountWithToken,
-    CreateResetPassword,
     CreateResetPasswordRequest,
     LoginResponse,
     ResetPasswordRequest,
