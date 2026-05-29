@@ -84,15 +84,6 @@ class UpdateUser(BaseModel):
         return validate_phone_number(field)
 
 
-class UpdateUserPasswordAdmin(BaseModel):
-    new_password: str = Field(min_length=8)
-
-    @field_validator("new_password")
-    @classmethod
-    def validate_password_strength(cls, field: str) -> str:
-        return validate_password(field)
-
-
 class UpdateUserPasswordPublic(BaseModel):
     old_password: str
     new_password: str = Field(min_length=8)

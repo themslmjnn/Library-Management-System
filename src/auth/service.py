@@ -549,6 +549,8 @@ class AuthService:
         await db.commit()
         await db.refresh(user)
 
+        await delete_cache(access_token_version_key(user.id))
+
         logger.info(
             "password_changed",
             user_id=user.id,

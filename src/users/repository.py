@@ -207,13 +207,17 @@ class UserRepositoryStaff:
         )
 
     @staticmethod
-    async def get_user_by_id_library_admin(
+    async def get_user_by_id_with_session_library_admin(
         db: AsyncSession, user_id: int
     ) -> User | None:
-        query = select(User).filter(
-            and_(
-                User.id == user_id,
-                User.role.not_in([UserRole.system_admin, UserRole.library_admin]),
+        query = (
+            select(User)
+            .options(joinedload(User.session))
+            .filter(
+                and_(
+                    User.id == user_id,
+                    User.role.not_in([UserRole.system_admin, UserRole.library_admin]),
+                )
             )
         )
 

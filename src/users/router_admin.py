@@ -6,6 +6,7 @@ from src.core.dependencies import (
     async_db_dependency,
     pagination_dependency,
     require_system_admin,
+    require_system_and_library_admin,
 )
 from src.pagination import PaginatedResponse
 from src.users.models import User
@@ -101,13 +102,12 @@ async def update_user_admin(
     )
 
 
-@router.put("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
-async def update_user_password_admin(
+@router.post("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+async def create_reset_password_request_admin(
     db: async_db_dependency,
-    current_user: Annotated[User, Depends(require_system_admin)],
+    current_user: Annotated[User, Depends(require_system_and_library_admin)],
     user_id: int,
-    password_request: UpdateUserPasswordAdmin,
 ):
-    await UserServiceAdmin.update_user_password_admin(
-        db, current_user.id, user_id, password_request
+    await UserServiceAdmin.create_reset_password_request_admins(
+        db, current_user, user_id
     )

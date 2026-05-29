@@ -6,10 +6,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.cache import delete_cache, get_cache, set_cache
 from src.core.config import settings
+from src.core.dependencies import CurrentUser
 from src.core.logging import get_logger
 from src.core.security import (
     generate_account_activation_code,
     generate_invite_token,
+    generate_reset_password_token,
     hash_password,
     verify_password,
 )
@@ -27,7 +29,6 @@ from src.users.schemas import (
     SearchUserAdmin,
     SearchUserBase,
     UpdateUser,
-    UpdateUserPasswordAdmin,
     UpdateUserPasswordPublic,
     UserResponseAdmin,
     UserResponseBase,
@@ -39,7 +40,11 @@ from src.utils.cache_keys import (
     user_detail_key_self,
     user_detail_key_staff,
 )
-from src.utils.email import send_account_activation_code, send_invite_email
+from src.utils.email import (
+    send_account_activation_code,
+    send_invite_email,
+    send_reset_password_token,
+)
 from src.utils.enums import UserRole
 from src.utils.exception_constants import HTTP400, HTTP403, HTTP404
 from src.utils.exceptions import (
@@ -279,30 +284,43 @@ class UserServiceAdmin:
             raise
 
     @staticmethod
-    async def update_user_password_admin(
+    async def create_reset_password_request_admins(
         db: AsyncSession,
-        current_user_id: int,
+        current_user: CurrentUser,
         user_id: int,
-        password_request: UpdateUserPasswordAdmin,
     ) -> None:
-        user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
+
+        match current_user.role:
+            case UserRole.system_admin:
+                user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(
+                    db, user_id
+                )
+            case UserRole.library_admin:
+                user = await UserRepositoryStaff.get_user_by_id_with_session_library_admin(
+                    db, user_id
+                )
+            case _:
+                raise AccessDeniedError(HTTP403.ACCESS_DENIED)
+
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
-        user.password_hash = hash_password(password_request.new_password)
-        user.session.access_token_version += 1
-        user.session.refresh_token_hash = None
-        user.session.refresh_token_family = None
-        user.session.refresh_token_expires_at = None
+        raw_reset_token, hashed_reset_token = generate_reset_password_token()
+
+        user.session.reset_password_token_hash = hashed_reset_token
+        user.session.reset_password_token_expires_at = datetime.now(
+            timezone.utc
+        ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
 
         await db.commit()
+        await db.refresh(user)
 
-        await delete_cache(access_token_version_key(user_id))
+        reset_password_token_task = asyncio.create_task(
+            send_reset_password_token(user.email, raw_reset_token)
+        )
 
         logger.info(
-            "password_changed",
-            target_user_id=user_id,
-            changed_by=current_user_id,
-            method="admin_reset",
+            "reset_password_request_created",
+            user_id=user.id,
         )
 
 
@@ -377,7 +395,7 @@ class UserServiceStaff:
     @staticmethod
     async def get_users_staff(
         db: AsyncSession,
-        current_user: User,
+        current_user: CurrentUser,
         skip: int,
         limit: int,
         filters: SearchUserBase,
@@ -407,7 +425,7 @@ class UserServiceStaff:
 
     @staticmethod
     async def get_user_by_id_staff(
-        db: AsyncSession, current_user: User, user_id: int
+        db: AsyncSession, current_user: CurrentUser, user_id: int
     ) -> dict:
         cache_key = user_detail_key_staff(user_id)
         cached = await get_cache(cache_key)
