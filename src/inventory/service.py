@@ -15,7 +15,7 @@ from src.inventory.schemas import (
 from src.pagination import PaginatedResponse
 from src.utils.cache_keys import inventory_detail_key
 from src.utils.exception_constants import HTTP404
-from src.utils.exceptions import InventoryNotFoundError, check_book_id_fkey_error
+from utils.custom_exceptions import InventoryNotFoundError, check_book_id_fkey_error
 from src.utils.helpers import ensure_exists
 
 logger = get_logger(__name__)

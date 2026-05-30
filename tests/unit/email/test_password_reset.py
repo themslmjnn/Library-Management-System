@@ -14,7 +14,7 @@ from src.utils.email import (
     _reset_password_text,
     send_reset_password_token,
 )
-from src.utils.exceptions import (
+from utils.custom_exceptions import (
     ExpiredResetPasswordTokenError,
     InvalidCredentialsError,
     InvalidResetPasswordTokenError,

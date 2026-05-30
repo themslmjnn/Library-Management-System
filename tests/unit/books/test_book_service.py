@@ -8,7 +8,7 @@ from src.book.schemas import CreateBook, UpdateBook
 from src.book.service import BookService
 from src.core.dependencies import BookQueryParams
 from src.users.models import User
-from src.utils.exceptions import BookAlreadyExistsError, BookNotFoundError
+from utils.custom_exceptions import BookAlreadyExistsError, BookNotFoundError
 from tests.factories import make_book
 from utils.cache_keys import book_detail_key
 from utils.enums import BookCategory

@@ -7,14 +7,14 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.cache import get_cache, set_cache
-from src.core.enums import SortOrder
+from src.core.enums import BookSortField, OrderBy, SortOrder
 from src.core.security import decode_access_token
 from src.database import AsyncSessionLocal
 from src.users.repository import UserRepositoryBase
 from src.utils.cache_keys import access_token_version_key
 from src.utils.enums import BookCategory, UserRole
 from src.utils.exception_constants import HTTP401, HTTP403
-from src.utils.exceptions import (
+from utils.custom_exceptions import (
     AccessDeniedError,
     AccountInactiveError,
     InvalidAccessTokenError,
@@ -126,5 +126,5 @@ class BookQueryParams(PaginationParams):
     title: str | None = Query(default=None)
     author: str | None = Query(default=None)
     category: BookCategory | None = Query(default=None)
-    sort_by: str = Query(default="created_at")
-    order: SortOrder = Query(default=SortOrder.desc)
+    sort_by: BookSortField = Query(default=BookSortField.created_at)
+    order: OrderBy = Query(default=OrderBy.desc)

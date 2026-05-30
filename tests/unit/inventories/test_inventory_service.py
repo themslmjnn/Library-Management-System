@@ -5,7 +5,7 @@ from src.inventory.repository import InventoryRepository
 from src.inventory.schemas import CreateInventory, SearchInventory
 from src.inventory.service import InventoryService
 from src.users.models import User
-from src.utils.exceptions import BookNotFoundError, InventoryNotFoundError
+from utils.custom_exceptions import BookNotFoundError, InventoryNotFoundError
 from tests.factories import (
     make_book,
     make_library_admin,

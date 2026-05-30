@@ -116,9 +116,10 @@ def decode_refresh_token(refresh_token: str) -> dict:
             raise ValueError(HTTP401.INVALID_TOKEN_TYPE)
 
         return payload
-
+    except ExpiredSignatureError:
+        raise ValueError(HTTP401.EXPIRED_ACCESS_TOKEN)
     except JWTError:
-        raise ValueError(HTTP401.EXPIRED_REFRESH_TOKEN)
+        raise ValueError(HTTP401.INVALID_REFRESH_TOKEN)
 
 
 def verify_refresh_token(raw_refresh_token: str, hashed_refresh_token: str) -> bool:
@@ -128,7 +129,7 @@ def verify_refresh_token(raw_refresh_token: str, hashed_refresh_token: str) -> b
     )
 
 
-def generate_reset_password_token():
+def generate_reset_password_token() -> tuple[str, str]:
     raw_reset_token = secrets.token_urlsafe(32)
     hashed_reset_token = hashlib.sha256(raw_reset_token.encode()).hexdigest()
 

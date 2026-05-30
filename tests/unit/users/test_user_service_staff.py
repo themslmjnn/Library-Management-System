@@ -6,7 +6,7 @@ from src.users.repository import UserRepositoryBase
 from src.users.schemas import CreateUserBase
 from src.users.service import UserServiceStaff
 from src.utils.cache_keys import user_detail_key_staff
-from src.utils.exceptions import (
+from utils.custom_exceptions import (
     AccessDeniedError,
     UserNotFoundError,
 )

@@ -36,7 +36,7 @@ from src.core.security import (
 from src.users.repository import UserRepositoryBase
 from src.utils.cache_keys import access_token_version_key
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
-from src.utils.exceptions import (
+from utils.custom_exceptions import (
     AccountInactiveError,
     AccountLockedError,
     EmptyCredentialsError,

@@ -51,7 +51,7 @@ async def delete_cache(*keys: str) -> None:
             await redis_client.delete(*keys)
     except Exception as e:
         logger.warning(
-            "cache_get_failed",
+            "cache_delete_failed",
             keys=keys,
             error=str(e),
         )

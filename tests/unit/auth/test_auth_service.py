@@ -13,7 +13,7 @@ from src.auth.schemas import (
 from src.auth.service import AuthService
 from src.core.security import create_refresh_token, decode_access_token
 from src.users.models import UserRole
-from src.utils.exceptions import (
+from utils.custom_exceptions import (
     AccountInactiveError,
     AccountLockedError,
     EmptyCredentialsError,

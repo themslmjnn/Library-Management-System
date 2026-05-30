@@ -47,7 +47,7 @@ from src.utils.email import (
 )
 from src.utils.enums import UserRole
 from src.utils.exception_constants import HTTP400, HTTP403, HTTP404
-from src.utils.exceptions import (
+from utils.custom_exceptions import (
     AccessDeniedError,
     CannotCreateSystemAdminError,
     IncorrectPasswordError,

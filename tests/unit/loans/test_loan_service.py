@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.loan.schemas import LoanBase, SearchLoan
 from src.loan.service import LoanService
 from src.users.models import User
-from src.utils.exceptions import (
+from utils.custom_exceptions import (
     BookNotAvailableError,
     BookNotFoundError,
     LoanAlreadyReturnedError,

@@ -6,7 +6,7 @@ from src.users.repository import UserRepositoryBase
 from src.users.schemas import CreateUserPublic, UpdateUser, UpdateUserPasswordPublic
 from src.users.service import UserServicePublic
 from src.utils.cache_keys import user_detail_key_self
-from src.utils.exceptions import IncorrectPasswordError
+from utils.custom_exceptions import IncorrectPasswordError
 from tests.constants import NEW_PASSWORD, OLD_PASSWORD, WRONG_PASSWORD
 from tests.factories import make_member, make_user
 

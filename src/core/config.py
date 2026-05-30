@@ -78,10 +78,8 @@ class Settings(BaseSettings):
     def validate_access_token_expiry(cls, v: int) -> int:
         if v < 1:
             raise ValueError("ACCESS_TOKEN_EXPIRES_MINUTES must be at least 1")
-        if v > 1440:
-            raise ValueError(
-                "ACCESS_TOKEN_EXPIRES_MINUTES should not exceed 900 (15 minutes)"
-            )
+        if v > 15:
+            raise ValueError("ACCESS_TOKEN_EXPIRES_MINUTES should not exceed 15")
         return v
 
     @field_validator("REFRESH_TOKEN_EXPIRES_DAYS")

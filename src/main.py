@@ -17,40 +17,7 @@ from src.loan.router_public import router as loan_router_public
 from src.users.router_admin import router as user_router_admin
 from src.users.router_public import router as user_router_public
 from src.users.router_staff import router as user_router_staff
-from src.utils.exceptions import (
-    AccessDeniedError,
-    AccountInactiveError,
-    AccountLockedError,
-    AppException,
-    BookAlreadyExistsError,
-    BookNotAvailableError,
-    BookNotFoundError,
-    CannotAssignSystemRoleError,
-    CannotCreateSystemAdminError,
-    EmailAlreadyTakenError,
-    EmptyCredentialsError,
-    ExpiredActivationCodeError,
-    ExpiredInviteTokenError,
-    ExpiredRefreshTokenError,
-    ExpiredResetPasswordTokenError,
-    IncorrectPasswordError,
-    InvalidAccessTokenError,
-    InvalidActivationCodeError,
-    InvalidCredentialsError,
-    InvalidInviteTokenError,
-    InvalidRefreshTokenError,
-    InvalidResetPasswordTokenError,
-    InventoryNotFoundError,
-    LoanAlreadyReturnedError,
-    LoanNotFoundError,
-    PhonenumberAlreadyTakenError,
-    RefreshTokenFamilyError,
-    UserAlreadyActiveError,
-    UserAlreadyHasActiveLoanError,
-    UserAlreadyInactiveError,
-    UsernameAlreadyTakenError,
-    UserNotFoundError,
-)
+from utils import custom_exceptions as exc
 
 setup_logging()
 
@@ -93,45 +60,60 @@ app.include_router(loan_staff_router)
 
 
 EXCEPTION_STATUS_MAP = {
-    UserNotFoundError: 404,
-    BookNotFoundError: 404,
-    InventoryNotFoundError: 404,
-    LoanNotFoundError: 404,
-    UserAlreadyActiveError: 409,
-    UserAlreadyInactiveError: 409,
-    BookAlreadyExistsError: 409,
-    LoanAlreadyReturnedError: 409,
-    UserAlreadyHasActiveLoanError: 409,
-    BookNotAvailableError: 409,
-    InvalidCredentialsError: 401,
-    InvalidInviteTokenError: 400,
-    ExpiredInviteTokenError: 400,
-    InvalidRefreshTokenError: 401,
-    ExpiredRefreshTokenError: 401,
-    InvalidActivationCodeError: 400,
-    ExpiredActivationCodeError: 400,
-    AccountLockedError: 403,
-    AccountInactiveError: 403,
-    CannotCreateSystemAdminError: 403,
-    CannotAssignSystemRoleError: 403,
-    IncorrectPasswordError: 400,
-    EmailAlreadyTakenError: 409,
-    UsernameAlreadyTakenError: 409,
-    PhonenumberAlreadyTakenError: 409,
-    EmptyCredentialsError: 400,
-    RefreshTokenFamilyError: 401,
-    InvalidAccessTokenError: 401,
-    AccessDeniedError: 403,
-    InvalidResetPasswordTokenError: 400,
-    ExpiredResetPasswordTokenError: 400,
+    exc.UserNotFoundError: 404,
+    exc.BookNotFoundError: 404,
+    exc.InventoryNotFoundError: 404,
+    exc.LoanNotFoundError: 404,
+    exc.UserAlreadyActiveError: 409,
+    exc.UserAlreadyInactiveError: 409,
+    exc.BookAlreadyExistsError: 409,
+    exc.LoanAlreadyReturnedError: 409,
+    exc.UserAlreadyHasActiveLoanError: 409,
+    exc.BookNotAvailableError: 409,
+    exc.InvalidCredentialsError: 401,
+    exc.InvalidInviteTokenError: 400,
+    exc.ExpiredInviteTokenError: 400,
+    exc.InvalidRefreshTokenError: 401,
+    exc.ExpiredRefreshTokenError: 401,
+    exc.InvalidActivationCodeError: 400,
+    exc.ExpiredActivationCodeError: 400,
+    exc.AccountLockedError: 403,
+    exc.AccountInactiveError: 403,
+    exc.CannotCreateSystemAdminError: 403,
+    exc.CannotAssignSystemRoleError: 403,
+    exc.IncorrectPasswordError: 400,
+    exc.EmailAlreadyTakenError: 409,
+    exc.UsernameAlreadyTakenError: 409,
+    exc.PhonenumberAlreadyTakenError: 409,
+    exc.EmptyCredentialsError: 400,
+    exc.RefreshTokenFamilyError: 401,
+    exc.InvalidAccessTokenError: 401,
+    exc.AccessDeniedError: 403,
+    exc.InvalidResetPasswordTokenError: 400,
+    exc.ExpiredResetPasswordTokenError: 400,
 }
 
 
-@app.exception_handler(AppException)
-async def app_exception_handler(request: Request, exc: AppException) -> JSONResponse:
+@app.exception_handler(exc.AppException)
+async def app_exception_handler(
+    request: Request, exc: exc.AppException
+) -> JSONResponse:
     status_code = EXCEPTION_STATUS_MAP.get(type(exc), 500)
 
     return JSONResponse(
         status_code=status_code,
         content={"detail": exc.detail},
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.error(
+        "unhandled_exception",
+        error=str(exc),
+        path=request.url.path,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal error occurred"},
     )

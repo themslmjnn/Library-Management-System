@@ -11,7 +11,7 @@ from src.pagination import PaginatedResponse
 from src.utils.cache_keys import book_detail_key, book_detail_key_public
 from src.utils.enums import BookCategory
 from src.utils.exception_constants import HTTP404
-from src.utils.exceptions import BookNotFoundError, check_unique_title_and_author
+from utils.custom_exceptions import BookNotFoundError, check_unique_title_and_author
 from src.utils.helpers import ensure_exists, update_object
 
 logger = get_logger(__name__)
