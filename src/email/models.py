@@ -17,13 +17,12 @@ class PendingEmail(Base):
     text_body: Mapped[str] = mapped_column(Text, nullable=False)
 
     email_type: Mapped[EmailType] = mapped_column(
-        SQLEnum(EmailType), String(50), nullable=False
+        SQLEnum(EmailType), nullable=False
     )
 
     # Status tracking
     status: Mapped[str] = mapped_column(
         SQLEnum(EmailSendingStatus),
-        String(20),
         nullable=False,
         default=EmailSendingStatus.pending,
         index=True,
@@ -55,3 +54,4 @@ class PendingEmail(Base):
         "User",
         foreign_keys=[recipient_user_id],
     )
+

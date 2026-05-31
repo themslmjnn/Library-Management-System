@@ -6,6 +6,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 import src.books.models
+import src.email.models
 import src.inventories.models
 import src.loans.models
 import src.users.models
