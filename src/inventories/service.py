@@ -4,18 +4,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.cache import delete_cache, get_cache, set_cache
 from src.core.logging import get_logger
-from src.inventory.models import Inventory
-from src.inventory.repository import InventoryRepository
-from src.inventory.schemas import (
+from src.inventories.models import Inventory
+from src.inventories.repository import InventoryRepository
+from src.inventories.schemas import (
     CreateInventory,
     InventoryResponse,
     SearchInventory,
     UpdateInventoryRequest,
 )
 from src.pagination import PaginatedResponse
-from src.utils.cache_keys import inventory_detail_key
+from src.utils.cache_keys import InventoryCacheKey
+from src.utils.custom_exceptions import InventoryNotFoundError, check_book_id_fkey_error
 from src.utils.exception_constants import HTTP404
-from utils.custom_exceptions import InventoryNotFoundError, check_book_id_fkey_error
 from src.utils.helpers import ensure_exists
 
 logger = get_logger(__name__)
@@ -82,7 +82,7 @@ class InventoryService:
     async def get_inventory_by_id(
         db: AsyncSession, inventory_id: int
     ) -> InventoryResponse:
-        cached = await get_cache(inventory_detail_key(inventory_id))
+        cached = await get_cache(InventoryCacheKey.inventory_detail_key(inventory_id))
         if cached is not None:
             return cached
 
@@ -90,7 +90,9 @@ class InventoryService:
         ensure_exists(inventory, InventoryNotFoundError(HTTP404.INVENTORY))
 
         serialized = InventoryResponse.model_validate(inventory).model_dump(mode="json")
-        await set_cache(inventory_detail_key(inventory_id), serialized, 120)
+        await set_cache(
+            InventoryCacheKey.inventory_detail_key(inventory_id), serialized, 120
+        )
 
         return serialized
 
@@ -109,7 +111,7 @@ class InventoryService:
         await db.commit()
         await db.refresh(inventory)
 
-        await delete_cache(inventory_detail_key(inventory_id))
+        await delete_cache(InventoryCacheKey.inventory_detail_key(inventory_id))
 
         logger.info(
             "inventory_updated",

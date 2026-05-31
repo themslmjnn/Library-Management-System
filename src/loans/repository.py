@@ -1,8 +1,8 @@
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.loan.models import Loan
-from src.loan.schemas import CreateLoanPublic, LoanBase, SearchLoan, SearchLoanPublic
+from src.loans.models import Loan
+from src.loans.schemas import CreateLoanPublic, LoanBase, SearchLoan, SearchLoanPublic
 
 ALLOWED_SORT_FIELDS_LOAN = {"created_at", "book_id", "user_id", "created_by", "due_at"}
 

@@ -1,16 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from src.core.dependencies import (
     async_db_dependency,
     current_user_dependency,
     pagination_dependency,
 )
-from src.loan.schemas import CreateLoanPublic, LoanResponse, SearchLoanPublic
-from src.loan.service import LoanServicePublic
+from src.loans.schemas import CreateLoanPublic, LoanResponse, SearchLoanPublic
+from src.loans.service import LoanServicePublic
 from src.pagination import PaginatedResponse
-from src.utils.exception_constants import path_param_int_ge1
 
 router = APIRouter(
     prefix="/loans",
@@ -51,6 +50,6 @@ async def get_loans_me(
 async def get_loan_by_id_me(
     db: async_db_dependency,
     current_user: current_user_dependency,
-    loan_id: path_param_int_ge1,
+    loan_id: Annotated[int, Path(ge=1)],
 ):
     return await LoanServicePublic.get_loan_by_id_me(db, current_user.id, loan_id)

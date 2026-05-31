@@ -1,8 +1,8 @@
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.inventory.schemas import CreateInventory
-from src.inventory.service import InventoryService
+from src.inventories.schemas import CreateInventory
+from src.inventories.service import InventoryService
 from src.users.models import User
 from tests.conftest import make_auth_header
 from tests.factories import (

@@ -4,8 +4,8 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.schemas import CreateRefreshTokenRequest
-from src.book.models import Book
-from src.book.repository import BookRepository
+from src.books.models import Book
+from src.books.repository import BookRepository
 from src.core.config import settings
 from src.core.security import (
     create_refresh_token,
@@ -14,8 +14,8 @@ from src.core.security import (
     generate_reset_password_token,
     hash_password,
 )
-from src.inventory.models import Inventory
-from src.inventory.repository import InventoryRepository
+from src.inventories.models import Inventory
+from src.inventories.repository import InventoryRepository
 from src.users.models import User, UserActivation, UserRole, UserSession
 from src.users.repository import UserRepositoryBase
 from tests.constants import CORRECT_PASSWORD, DEFAULT_PASSWORD, NEW_PASSWORD

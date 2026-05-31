@@ -34,9 +34,8 @@ from src.core.security import (
     verify_reset_password_token,
 )
 from src.users.repository import UserRepositoryBase
-from src.utils.cache_keys import access_token_version_key
-from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
-from utils.custom_exceptions import (
+from src.utils.cache_keys import SessionCacheKey
+from src.utils.custom_exceptions import (
     AccountInactiveError,
     AccountLockedError,
     EmptyCredentialsError,
@@ -50,7 +49,8 @@ from utils.custom_exceptions import (
     InvalidRefreshTokenError,
     InvalidResetPasswordTokenError,
 )
-from utils.email import send_reset_password_token
+from src.utils.email import send_reset_password_token
+from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
 
 logger = get_logger(__name__)
 
@@ -113,7 +113,7 @@ class AuthService:
 
         await db.commit()
 
-        await delete_cache(access_token_version_key(current_user_id))
+        await delete_cache(SessionCacheKey.access_token_version_key(current_user_id))
 
         logger.info(
             "tokens_invalidated",
@@ -549,7 +549,7 @@ class AuthService:
         await db.commit()
         await db.refresh(user)
 
-        await delete_cache(access_token_version_key(user.id))
+        await delete_cache(SessionCacheKey.access_token_version_key(user.id))
 
         logger.info(
             "password_changed",

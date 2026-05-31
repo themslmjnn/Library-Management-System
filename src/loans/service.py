@@ -4,13 +4,13 @@ from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.book.repository import BookRepository
+from src.books.repository import BookRepository
 from src.core.cache import get_cache, set_cache
 from src.core.logging import get_logger
-from src.inventory.repository import InventoryRepository
-from src.loan.models import Loan
-from src.loan.repository import LoanRepository, LoanRepositoryPublic
-from src.loan.schemas import (
+from src.inventories.repository import InventoryRepository
+from src.loans.models import Loan
+from src.loans.repository import LoanRepository, LoanRepositoryPublic
+from src.loans.schemas import (
     CreateLoanPublic,
     LoanBase,
     LoanResponse,
@@ -19,15 +19,15 @@ from src.loan.schemas import (
 )
 from src.pagination import PaginatedResponse
 from src.users.repository import UserRepositoryBase
-from src.utils.cache_keys import loan_detail_key
-from src.utils.exception_constants import HTTP404, HTTP409
-from utils.custom_exceptions import (
+from src.utils.cache_keys import LoanCacheKey
+from src.utils.custom_exceptions import (
     BookNotAvailableError,
     BookNotFoundError,
     LoanAlreadyReturnedError,
     LoanNotFoundError,
     UserNotFoundError,
 )
+from src.utils.exception_constants import HTTP404, HTTP409
 from src.utils.helpers import ensure_exists
 
 logger = get_logger(__name__)
@@ -116,7 +116,7 @@ class LoanService:
 
     @staticmethod
     async def get_loan_by_id(db: AsyncSession, loan_id: int) -> LoanResponse:
-        key = loan_detail_key(loan_id)
+        key = LoanCacheKey.loan_detail_key(loan_id)
         cached = await get_cache(key)
         if cached is not None:
             return cached
@@ -236,7 +236,7 @@ class LoanServicePublic:
     async def get_loan_by_id_me(
         db: AsyncSession, user_id: int, loan_id: int
     ) -> LoanResponse:
-        key = loan_detail_key(loan_id)
+        key = LoanCacheKey.loan_detail_key(loan_id)
         cached = await get_cache(key)
         if cached is not None:
             return cached

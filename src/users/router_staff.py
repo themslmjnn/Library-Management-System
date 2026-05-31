@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from src.core.dependencies import (
     async_db_dependency,
@@ -11,7 +11,6 @@ from src.pagination import PaginatedResponse
 from src.users.models import User
 from src.users.schemas import CreateUserBase, SearchUserBase, UserResponseStaff
 from src.users.service import UserServiceStaff
-from src.utils.exception_constants import path_param_int_ge1
 
 router = APIRouter(
     prefix="/users",
@@ -30,6 +29,17 @@ async def create_account_staff(
     return await UserServiceStaff.create_account_staff(
         db, current_user.id, user_request
     )
+
+
+@router.get(
+    "/{user_id}/staff", response_model=UserResponseStaff, status_code=status.HTTP_200_OK
+)
+async def get_user_by_id_staff(
+    db: async_db_dependency,
+    current_user: Annotated[User, Depends(require_staff)],
+    user_id: Annotated[int, Path(ge=1)],
+):
+    return await UserServiceStaff.get_user_by_id_staff(db, current_user, user_id)
 
 
 @router.get(
@@ -54,14 +64,3 @@ async def get_users_staff(
         sort_by,
         order,
     )
-
-
-@router.get(
-    "/{user_id}/staff", response_model=UserResponseStaff, status_code=status.HTTP_200_OK
-)
-async def get_user_by_id_staff(
-    db: async_db_dependency,
-    current_user: Annotated[User, Depends(require_staff)],
-    user_id: path_param_int_ge1,
-):
-    return await UserServiceStaff.get_user_by_id_staff(db, current_user, user_id)

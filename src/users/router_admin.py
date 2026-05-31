@@ -8,6 +8,8 @@ from src.core.dependencies import (
     require_system_admin,
     require_system_and_library_admin,
 )
+from src.core.enums import OrderBy
+from src.core.limiter import user_limiter
 from src.pagination import PaginatedResponse
 from src.users.models import User
 from src.users.schemas import (
@@ -17,6 +19,7 @@ from src.users.schemas import (
     UserResponseAdmin,
 )
 from src.users.service import UserServiceAdmin
+from src.utils.enums import UserSortField
 
 router = APIRouter(
     prefix="/users",
@@ -25,6 +28,7 @@ router = APIRouter(
 
 
 @router.post("", response_model=UserResponseAdmin, status_code=status.HTTP_201_CREATED)
+@user_limiter.limit("5/minute")
 async def create_account_admin(
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_admin)],
@@ -40,13 +44,14 @@ async def create_account_admin(
     response_model=PaginatedResponse[UserResponseAdmin],
     status_code=status.HTTP_200_OK,
 )
+@user_limiter.limit("15/minute")
 async def get_users_admin(
     db: async_db_dependency,
     _: Annotated[User, Depends(require_system_admin)],
     pagination: pagination_dependency,
     filters: Annotated[SearchUserAdmin, Depends()],
-    sort_by: str = "created_at",
-    order: str = "desc",
+    sort_by: str = UserSortField.created_at,
+    order: str = OrderBy.desc,
 ):
     return await UserServiceAdmin.get_users_admin(
         db,
@@ -102,10 +107,11 @@ async def update_user_admin(
 
 
 @router.post("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
+@user_limiter.limit("5/minute")
 async def create_reset_password_request_admin(
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_and_library_admin)],
-    user_id: int,
+    user_id: Annotated[int, Path(ge=1)],
 ):
     await UserServiceAdmin.create_reset_password_request_admins(
         db, current_user, user_id

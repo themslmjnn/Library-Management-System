@@ -4,8 +4,8 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.enums import SortOrder
-from src.book.schemas import CreateBook, UpdateBook
-from src.book.service import BookService
+from src.books.schemas import CreateBook, UpdateBook
+from src.books.service import BookService
 from src.core.dependencies import BookQueryParams
 from src.users.models import User
 from utils.custom_exceptions import BookAlreadyExistsError, BookNotFoundError

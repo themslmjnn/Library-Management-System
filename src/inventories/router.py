@@ -1,22 +1,21 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from src.core.dependencies import (
     async_db_dependency,
     pagination_dependency,
     require_system_and_library_admin,
 )
-from src.inventory.schemas import (
+from src.inventories.schemas import (
     CreateInventory,
     InventoryResponse,
     SearchInventory,
     UpdateInventoryRequest,
 )
-from src.inventory.service import InventoryService
+from src.inventories.service import InventoryService
 from src.pagination import PaginatedResponse
 from src.users.models import User
-from src.utils.exception_constants import path_param_int_ge1
 
 router = APIRouter(
     prefix="/inventories",
@@ -59,7 +58,7 @@ async def update_inventory(
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_and_library_admin)],
     quantity: UpdateInventoryRequest,
-    inventory_id: path_param_int_ge1,
+    inventory_id: Annotated[int, Path(ge=1)],
 ):
     return await InventoryService.update_inventory(
         db, current_user.id, quantity, inventory_id
@@ -72,6 +71,6 @@ async def update_inventory(
 async def get_inventory_by_id(
     db: async_db_dependency,
     _: Annotated[User, Depends(require_system_and_library_admin)],
-    inventory_id: path_param_int_ge1,
+    inventory_id: Annotated[int, Path(ge=1)],
 ):
     return await InventoryService.get_inventory_by_id(db, inventory_id)

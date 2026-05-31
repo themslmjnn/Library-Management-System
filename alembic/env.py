@@ -5,6 +5,10 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
+import src.books.models
+import src.inventories.models
+import src.loans.models
+import src.users.models
 from alembic import context
 from src.core.config import settings
 
@@ -26,6 +30,8 @@ if config.config_file_name is not None:
 config.set_main_option("sqlalchemy.url", settings.DB_URL)
 
 target_metadata = Base.metadata
+
+print(target_metadata.tables.keys())
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

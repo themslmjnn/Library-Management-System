@@ -1,8 +1,8 @@
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.inventory.models import Inventory
-from src.inventory.schemas import CreateInventory, SearchInventory
+from src.inventories.models import Inventory
+from src.inventories.schemas import CreateInventory, SearchInventory
 
 ALLOWED_SORT_FIELDS_INVENTORY: frozenset[str] = frozenset(
     {"created_at", "book_id", "added_by"}

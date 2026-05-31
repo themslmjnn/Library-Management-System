@@ -78,7 +78,9 @@ async def refresh(
             detail=HTTP401.INVALID_REFRESH_TOKEN,
         )
 
-    return await AuthService.refresh_token(db, response, refresh_token)
+    return await AuthService.refresh_token(
+        db, response, refresh_token, refresh_token_family
+    )
 
 
 @router.post("/reset_password_request", status_code=status.HTTP_204_NO_CONTENT)

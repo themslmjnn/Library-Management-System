@@ -2,16 +2,18 @@ from sqlalchemy import Select, and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from src.core.enums import OrderBy
 from src.users.models import User, UserActivation, UserSession
 from src.users.schemas import (
     SearchUserAdmin,
     SearchUserBase,
 )
-from src.utils.enums import UserRole
+from src.utils.enums import UserRole, UserSortField
 
-ALLOWED_SORT_FIELDS_USER: frozenset[str] = frozenset(
-    {"created_at", "first_name", "last_name"}
+LIBRARY_ADMIN_VISIBLE_ROLES = frozenset(
+    {UserRole.receptionist, UserRole.member, UserRole.guest}
 )
+RECEPTIONIST_VISIBLE_ROLES = frozenset({UserRole.member, UserRole.guest})
 
 
 class UserRepositoryBase:
@@ -55,7 +57,7 @@ class UserRepositoryBase:
 
     @staticmethod
     def apply_base_filters(
-        base_query: Select, filters: SearchUserBase | SearchUserAdmin
+        base_query: Select, filters: SearchUserBase | SearchUserAdmin | None
     ) -> Select:
         if filters is None:
             return base_query
@@ -81,12 +83,12 @@ class UserRepositoryBase:
 
     @staticmethod
     def apply_sorting(base_query: Select, sort_by: str, order: str) -> Select:
-        if sort_by not in ALLOWED_SORT_FIELDS_USER:
-            sort_by = "created_at"
+        if sort_by not in UserSortField:
+            sort_by = UserSortField.created_at
 
         sort_column = getattr(User, sort_by)
 
-        if order == "desc":
+        if order == OrderBy.desc:
             return base_query.order_by(sort_column.desc())
 
         return base_query.order_by(sort_column.asc())
@@ -130,8 +132,8 @@ class UserRepositoryAdmin:
         skip: int,
         limit: int,
         filters: SearchUserAdmin | None = None,
-        sort_by: str = "created_at",
-        order: str = "desc",
+        sort_by: str = UserSortField.created_at,
+        order: str = OrderBy.desc,
     ) -> tuple[list[User], int]:
 
         base_query = select(User).filter(User.role != UserRole.system_admin)
@@ -187,13 +189,11 @@ class UserRepositoryStaff:
         skip: int,
         limit: int,
         filters: SearchUserBase | None = None,
-        sort_by: str = "created_at",
-        order: str = "desc",
+        sort_by: str = UserSortField.created_at,
+        order: str = OrderBy.desc,
     ) -> tuple[list[User], int]:
 
-        base_query = select(User).filter(
-            User.role.in_([UserRole.receptionist, UserRole.member, UserRole.guest])
-        )
+        base_query = select(User).filter(User.role.in_(LIBRARY_ADMIN_VISIBLE_ROLES))
 
         query = UserRepositoryBase.apply_base_filters(base_query, filters)
 
@@ -216,7 +216,7 @@ class UserRepositoryStaff:
             .filter(
                 and_(
                     User.id == user_id,
-                    User.role.not_in([UserRole.system_admin, UserRole.library_admin]),
+                    User.role.in_(LIBRARY_ADMIN_VISIBLE_ROLES),
                 )
             )
         )
@@ -231,13 +231,11 @@ class UserRepositoryStaff:
         skip: int,
         limit: int,
         filters: SearchUserBase | None = None,
-        sort_by: str = "created_at",
-        order: str = "desc",
+        sort_by: str = UserSortField.created_at,
+        order: str = OrderBy.desc,
     ) -> tuple[list[User], int]:
 
-        base_query = select(User).filter(
-            User.role.in_([UserRole.member, UserRole.guest])
-        )
+        base_query = select(User).filter(User.role.in_(RECEPTIONIST_VISIBLE_ROLES))
 
         query = UserRepositoryBase.apply_base_filters(base_query, filters)
 
@@ -257,7 +255,7 @@ class UserRepositoryStaff:
         query = select(User).filter(
             and_(
                 User.id == user_id,
-                User.role.in_([UserRole.member, UserRole.guest]),
+                User.role.in_(RECEPTIONIST_VISIBLE_ROLES),
             )
         )
 

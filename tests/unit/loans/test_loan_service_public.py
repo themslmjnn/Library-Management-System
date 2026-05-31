@@ -1,8 +1,8 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.loan.schemas import CreateLoanPublic
-from src.loan.service import LoanServicePublic
+from src.loans.schemas import CreateLoanPublic
+from src.loans.service import LoanServicePublic
 from src.users.models import User
 from utils.custom_exceptions import (
     BookNotAvailableError,

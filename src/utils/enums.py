@@ -9,6 +9,12 @@ class UserRole(str, Enum):
     guest = "guest"
 
 
+class UserSortField(str, Enum):
+    created_at = "created_at"
+    first_name = "first_name"
+    last_name = "last_name"
+
+
 class BookCategory(str, Enum):
     self_improvement = "self improvement"
     fiction = "fiction"
@@ -16,3 +22,9 @@ class BookCategory(str, Enum):
     history = "history"
     science = "science"
     others = "others"
+
+
+class BookSortField(str, Enum):
+    created_at = "created_at"
+    title = "title"
+    author = "author"

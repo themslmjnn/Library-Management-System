@@ -26,7 +26,7 @@ class CreateUserBase(BaseModel):
 
     @field_validator("phone_number")
     @classmethod
-    def validate_phone_number(cls, field: str) -> date:
+    def validate_phone_number(cls, field: str) -> str:
         return validate_phone_number(field)
 
 
@@ -75,12 +75,16 @@ class UpdateUser(BaseModel):
 
     @field_validator("date_of_birth", mode="after")
     @classmethod
-    def validate_date_of_birth(cls, field: date) -> date:
+    def validate_date_of_birth(cls, field: date | None) -> date | None:
+        if field is None:
+            return None
         return validate_date_of_birth(field)
 
     @field_validator("phone_number", mode="after")
     @classmethod
-    def validate_phone_number(cls, field: str) -> date:
+    def validate_phone_number(cls, field: str | None) -> str | None:
+        if field is None:
+            return None
         return validate_phone_number(field)
 
 
@@ -95,14 +99,14 @@ class UpdateUserPasswordPublic(BaseModel):
 
 
 class SearchUserBase(BaseModel):
-    first_name: str | None = None
-    last_name: str | None = None
+    first_name: str | None = Field(default=None, max_length=20)
+    last_name: str | None = Field(default=None, max_length=20)
     date_of_birth: date | None = None
-    email: str | None = None
-    phone_number: str | None = None
+    email: str | None = Field(default=None, max_length=20)
+    phone_number: str | None = Field(default=None, max_length=10)
 
 
 class SearchUserAdmin(SearchUserBase):
-    username: str | None = None
+    username: str | None = Field(default=None, max_length=15)
     role: UserRole | None = None
     is_active: bool | None = None

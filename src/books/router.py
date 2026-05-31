@@ -2,8 +2,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status
 
-from src.book.schemas import BookResponse, BookResponsePublic, CreateBook, UpdateBook
-from src.book.service import BookService
+from src.books.schemas import BookResponse, BookResponsePublic, CreateBook, UpdateBook
+from src.books.service import BookService
 from src.core.dependencies import (
     BookQueryParams,
     CurrentUser,

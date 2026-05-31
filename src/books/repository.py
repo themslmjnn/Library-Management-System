@@ -1,8 +1,8 @@
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.book.models import Book
-from src.core.enums import SortOrder
+from src.books.models import Book
+from src.core.enums import OrderBy
 from src.utils.enums import BookCategory
 
 ALLOWED_SORT_FIELDS_BOOK: frozenset[str] = frozenset({"created_at", "title", "author"})
@@ -18,7 +18,7 @@ class BookRepository:
         author: str | None = None,
         category: BookCategory | None = None,
         sort_by: str = "created_at",
-        order: SortOrder = SortOrder.desc,
+        order: OrderBy = OrderBy.desc,
     ) -> tuple[list[Book], int]:
         base_query = select(Book)
 
@@ -34,7 +34,7 @@ class BookRepository:
 
         sort_column = getattr(Book, sort_by)
         base_query = base_query.order_by(
-            sort_column.desc() if order == SortOrder.desc else sort_column.asc()
+            sort_column.desc() if order == OrderBy.desc else sort_column.asc()
         )
 
         count_result = await db.execute(

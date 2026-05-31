@@ -1,17 +1,17 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.book.models import Book
-from src.book.repository import BookRepository
-from src.book.schemas import BookResponse, BookResponsePublic, CreateBook, UpdateBook
+from src.books.models import Book
+from src.books.repository import BookRepository
+from src.books.schemas import BookResponse, BookResponsePublic, CreateBook, UpdateBook
 from src.core.cache import delete_cache, get_cache, set_cache
-from src.core.enums import SortOrder
+from src.core.enums import OrderBy
 from src.core.logging import get_logger
 from src.pagination import PaginatedResponse
-from src.utils.cache_keys import book_detail_key, book_detail_key_public
+from src.utils.cache_keys import BookCacheKey
+from src.utils.custom_exceptions import BookNotFoundError, check_unique_title_and_author
 from src.utils.enums import BookCategory
 from src.utils.exception_constants import HTTP404
-from utils.custom_exceptions import BookNotFoundError, check_unique_title_and_author
 from src.utils.helpers import ensure_exists, update_object
 
 logger = get_logger(__name__)
@@ -61,7 +61,7 @@ class BookService:
         author: str | None,
         category: BookCategory | None,
         sort_by: str,
-        order: SortOrder,
+        order: OrderBy,
     ) -> PaginatedResponse:
 
         books, total = await BookRepository.get_books(
@@ -85,7 +85,7 @@ class BookService:
 
     @staticmethod
     async def get_book_by_id(db: AsyncSession, book_id: int) -> dict:
-        key = book_detail_key(book_id)
+        key = BookCacheKey.book_detail_key(book_id)
         cached = await get_cache(key)
         if cached is not None:
             return cached
@@ -100,7 +100,7 @@ class BookService:
 
     @staticmethod
     async def get_book_by_id_public(db: AsyncSession, book_id: int) -> dict:
-        key = book_detail_key_public(book_id)
+        key = BookCacheKey.book_detail_key_public(book_id)
         cached = await get_cache(key)
         if cached is not None:
             return cached
@@ -132,7 +132,7 @@ class BookService:
                 updated_by=user_id,
             )
 
-            await delete_cache(book_detail_key(book_id))
+            await delete_cache(BookCacheKey.book_detail_key(book_id))
 
             return book
         except IntegrityError as error:

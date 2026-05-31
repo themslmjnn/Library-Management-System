@@ -1,9 +1,9 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.inventory.repository import InventoryRepository
-from src.inventory.schemas import CreateInventory, SearchInventory
-from src.inventory.service import InventoryService
+from src.inventories.repository import InventoryRepository
+from src.inventories.schemas import CreateInventory, SearchInventory
+from src.inventories.service import InventoryService
 from src.users.models import User
 from utils.custom_exceptions import BookNotFoundError, InventoryNotFoundError
 from tests.factories import (

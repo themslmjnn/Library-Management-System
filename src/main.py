@@ -7,17 +7,18 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 from src.auth.router import router as auth_router
-from src.book.router import router as book_router
+from src.books.router import router as book_router
 from src.core.cache import redis_client
+from src.core.config import settings
 from src.core.limiter import ip_limiter
 from src.core.logging import get_logger, setup_logging
-from src.inventory.router import router as inventory_router
-from src.loan.router import router as loan_staff_router
-from src.loan.router_public import router as loan_router_public
+from src.inventories.router import router as inventory_router
+from src.loans.router import router as loan_staff_router
+from src.loans.router_public import router as loan_router_public
 from src.users.router_admin import router as user_router_admin
 from src.users.router_public import router as user_router_public
 from src.users.router_staff import router as user_router_staff
-from utils import custom_exceptions as exc
+from src.utils import custom_exceptions as exc
 
 setup_logging()
 
@@ -41,6 +42,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Library Management System",
     lifespan=lifespan,
+    docs_url=None if settings.ENVIRONMENT == "production" else "/docs",
+    redoc_url=None if settings.ENVIRONMENT == "production" else "/redoc",
 )
 
 
@@ -86,7 +89,6 @@ EXCEPTION_STATUS_MAP = {
     exc.UsernameAlreadyTakenError: 409,
     exc.PhonenumberAlreadyTakenError: 409,
     exc.EmptyCredentialsError: 400,
-    exc.RefreshTokenFamilyError: 401,
     exc.InvalidAccessTokenError: 401,
     exc.AccessDeniedError: 403,
     exc.InvalidResetPasswordTokenError: 400,

@@ -35,19 +35,10 @@ from src.users.schemas import (
     UserResponseStaff,
 )
 from src.utils.cache_keys import (
-    access_token_version_key,
-    user_detail_key_admin,
-    user_detail_key_self,
-    user_detail_key_staff,
+    SessionCacheKey,
+    UserCacheKey,
 )
-from src.utils.email import (
-    send_account_activation_code,
-    send_invite_email,
-    send_reset_password_token,
-)
-from src.utils.enums import UserRole
-from src.utils.exception_constants import HTTP400, HTTP403, HTTP404
-from utils.custom_exceptions import (
+from src.utils.custom_exceptions import (
     AccessDeniedError,
     CannotCreateSystemAdminError,
     IncorrectPasswordError,
@@ -56,6 +47,13 @@ from utils.custom_exceptions import (
     UserNotFoundError,
     handle_user_integrity_error,
 )
+from src.utils.email import (
+    send_account_activation_code,
+    send_invite_email,
+    send_reset_password_token,
+)
+from src.utils.enums import UserRole
+from src.utils.exception_constants import HTTP400, HTTP403, HTTP404
 from src.utils.helpers import ensure_exists, update_object
 
 logger = get_logger(__name__)
@@ -109,8 +107,25 @@ class UserServiceAdmin:
                 user_id=new_user.id,
             )
 
-            UserRepositoryBase.add_entity(db, new_user_activation)
-            UserRepositoryBase.add_entity(db, new_user_session)
+            # UserRepositoryBase.add_entity(db, new_user_activation)
+            # UserRepositoryBase.add_entity(db, new_user_session)
+
+            # # Build email content before commit so token is available
+            # subject, html_body, text_body = build_invite_email(raw_invite_token)
+
+            # # Insert PendingEmail in the SAME transaction as the user.
+            # # Either both are committed or neither is — no orphaned users
+            # # with no invite email record.
+            # PendingEmailRepository.create(
+            #     db,
+            #     recipient=new_user.email,
+            #     subject=subject,
+            #     html_body=html_body,
+            #     text_body=text_body,
+            #     email_type="invite",
+            #     triggered_by=current_user_id,
+            #     recipient_user_id=new_user.id,
+            # )
 
             await db.commit()
             await db.refresh(new_user)
@@ -164,7 +179,7 @@ class UserServiceAdmin:
 
     @staticmethod
     async def get_user_by_id_admin(db: AsyncSession, user_id: int) -> dict:
-        cache_key = user_detail_key_admin(user_id)
+        cache_key = UserCacheKey.user_detail_key_admin(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
             return cached
@@ -202,8 +217,8 @@ class UserServiceAdmin:
 
         await db.commit()
 
-        await delete_cache(user_detail_key_admin(user_id))
-        await delete_cache(access_token_version_key(user_id))
+        await delete_cache(UserCacheKey.user_detail_key_admin(user_id))
+        await delete_cache(SessionCacheKey.access_token_version_key(user_id))
 
         logger.info(
             "user_deactivated",
@@ -232,7 +247,7 @@ class UserServiceAdmin:
 
         await db.commit()
 
-        await delete_cache(user_detail_key_admin(user_id))
+        await delete_cache(UserCacheKey.user_detail_key_admin(user_id))
 
         logger.info(
             "user_activated",
@@ -257,9 +272,9 @@ class UserServiceAdmin:
             await db.refresh(user)
 
             await delete_cache(
-                user_detail_key_admin(user_id),
-                user_detail_key_staff(user_id),
-                user_detail_key_self(user_id),
+                UserCacheKey.user_detail_key_admin(user_id),
+                UserCacheKey.user_detail_key_staff(user_id),
+                UserCacheKey.user_detail_key_self(user_id),
             )
 
             logger.info(
@@ -313,6 +328,20 @@ class UserServiceAdmin:
             timezone.utc
         ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
 
+        # subject, html_body, text_body = build_reset_password_email(raw_reset_token)
+
+        # # Insert PendingEmail in same transaction as token write.
+        # # If either fails, both roll back — token and email stay in sync.
+        # PendingEmailRepository.create(
+        #     db,
+        #     recipient=user.email,
+        #     subject=subject,
+        #     html_body=html_body,
+        #     text_body=text_body,
+        #     email_type="password_reset_admin",
+        #     triggered_by=current_user.id,
+        #     recipient_user_id=user.id,
+        # )
         await db.commit()
         await db.refresh(user)
 
@@ -333,7 +362,7 @@ class UserServiceStaff:
     ) -> User:
         raw_invite_token, invite_token_hash = generate_invite_token()
         invite_token_expires_at = datetime.now(timezone.utc) + timedelta(
-            settings.INVITE_TOKEN_EXPIRES_HOURS
+            hours=settings.INVITE_TOKEN_EXPIRES_HOURS
         )
 
         new_user = User(
@@ -365,6 +394,19 @@ class UserServiceStaff:
 
             UserRepositoryBase.add_entity(db, new_user_activation)
             UserRepositoryBase.add_entity(db, new_user_session)
+
+            # subject, html_body, text_body = build_invite_email(raw_invite_token)
+
+            # PendingEmailRepository.create(
+            #     db,
+            #     recipient=new_user.email,
+            #     subject=subject,
+            #     html_body=html_body,
+            #     text_body=text_body,
+            #     email_type="invite",
+            #     triggered_by=current_user_id,
+            #     recipient_user_id=new_user.id,
+            # )
 
             await db.commit()
             await db.refresh(new_user)
@@ -429,14 +471,14 @@ class UserServiceStaff:
     async def get_user_by_id_staff(
         db: AsyncSession, current_user: CurrentUser, user_id: int
     ) -> dict:
-        cache_key = user_detail_key_staff(user_id)
+        cache_key = UserCacheKey.user_detail_key_staff(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
             return cached
 
         match current_user.role:
             case UserRole.library_admin:
-                user = await UserRepositoryStaff.get_user_by_id_library_admin(
+                user = await UserRepositoryStaff.get_user_by_id_with_library_admin(
                     db, user_id
                 )
             case UserRole.receptionist:
@@ -461,7 +503,7 @@ class UserServicePublic:
     ) -> User:
         raw_activation_code, hashed_activation_code = generate_account_activation_code()
         account_activation_code_expires_at = datetime.now(timezone.utc) + timedelta(
-            hours=settings.ACTIVATION_CODE_EXPIRES_MINUTES
+            minutes=settings.ACTIVATION_CODE_EXPIRES_MINUTES
         )
 
         new_user = User(
@@ -501,6 +543,14 @@ class UserServicePublic:
                 send_account_activation_code(new_user.email, raw_activation_code)
             )
 
+            # asyncio.create_task(
+            #     _send_safe(
+            #         send_account_activation_code(new_user.email, raw_activation_code),
+            #         email_type="activation",
+            #         user_id=new_user.id,
+            #     )
+            # )
+
             logger.info(
                 "user_registered",
                 user_id=new_user.id,
@@ -510,6 +560,37 @@ class UserServicePublic:
             return new_user
         except IntegrityError as e:
             await db.rollback()
+            # if "users_email_key" in str(e.orig):
+            #     # Email already exists — notify the real owner silently.
+            #     # We do NOT raise here — attacker gets identical response.
+            #     logger.info(
+            #         "registration_attempted_with_existing_email",
+            #         # Log only that it happened, not the email itself (PII)
+            #     )
+            #     asyncio.create_task(
+            #         _send_safe(
+            #             send_already_registered_email(user_request.email),
+            #             email_type="already_registered_notice",
+            #         )
+            #     )
+            # else:
+            #     # Different integrity error (phone number, username) —
+            #     # these are safe to surface because they don't reveal
+            #     # whether a specific email account exists
+            #     logger.error(
+            #         "user_registration_failed",
+            #         reason="integrity_error",
+            #         error=str(e.orig),
+            #     )
+            #     handle_user_integrity_error(e)
+            #     raise
+
+            # return {
+            #     "detail": (
+            #         "If this email is not registered, "
+            #         "you will receive an activation code."
+            #     )
+            # }
 
             logger.error(
                 "user_registration_failed",
@@ -522,7 +603,7 @@ class UserServicePublic:
 
     @staticmethod
     async def get_me(db: AsyncSession, user_id: int) -> dict:
-        cache_key = user_detail_key_self(user_id)
+        cache_key = UserCacheKey.user_detail_key_self(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
             return cached
@@ -540,6 +621,7 @@ class UserServicePublic:
         db: AsyncSession, user_id: int, update_request: UpdateUser
     ) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         try:
             update_object(user, update_request)
@@ -548,9 +630,9 @@ class UserServicePublic:
             await db.refresh(user)
 
             await delete_cache(
-                user_detail_key_admin(user_id),
-                user_detail_key_staff(user_id),
-                user_detail_key_self(user_id),
+                UserCacheKey.user_detail_key_admin(user_id),
+                UserCacheKey.user_detail_key_staff(user_id),
+                UserCacheKey.user_detail_key_self(user_id),
             )
 
             logger.info(
@@ -572,11 +654,58 @@ class UserServicePublic:
             handle_user_integrity_error(e)
             raise
 
+    # @staticmethod
+    # async def forgot_password_public(
+    #     db: AsyncSession, email: str
+    # ) -> dict:
+    #     """
+    #     Public forgot password with enumeration protection.
+
+    #     Looks up the user by email. If found, writes a reset token and
+    #     sends the email as fire-and-forget. If not found, does nothing.
+    #     Caller always receives the same response either way.
+    #     """
+    #     user = await UserRepositoryBase.get_user_by_email(db, email)
+
+    #     if user is not None and user.session is not None:
+    #         raw_reset_token, hashed_reset_token = generate_reset_password_token()
+
+    #         user.session.reset_password_token_hash = hashed_reset_token
+    #         user.session.reset_password_token_expires_at = datetime.now(
+    #             timezone.utc
+    #         ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
+
+    #         await db.commit()
+
+    #         asyncio.create_task(
+    #             _send_safe(
+    #                 send_forgot_password_email(user.email, raw_reset_token),
+    #                 email_type="forgot_password",
+    #                 # Do not log user_id here — would confirm email exists in logs
+    #             )
+    #         )
+
+    #         logger.info("forgot_password_request_processed")
+    #         # Note: deliberately no user_id in this log line —
+    #         # keeps logs from becoming an enumeration oracle too
+
+    #     # Always return the same response
+    #     return {
+    #         "detail": (
+    #             "If this email is registered, "
+    #             "you will receive a password reset link."
+    #         )
+    #     }
+
     @staticmethod
     async def update_my_password(
         db: AsyncSession, user_id: int, password_request: UpdateUserPasswordPublic
     ) -> None:
         user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
+
+        # # Admin-created users have no password hash
+        # if not user.password_hash:
+        #     raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)
 
         if not verify_password(password_request.old_password, user.password_hash):
             raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)

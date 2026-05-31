@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, status
 
 from src.core.dependencies import async_db_dependency, current_user_dependency
-from src.core.limiter import ip_limiter
+from src.core.limiter import ip_limiter, user_limiter
 from src.users.schemas import (
     CreateUserPublic,
     UpdateUser,
@@ -17,7 +17,7 @@ router = APIRouter(
 
 
 @router.post(
-    "/me", response_model=UserResponseBase, status_code=status.HTTP_201_CREATED
+    "/register", response_model=UserResponseBase, status_code=status.HTTP_201_CREATED
 )
 @ip_limiter.limit("3/minute")
 async def create_account_public(
@@ -46,6 +46,7 @@ async def update_me(
 
 
 @router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
+@user_limiter.limit("5/minute")
 async def update_my_password(
     db: async_db_dependency,
     current_user: current_user_dependency,

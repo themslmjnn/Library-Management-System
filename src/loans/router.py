@@ -1,17 +1,16 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 
 from src.core.dependencies import (
     async_db_dependency,
     pagination_dependency,
     require_system_admin_and_staff,
 )
-from src.loan.schemas import LoanBase, LoanResponse, SearchLoan
-from src.loan.service import LoanService
+from src.loans.schemas import LoanBase, LoanResponse, SearchLoan
+from src.loans.service import LoanService
 from src.pagination import PaginatedResponse
-from src.users.models import User, UserRole
-from src.utils.exception_constants import path_param_int_ge1
+from src.users.models import User
 
 router = APIRouter(prefix="/loans", tags=["Loans"])
 
@@ -42,7 +41,7 @@ async def get_loan_by_id(
         User,
         Depends(require_system_admin_and_staff),
     ],
-    loan_id: path_param_int_ge1,
+    loan_id: Annotated[int, Path(ge=1)],
 ):
     return await LoanService.get_loan_by_id(db, loan_id)
 
@@ -68,6 +67,6 @@ async def return_loan(
         User,
         Depends(require_system_admin_and_staff),
     ],
-    loan_id: path_param_int_ge1,
+    loan_id: Annotated[int, Path(ge=1)],
 ):
     return await LoanService.return_loan(db, current_user.id, loan_id)
