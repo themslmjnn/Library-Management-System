@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.core.logging import get_logger
 from src.database import AsyncSessionLocal
 from src.email.repository import PendingEmailRepository
-from src.utils.email import _send
+from utils.email import _send
 
 logger = get_logger(__name__)
 

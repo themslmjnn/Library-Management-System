@@ -5,7 +5,7 @@ import pytest
 import structlog.testing
 
 from src.core.config import settings
-from src.utils.email import (
+from utils.email import (
     _activation_code_html,
     _activation_code_text,
     _invite_email_html,

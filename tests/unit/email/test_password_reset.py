@@ -9,7 +9,7 @@ from src.auth.schemas import CreateResetPasswordRequest, ResetPasswordRequest
 from src.auth.service import AuthService
 from src.core.config import settings
 from src.users.repository import UserRepositoryBase
-from src.utils.email import (
+from utils.email import (
     _reset_password_html,
     _reset_password_text,
     send_reset_password_token,

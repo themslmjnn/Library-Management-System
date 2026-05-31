@@ -47,7 +47,7 @@ from src.utils.custom_exceptions import (
     UserNotFoundError,
     handle_user_integrity_error,
 )
-from src.utils.email import (
+from utils.email import (
     send_account_activation_code,
     send_invite_email,
     send_reset_password_token,
