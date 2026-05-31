@@ -54,6 +54,33 @@ class UserRepositoryBase:
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
+    
+    @staticmethod
+    async def get_user_by_email(
+        db: AsyncSession,
+        email: str,
+    ) -> User | None:
+        result = await db.execute(
+            select(User).filter(User.email == email)
+        )
+        return result.scalar_one_or_none()
+    
+    
+    @staticmethod
+    async def get_user_by_username_and_phone_with_session(
+        db: AsyncSession,
+        username: str,
+        phone_number: str,
+    ) -> User | None:
+        result = await db.execute(
+            select(User)
+            .options(joinedload(User.session))
+            .filter(
+                User.username == username,
+                User.phone_number == phone_number,
+            )
+        )
+        return result.scalar_one_or_none()
 
     @staticmethod
     def apply_base_filters(
