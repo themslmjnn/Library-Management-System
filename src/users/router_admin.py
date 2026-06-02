@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path, Request, status
 
 from src.core.dependencies import (
     async_db_dependency,
@@ -13,6 +13,7 @@ from src.core.limiter import user_limiter
 from src.pagination import PaginatedResponse
 from src.users.models import User
 from src.users.schemas import (
+    AdminUpdateEmailRequest,
     CreateUserAdmin,
     SearchUserAdmin,
     UpdateUser,
@@ -30,6 +31,7 @@ router = APIRouter(
 @router.post("", response_model=UserResponseAdmin, status_code=status.HTTP_201_CREATED)
 @user_limiter.limit("5/minute")
 async def create_account_admin(
+    request: Request,
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_admin)],
     user_request: CreateUserAdmin,
@@ -46,6 +48,7 @@ async def create_account_admin(
 )
 @user_limiter.limit("15/minute")
 async def get_users_admin(
+    request: Request,
     db: async_db_dependency,
     _: Annotated[User, Depends(require_system_admin)],
     pagination: pagination_dependency,
@@ -109,6 +112,7 @@ async def update_user_admin(
 @router.post("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
 @user_limiter.limit("5/minute")
 async def create_reset_password_request_admin(
+    request: Request,
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_and_library_admin)],
     user_id: Annotated[int, Path(ge=1)],
@@ -118,15 +122,6 @@ async def create_reset_password_request_admin(
     )
 
 
-class AdminUpdateEmailRequest(BaseModel):
-    """
-    Direct email update by system admin — no verification code required.
-    Used for emergency cases where the user cannot receive emails
-    at their current address and the normal flow is blocked.
-    """
-    new_email: EmailStr
- 
- 
 @router.patch(
     "/{user_id}/email",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -137,12 +132,6 @@ async def admin_update_user_email(
     user_id: Annotated[int, Path(ge=1)],
     body: AdminUpdateEmailRequest,
 ):
-    """
-    System admin direct email update. Emergency use only.
- 
-    Bypasses the normal two-step verification flow.
-    Only system_admin can call this endpoint.
-    """
     await UserServiceAdmin.admin_update_user_email(
         db, current_user.id, user_id, body.new_email
     )

@@ -1,7 +1,6 @@
 class PublicMessages:
     REGISTRATION = (
-        "If this email is not registered, "
-        "you will receive an activation code."
+        "If this email is not registered, you will receive an activation code."
     )
     FORGOT_PASSWORD = (
         "If your username and phone number match a registered account, "
@@ -11,6 +10,5 @@ class PublicMessages:
         "A verification code has been sent to your new email address."
     )
     EMAIL_CHANGE_CONFIRMED = (
-        "Your email address has been updated. "
-        "Please log in again with your new email."
+        "Your email address has been updated. Please log in again with your new email."
     )

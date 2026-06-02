@@ -148,8 +148,8 @@ def generate_email_change_code() -> tuple[str, str]:
     hashed_code = hashlib.sha256(raw_code.encode()).hexdigest()
 
     return raw_code, hashed_code
- 
- 
+
+
 def verify_email_change_code(
     raw_code: str,
     hashed_code: str,

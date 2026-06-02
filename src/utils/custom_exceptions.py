@@ -64,6 +64,9 @@ class ExpiredResetPasswordTokenError(AppException):
 class AccessDeniedError(AppException):
     pass
 
+class PendingEmailNotFoundError(AppException):
+    pass
+
 
 class UserNotFoundError(AppException):
     pass

@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.cache import get_cache, set_cache
-from src.core.enums import BookSortField, OrderBy
+from src.core.enums import OrderBy
 from src.core.security import decode_access_token
 from src.database import AsyncSessionLocal
 from src.users.repository import UserRepositoryBase
@@ -17,7 +17,7 @@ from src.utils.custom_exceptions import (
     AccountInactiveError,
     InvalidAccessTokenError,
 )
-from src.utils.enums import BookCategory, UserRole
+from src.utils.enums import BookCategory, BookSortField, UserRole
 from src.utils.exception_constants import HTTP401, HTTP403
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")

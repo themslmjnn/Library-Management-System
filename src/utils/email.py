@@ -1,5 +1,6 @@
-import httpx
 import urllib
+
+import httpx
 
 from src.core.config import settings
 from src.core.logging import get_logger
@@ -36,7 +37,11 @@ async def _send(
 
     response.raise_for_status()
 
-    logger.info("email_sent", to_email=to_email, subject=subject)
+    logger.info(
+        "email_sent",
+        to_email=to_email,
+        subject=subject,
+    )
 
 
 async def send_safe(coro, **log_context) -> None:
@@ -51,56 +56,44 @@ async def send_safe(coro, **log_context) -> None:
         )
 
 
-def build_invite_email(
-    invite_token: str,
-    user_email: str,
-) -> tuple[str, str, str]:
-    """
-    Returns (subject, html_body, text_body).
- 
-    Embeds both the token and the user's email in the activation link
-    so the frontend can extract both from URL query params and pass them
-    to POST /auth/activate-with-token without asking the user to type anything.
- 
-    user_email is URL-encoded to handle special characters like + safely.
-    """
+def build_invite_email(invite_token: str, user_email: str) -> tuple[str, str, str]:
     encoded_email = urllib.parse.quote(user_email)
     activation_link = (
-        f"{settings.APP_URL}/activate_with_token"
+        f"{settings.APP_URL}/auth/activate_with_token"
         f"?token={invite_token}"
         f"&email={encoded_email}"
     )
- 
+
     subject = "Activate your Library account"
- 
+
     html = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
-        <div style="max-width:560px;margin:auto;background:white;padding:40px;border-radius:8px;">
-            <h1 style="color:#1d4ed8;">Library Management System</h1>
-            <h2>You have been invited</h2>
-            <p>An administrator created an account for you.</p>
-            <p>
-                Click the button below to activate your account and set your password.
-                This invitation expires in
-                <strong>{settings.INVITE_TOKEN_EXPIRES_HOURS} hours</strong>.
-            </p>
-            <div style="margin:40px 0;text-align:center;">
-                <a href="{activation_link}"
-                    style="background:#1d4ed8;color:white;padding:14px 28px;
-                           border-radius:6px;text-decoration:none;font-weight:bold;">
-                    Activate Account
-                </a>
+        <!DOCTYPE html>
+        <html lang="en">
+        <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+            <div style="max-width:560px;margin:auto;background:white;padding:40px;border-radius:8px;">
+                <h1 style="color:#1d4ed8;">Library Management System</h1>
+                <h2>You have been invited</h2>
+                <p>An administrator created an account for you.</p>
+                <p>
+                    Click the button below to activate your account and set your password.
+                    This invitation expires in
+                    <strong>{settings.INVITE_TOKEN_EXPIRES_HOURS} hours</strong>.
+                </p>
+                <div style="margin:40px 0;text-align:center;">
+                    <a href="{activation_link}"
+                        style="background:#1d4ed8;color:white;padding:14px 28px;
+                            border-radius:6px;text-decoration:none;font-weight:bold;">
+                        Activate Account
+                    </a>
+                </div>
+                <p style="font-size:13px;color:#6b7280;">
+                    If you were not expecting this email, ignore it.
+                </p>
             </div>
-            <p style="font-size:13px;color:#6b7280;">
-                If you were not expecting this email, ignore it.
-            </p>
-        </div>
-    </body>
-    </html>
+        </body>
+        </html>
     """
- 
+
     text = (
         f"You have been invited to the Library Management System.\n\n"
         f"Activate your account using the link below:\n\n"
@@ -108,20 +101,13 @@ def build_invite_email(
         f"This invitation expires in {settings.INVITE_TOKEN_EXPIRES_HOURS} hours.\n\n"
         f"If you were not expecting this email, ignore it."
     )
- 
+
     return subject, html, text
- 
- 
-async def send_invite_email(
-    email: str,
-    raw_invite_token: str,
-) -> None:
-    """
-    Convenience wrapper used by the worker.
-    The worker stores html_body/text_body directly, so this is only
-    used if you ever need to send an invite outside the pending flow.
-    """
+
+
+async def send_invite_email(email: str, raw_invite_token: str) -> None:
     subject, html, text = build_invite_email(raw_invite_token, email)
+
     await _send(subject=subject, to_email=email, html_body=html, text_body=text)
 
 
@@ -248,14 +234,10 @@ async def send_already_registered_email(email: str) -> None:
         text_body=text,
     )
 
-async def send_forgot_password_email(
-    email: str,
-    raw_reset_token: str,
-) -> None:
-    reset_link = (
-        f"{settings.APP_URL}/auth/reset_password?token={raw_reset_token}"
-    )
- 
+
+async def send_forgot_password_email(email: str, raw_reset_token: str) -> None:
+    reset_link = f"{settings.APP_URL}/auth/reset_password?token={raw_reset_token}"
+
     html = f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -284,7 +266,7 @@ async def send_forgot_password_email(
         </body>
         </html>
     """
- 
+
     text = (
         f"You requested a password reset for your "
         f"Library Management System account.\n\n"
@@ -294,13 +276,14 @@ async def send_forgot_password_email(
         f"If you did not request this, ignore this email. "
         f"Your password has not been changed."
     )
- 
+
     await _send(
         subject="Your Library password reset link",
         to_email=email,
         html_body=html,
         text_body=text,
     )
+
 
 async def send_password_changed_confirmation(email: str) -> None:
     html = """
@@ -323,7 +306,7 @@ async def send_password_changed_confirmation(email: str) -> None:
         </body>
         </html>
     """
- 
+
     text = (
         "Library Management System.\n\n"
         "Your account password was successfully changed.\n\n"
@@ -331,7 +314,7 @@ async def send_password_changed_confirmation(email: str) -> None:
         "If you did not change your password, contact your administrator "
         "immediately as your account may be compromised."
     )
- 
+
     await _send(
         subject="Your Library password was changed",
         to_email=email,
@@ -339,52 +322,39 @@ async def send_password_changed_confirmation(email: str) -> None:
         text_body=text,
     )
 
-async def send_email_change_verification(
-    new_email: str,
-    code: str,
-) -> None:
-    """
-    Sent to the NEW email address when a user requests an email change.
-    The code proves they own the new address before we update the record.
- 
-    Sent to the new address — not the current one — because we're
-    verifying ownership of the destination address.
- 
-    Fire and forget — if it fails, the user requests again.
-    The pending_email on their session is cleared on next request
-    or when a new change is initiated.
-    """
+
+async def send_email_change_verification(new_email: str, code: str) -> None:
     html = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
-        <div style="max-width:560px;margin:auto;background:white;
-                    padding:40px;border-radius:8px;">
-            <h1 style="color:#1d4ed8;">Library Management System</h1>
-            <h2>Confirm your new email address</h2>
-            <p>
-                You requested to change your email address.
-                Enter the code below to confirm this new address.
-                It expires in
-                <strong>{settings.ACTIVATION_CODE_EXPIRES_MINUTES} minutes</strong>.
-            </p>
-            <div style="display:inline-block;background:#f0f4ff;
-                        border:2px solid #1d4ed8;border-radius:8px;
-                        padding:20px 48px;margin:24px 0;">
-                <span style="font-size:36px;font-weight:700;
-                             letter-spacing:10px;color:#1d4ed8;">
-                    {code}
-                </span>
+        <!DOCTYPE html>
+        <html lang="en">
+        <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+            <div style="max-width:560px;margin:auto;background:white;
+                        padding:40px;border-radius:8px;">
+                <h1 style="color:#1d4ed8;">Library Management System</h1>
+                <h2>Confirm your new email address</h2>
+                <p>
+                    You requested to change your email address.
+                    Enter the code below to confirm this new address.
+                    It expires in
+                    <strong>{settings.ACTIVATION_CODE_EXPIRES_MINUTES} minutes</strong>.
+                </p>
+                <div style="display:inline-block;background:#f0f4ff;
+                            border:2px solid #1d4ed8;border-radius:8px;
+                            padding:20px 48px;margin:24px 0;">
+                    <span style="font-size:36px;font-weight:700;
+                                letter-spacing:10px;color:#1d4ed8;">
+                        {code}
+                    </span>
+                </div>
+                <p style="font-size:13px;color:#6b7280;">
+                    If you did not request this change, ignore this email.
+                    Your current email address has not been changed.
+                </p>
             </div>
-            <p style="font-size:13px;color:#6b7280;">
-                If you did not request this change, ignore this email.
-                Your current email address has not been changed.
-            </p>
-        </div>
-    </body>
-    </html>
+        </body>
+        </html>
     """
- 
+
     text = (
         f"Library Management System.\n\n"
         f"You requested to change your email address.\n\n"
@@ -393,7 +363,7 @@ async def send_email_change_verification(
         f"If you did not request this change, ignore this email. "
         f"Your current email address has not been changed."
     )
- 
+
     await _send(
         subject="Confirm your new Library email address",
         to_email=new_email,
@@ -401,49 +371,40 @@ async def send_email_change_verification(
         text_body=text,
     )
 
-def build_reset_password_email(
-    reset_password_token: str,
-) -> tuple[str, str, str]:
-    """
-    Returns (subject, html_body, text_body).
- 
-    Used by admin flows. Content is stored in pending_emails
-    before commit so the worker can send it without re-fetching the token.
-    """
-    reset_link = (
-        f"{settings.APP_URL}/reset_password?token={reset_password_token}"
-    )
- 
+
+def build_reset_password_email(reset_password_token: str) -> tuple[str, str, str]:
+    reset_link = f"{settings.APP_URL}/auth/reset_password?token={reset_password_token}"
+
     subject = "Your Library password reset link"
- 
+
     html = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
-        <div style="max-width:560px;margin:auto;background:white;
-                    padding:40px;border-radius:8px;">
-            <h1 style="color:#1d4ed8;">Library Management System</h1>
-            <p>
-                An administrator has requested a password reset for your account.
-                Click the button below to set a new password.
-                This link expires in
-                <strong>{settings.RESET_PASSWORD_EXPIRES_MINUTES} minutes</strong>.
-            </p>
-            <div style="margin:40px 0;text-align:center;">
-                <a href="{reset_link}"
-                    style="background:#1d4ed8;color:white;padding:14px 28px;
-                           border-radius:6px;text-decoration:none;font-weight:bold;">
-                    Reset Password
-                </a>
+        <!DOCTYPE html>
+        <html lang="en">
+        <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+            <div style="max-width:560px;margin:auto;background:white;
+                        padding:40px;border-radius:8px;">
+                <h1 style="color:#1d4ed8;">Library Management System</h1>
+                <p>
+                    An administrator has requested a password reset for your account.
+                    Click the button below to set a new password.
+                    This link expires in
+                    <strong>{settings.RESET_PASSWORD_EXPIRES_MINUTES} minutes</strong>.
+                </p>
+                <div style="margin:40px 0;text-align:center;">
+                    <a href="{reset_link}"
+                        style="background:#1d4ed8;color:white;padding:14px 28px;
+                            border-radius:6px;text-decoration:none;font-weight:bold;">
+                        Reset Password
+                    </a>
+                </div>
+                <p style="font-size:13px;color:#6b7280;">
+                    If you were not expecting this, contact your administrator.
+                </p>
             </div>
-            <p style="font-size:13px;color:#6b7280;">
-                If you were not expecting this, contact your administrator.
-            </p>
-        </div>
-    </body>
-    </html>
+        </body>
+        </html>
     """
- 
+
     text = (
         f"Library Management System.\n\n"
         f"An administrator has requested a password reset for your account.\n\n"
@@ -452,10 +413,11 @@ def build_reset_password_email(
         f"This link expires in {settings.RESET_PASSWORD_EXPIRES_MINUTES} minutes.\n\n"
         f"If you were not expecting this, contact your administrator."
     )
- 
+
     return subject, html, text
- 
- 
+
+
 async def send_reset_password_token(email: str, raw_reset_token: str) -> None:
     subject, html, text = build_reset_password_email(raw_reset_token)
+
     await _send(subject=subject, to_email=email, html_body=html, text_body=text)

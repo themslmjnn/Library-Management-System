@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -10,8 +11,10 @@ from src.auth.router import router as auth_router
 from src.books.router import router as book_router
 from src.core.cache import redis_client
 from src.core.config import settings
+from src.core.email_worker import run_email_worker
 from src.core.limiter import ip_limiter
 from src.core.logging import get_logger, setup_logging
+from src.email.router import router as email_router
 from src.inventories.router import router as inventory_router
 from src.loans.router import router as loan_staff_router
 from src.loans.router_public import router as loan_router_public
@@ -38,37 +41,35 @@ async def lifespan(app: FastAPI):
     await redis_client.aclose()
     logger.info("redis_disconnected")
 
-# @asynccontextmanager
-# async def lifespan(app: FastAPI):
-#     # --- Startup ---
- 
-#     # Check Redis is reachable before accepting requests.
-#     try:
-#         await redis_client.ping()
-#         logger.info("redis_connected")
-#     except Exception as e:
-#         logger.warning("redis_unavailable", error=str(e))
- 
-#     # Start the email worker as a background asyncio task.
-#     # It runs independently of requests for the lifetime of the process.
-#     email_worker_task = asyncio.create_task(run_email_worker())
-#     logger.info("email_worker_task_started")
- 
-#     yield  # application is running and serving requests
- 
-#     # --- Shutdown ---
- 
-#     # Cancel the worker task and wait for it to finish.
-#     # The worker re-raises CancelledError so this await completes cleanly.
-#     email_worker_task.cancel()
-#     try:
-#         await email_worker_task
-#     except asyncio.CancelledError:
-#         # Expected — the task was cancelled intentionally.
-#         logger.info("email_worker_stopped")
- 
-#     await redis_client.aclose()
-#     logger.info("redis_disconnected")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        await redis_client.ping()
+
+        logger.info("redis_connected")
+    except Exception as e:
+        logger.warning(
+            "redis_unavailable",
+            error=str(e),
+        )
+
+    email_worker_task = asyncio.create_task(run_email_worker())
+
+    logger.info("email_worker_task_started")
+
+    yield
+
+    email_worker_task.cancel()
+    try:
+        await email_worker_task
+    except asyncio.CancelledError:
+        logger.info("email_worker_stopped")
+        raise
+
+    await redis_client.aclose()
+
+    logger.info("redis_disconnected")
 
 
 app = FastAPI(
@@ -92,6 +93,7 @@ app.include_router(book_router)
 app.include_router(inventory_router)
 app.include_router(loan_router_public)
 app.include_router(loan_staff_router)
+app.include_router(email_router)
 
 
 EXCEPTION_STATUS_MAP = {
@@ -125,6 +127,7 @@ EXCEPTION_STATUS_MAP = {
     exc.AccessDeniedError: 403,
     exc.InvalidResetPasswordTokenError: 400,
     exc.ExpiredResetPasswordTokenError: 400,
+    exc.PendingEmailNotFoundError: 404,
 }
 
 

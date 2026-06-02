@@ -120,3 +120,13 @@ class ForgotPasswordPublicRequest(BaseModel):
     @classmethod
     def validate_phone_number(cls, field: str) -> str:
         return validate_phone_number(field)
+
+class AdminUpdateEmailRequest(BaseModel):
+    new_email: EmailStr
+
+class RequestEmailChangeRequest(BaseModel):
+    new_email: EmailStr
+ 
+ 
+class ConfirmEmailChangeRequest(BaseModel):
+    code: str

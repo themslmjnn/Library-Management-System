@@ -1,12 +1,12 @@
-from typing import Unpack
-
 from fastapi import APIRouter, Request, status
 
 from src.core.dependencies import async_db_dependency, current_user_dependency
 from src.core.limiter import ip_limiter, user_limiter
 from src.users.schemas import (
+    ConfirmEmailChangeRequest,
     CreateUserPublic,
     ForgotPasswordPublicRequest,
+    RequestEmailChangeRequest,
     UpdateUser,
     UpdateUserPasswordPublic,
     UserResponseBase,
@@ -46,7 +46,9 @@ async def create_forgot_password_request(
     )
 
 
-@router.get("/me", response_model=Unpack[UserResponseBase], status_code=status.HTTP_200_OK)
+@router.get(
+    "/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK
+)
 async def get_me(
     db: async_db_dependency,
     current_user: current_user_dependency,
@@ -66,11 +68,13 @@ async def update_me(
 @router.put("/me/password", status_code=status.HTTP_204_NO_CONTENT)
 @user_limiter.limit("5/minute")
 async def update_my_password(
+    request: Request,
     db: async_db_dependency,
     current_user: current_user_dependency,
     password_request: UpdateUserPasswordPublic,
 ):
     await UserServicePublic.update_my_password(db, current_user.id, password_request)
+
 
 @router.post(
     "/me/email",
@@ -82,17 +86,11 @@ async def request_email_change(
     current_user: current_user_dependency,
     body: RequestEmailChangeRequest,
 ):
-    """
-    Step 1: user requests changing their email address.
- 
-    Sends a verification code to the NEW address.
-    Does not change the current email until the code is confirmed.
-    """
     return await UserServicePublic.request_email_change(
         db, current_user.id, body.new_email
     )
- 
- 
+
+
 @router.post(
     "/me/email/confirm",
     response_model=None,
@@ -103,12 +101,4 @@ async def confirm_email_change(
     current_user: current_user_dependency,
     body: ConfirmEmailChangeRequest,
 ):
-    """
-    Step 2: user submits the code they received at their new address.
- 
-    On success: email is updated, all tokens are invalidated,
-    user must log in again with new email.
-    """
-    return await UserServicePublic.confirm_email_change(
-        db, current_user.id, body.code
-    )
+    return await UserServicePublic.confirm_email_change(db, current_user.id, body.code)

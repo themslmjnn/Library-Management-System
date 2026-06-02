@@ -49,7 +49,7 @@ from src.utils.custom_exceptions import (
     InvalidRefreshTokenError,
     InvalidResetPasswordTokenError,
 )
-from utils.email import send_reset_password_token
+from src.utils.email import send_reset_password_token
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
 
 logger = get_logger(__name__)

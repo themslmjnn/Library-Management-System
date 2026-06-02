@@ -1,8 +1,5 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
-from email.enums import EmailType
-from email.repository import PendingEmailRepository
-from email.schemas import PendingEmailCreate
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,7 +17,8 @@ from src.core.security import (
     verify_email_change_code,
     verify_password,
 )
-from src.email.models import PendingEmail
+from src.email.enums import EmailType
+from src.email.repository import PendingEmailRepository
 from src.pagination import PaginatedResponse
 from src.users.models import User, UserActivation, UserSession
 from src.users.repository import (
@@ -59,11 +57,9 @@ from src.utils.email import (
     build_activation_code_email,
     build_invite_email,
     build_reset_password_email,
-    send_account_activation_code,
     send_already_registered_email,
     send_email_change_verification,
     send_forgot_password_email,
-    send_invite_email,
     send_password_changed_confirmation,
     send_reset_password_token,
     send_safe,
@@ -128,12 +124,8 @@ class UserServiceAdmin:
             UserRepositoryBase.add_entity(db, new_user_activation)
             UserRepositoryBase.add_entity(db, new_user_session)
 
-            # Build email content before commit so token is available
             subject, html_body, text_body = build_invite_email(raw_invite_token)
 
-            # Insert PendingEmail in the SAME transaction as the user.
-            # Either both are committed or neither is — no orphaned users
-            # with no invite email record.
             PendingEmailRepository.create(
                 db,
                 recipient=new_user.email,
@@ -344,8 +336,6 @@ class UserServiceAdmin:
 
         subject, html_body, text_body = build_reset_password_email(raw_reset_token)
 
-        # Insert PendingEmail in same transaction as token write.
-        # If either fails, both roll back — token and email stay in sync.
         PendingEmailRepository.create(
             db,
             recipient=user.email,
@@ -356,12 +346,11 @@ class UserServiceAdmin:
             triggered_by=current_user.id,
             recipient_user_id=user.id,
         )
+
         await db.commit()
         await db.refresh(user)
 
-        reset_password_token_task = asyncio.create_task(
-            send_reset_password_token(user.email, raw_reset_token)
-        )
+        asyncio.create_task(send_reset_password_token(user.email, raw_reset_token))
 
         logger.info(
             "reset_password_request_created",
@@ -369,70 +358,54 @@ class UserServiceAdmin:
         )
 
     @staticmethod
-async def admin_update_user_email(
-    db: AsyncSession,
-    current_user_id: int,
-    user_id: int,
-    new_email: str,
-) -> None:
-    """
-    System admin direct email override. Emergency use only.
- 
-    Does NOT send a verification code — this is a privileged override
-    for cases where the user is locked out and cannot receive emails
-    at their current address.
- 
-    Invalidates all existing tokens so the user must log in again
-    with the new email address.
- 
-    Clears all cache keys so the updated email appears immediately
-    in all admin/staff/self views.
-    """
-    user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(
-        db, user_id
-    )
-    ensure_exists(user, UserNotFoundError(HTTP404.USER))
- 
-    try:
-        user.email = new_email
- 
-        # Invalidate all tokens — the email is the login identifier,
-        # so all existing sessions are now invalid.
-        user.session.access_token_version += 1
-        user.session.refresh_token_hash = None
-        user.session.refresh_token_family = None
-        user.session.refresh_token_expires_at = None
- 
-        # Clear any pending email change — superseded by admin override.
-        user.session.pending_email = None
-        user.session.email_change_code_hash = None
-        user.session.email_change_code_expires_at = None
- 
-        await db.commit()
- 
-        await delete_cache(
-            user_detail_key_admin(user_id),
-            user_detail_key_staff(user_id),
-            user_detail_key_self(user_id),
-            access_token_version_key(user_id),
-        )
- 
-        logger.info(
-            "admin_email_override",
-            target_user_id=user_id,
-            updated_by=current_user_id,
-        )
- 
-    except IntegrityError as e:
-        await db.rollback()
-        logger.error(
-            "admin_email_override_failed",
-            target_user_id=user_id,
-            requested_by=current_user_id,
-            reason=str(e.orig),
-        )
-        handle_user_integrity_error(e)
-        raise
+    async def admin_update_user_email(
+        db: AsyncSession,
+        current_user_id: int,
+        user_id: int,
+        new_email: str,
+    ) -> None:
+        user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
+
+        try:
+            user.email = new_email
+
+            user.session.access_token_version += 1
+            user.session.refresh_token_hash = None
+            user.session.refresh_token_family = None
+            user.session.refresh_token_expires_at = None
+
+            user.session.pending_email = None
+            user.session.email_change_code_hash = None
+            user.session.email_change_code_expires_at = None
+
+            await db.commit()
+
+            await delete_cache(
+                UserCacheKey.user_detail_key_admin(user_id),
+                UserCacheKey.user_detail_key_staff(user_id),
+                UserCacheKey.user_detail_key_self(user_id),
+                SessionCacheKey.access_token_version_key(user_id),
+            )
+
+            logger.info(
+                "admin_email_override",
+                target_user_id=user_id,
+                updated_by=current_user_id,
+            )
+
+        except IntegrityError as e:
+            await db.rollback()
+
+            logger.error(
+                "admin_email_override_failed",
+                target_user_id=user_id,
+                requested_by=current_user_id,
+                reason=str(e.orig),
+            )
+
+            handle_user_integrity_error(e)
+            raise
 
 
 class UserServiceStaff:
@@ -773,7 +746,7 @@ class UserServicePublic:
                 user_id=user_id,
             )
         )
- 
+
         logger.info(
             "password_changed",
             user_id=user_id,
@@ -786,35 +759,20 @@ class UserServicePublic:
         user_id: int,
         new_email: str,
     ) -> dict:
-        """
-        Step 1 of email change — user requests changing their email.
- 
-        Generates a 6-digit verification code, stores it hashed on the
-        session alongside the pending new address, then sends the code
-        to the NEW email address to prove the user owns it.
- 
-        If a previous email change request exists on the session,
-        it is overwritten — only one pending change at a time.
- 
-        Fire and forget — if the email fails, user requests again.
-        The pending_email on the session expires with the code.
-        """
         user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
- 
+
         raw_code, hashed_code = generate_email_change_code()
         expires_at = datetime.now(timezone.utc) + timedelta(
             minutes=settings.ACTIVATION_CODE_EXPIRES_MINUTES
         )
- 
-        # Overwrite any existing pending change
+
         user.session.pending_email = new_email
         user.session.email_change_code_hash = hashed_code
         user.session.email_change_code_expires_at = expires_at
- 
+
         await db.commit()
- 
-        # Send code to the NEW address — proving ownership of the destination
+
         asyncio.create_task(
             send_safe(
                 send_email_change_verification(new_email, raw_code),
@@ -822,84 +780,59 @@ class UserServicePublic:
                 user_id=user_id,
             )
         )
- 
+
         logger.info("email_change_requested", user_id=user_id)
- 
-        return {
-            "detail": (
-                "A verification code has been sent to your new email address."
-            )
-        }
- 
+
+        return MessageResponse(PublicMessages.EMAIL_CHANGE_REQUESTED)
+
     @staticmethod
     async def confirm_email_change(
         db: AsyncSession,
         user_id: int,
         code: str,
     ) -> dict:
-        """
-        Step 2 of email change — user submits the code they received.
- 
-        Verifies the code, then:
-        - Updates user.email to session.pending_email
-        - Clears all pending change fields from session
-        - Increments access_token_version — forces re-login on all devices
-        - Clears all cache keys for this user
-        - Clears refresh token — existing sessions are invalid
- 
-        Token invalidation on email change is intentional security design:
-        if an attacker changed the email, the real owner's next request
-        will be rejected and they'll know something is wrong.
-        """
         user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
- 
-        # Check all three conditions before doing anything
+
         if (
             user.session.pending_email is None
             or user.session.email_change_code_hash is None
         ):
             raise InvalidActivationCodeError(HTTP400.INVALID_ACTIVATION_CODE)
- 
+
         if (
             user.session.email_change_code_expires_at is None
             or datetime.now(timezone.utc) > user.session.email_change_code_expires_at
         ):
             raise InvalidActivationCodeError(HTTP400.INVALID_ACTIVATION_CODE)
- 
+
         if not verify_email_change_code(code, user.session.email_change_code_hash):
             raise InvalidActivationCodeError(HTTP400.INVALID_ACTIVATION_CODE)
- 
-        # All checks passed — perform the change
+
         new_email = user.session.pending_email
         user.email = new_email
- 
-        # Clear the pending change fields
+
         user.session.pending_email = None
         user.session.email_change_code_hash = None
         user.session.email_change_code_expires_at = None
- 
-        # Invalidate all existing tokens — forces re-login
+
         user.session.access_token_version += 1
         user.session.refresh_token_hash = None
         user.session.refresh_token_family = None
         user.session.refresh_token_expires_at = None
- 
+
         await db.commit()
- 
-        # Clear all cache variants for this user
+
         await delete_cache(
             UserCacheKey.user_detail_key_admin(user_id),
             UserCacheKey.user_detail_key_staff(user_id),
             UserCacheKey.user_detail_key_self(user_id),
             SessionCacheKey.access_token_version_key(user_id),
         )
- 
-        logger.info("email_changed", user_id=user_id)
- 
-        return {
-            "detail": (
-                "Your email address has been updated. "
-                "Please log in again with your new email."
-            )
-        }
+
+        logger.info(
+            "email_changed",
+            user_id=user_id,
+        )
+
+        return MessageResponse(PublicMessages.EMAIL_CHANGE_CONFIRMED)
