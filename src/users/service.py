@@ -13,9 +13,11 @@ from src.core.dependencies import CurrentUser
 from src.core.logging import get_logger
 from src.core.security import (
     generate_account_activation_code,
+    generate_email_change_code,
     generate_invite_token,
     generate_reset_password_token,
     hash_password,
+    verify_email_change_code,
     verify_password,
 )
 from src.email.models import PendingEmail
@@ -47,6 +49,7 @@ from src.utils.custom_exceptions import (
     AccessDeniedError,
     CannotCreateSystemAdminError,
     IncorrectPasswordError,
+    InvalidActivationCodeError,
     UserAlreadyActiveError,
     UserAlreadyInactiveError,
     UserNotFoundError,
@@ -54,8 +57,11 @@ from src.utils.custom_exceptions import (
 )
 from src.utils.email import (
     build_activation_code_email,
+    build_invite_email,
+    build_reset_password_email,
     send_account_activation_code,
     send_already_registered_email,
+    send_email_change_verification,
     send_forgot_password_email,
     send_invite_email,
     send_password_changed_confirmation,
@@ -119,32 +125,28 @@ class UserServiceAdmin:
                 user_id=new_user.id,
             )
 
-            # UserRepositoryBase.add_entity(db, new_user_activation)
-            # UserRepositoryBase.add_entity(db, new_user_session)
+            UserRepositoryBase.add_entity(db, new_user_activation)
+            UserRepositoryBase.add_entity(db, new_user_session)
 
-            # # Build email content before commit so token is available
-            # subject, html_body, text_body = build_invite_email(raw_invite_token)
+            # Build email content before commit so token is available
+            subject, html_body, text_body = build_invite_email(raw_invite_token)
 
-            # # Insert PendingEmail in the SAME transaction as the user.
-            # # Either both are committed or neither is — no orphaned users
-            # # with no invite email record.
-            # PendingEmailRepository.create(
-            #     db,
-            #     recipient=new_user.email,
-            #     subject=subject,
-            #     html_body=html_body,
-            #     text_body=text_body,
-            #     email_type="invite",
-            #     triggered_by=current_user_id,
-            #     recipient_user_id=new_user.id,
-            # )
+            # Insert PendingEmail in the SAME transaction as the user.
+            # Either both are committed or neither is — no orphaned users
+            # with no invite email record.
+            PendingEmailRepository.create(
+                db,
+                recipient=new_user.email,
+                subject=subject,
+                html_body=html_body,
+                text_body=text_body,
+                email_type=EmailType.invite,
+                triggered_by=current_user_id,
+                recipient_user_id=new_user.id,
+            )
 
             await db.commit()
             await db.refresh(new_user)
-
-            invite_email_task = asyncio.create_task(
-                send_invite_email(new_user.email, raw_invite_token)
-            )
 
             logger.info(
                 "user_created",
@@ -340,20 +342,20 @@ class UserServiceAdmin:
             timezone.utc
         ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
 
-        # subject, html_body, text_body = build_reset_password_email(raw_reset_token)
+        subject, html_body, text_body = build_reset_password_email(raw_reset_token)
 
-        # # Insert PendingEmail in same transaction as token write.
-        # # If either fails, both roll back — token and email stay in sync.
-        # PendingEmailRepository.create(
-        #     db,
-        #     recipient=user.email,
-        #     subject=subject,
-        #     html_body=html_body,
-        #     text_body=text_body,
-        #     email_type="password_reset_admin",
-        #     triggered_by=current_user.id,
-        #     recipient_user_id=user.id,
-        # )
+        # Insert PendingEmail in same transaction as token write.
+        # If either fails, both roll back — token and email stay in sync.
+        PendingEmailRepository.create(
+            db,
+            recipient=user.email,
+            subject=subject,
+            html_body=html_body,
+            text_body=text_body,
+            email_type="password_reset_admin",
+            triggered_by=current_user.id,
+            recipient_user_id=user.id,
+        )
         await db.commit()
         await db.refresh(user)
 
@@ -365,6 +367,72 @@ class UserServiceAdmin:
             "reset_password_request_created",
             user_id=user.id,
         )
+
+    @staticmethod
+async def admin_update_user_email(
+    db: AsyncSession,
+    current_user_id: int,
+    user_id: int,
+    new_email: str,
+) -> None:
+    """
+    System admin direct email override. Emergency use only.
+ 
+    Does NOT send a verification code — this is a privileged override
+    for cases where the user is locked out and cannot receive emails
+    at their current address.
+ 
+    Invalidates all existing tokens so the user must log in again
+    with the new email address.
+ 
+    Clears all cache keys so the updated email appears immediately
+    in all admin/staff/self views.
+    """
+    user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(
+        db, user_id
+    )
+    ensure_exists(user, UserNotFoundError(HTTP404.USER))
+ 
+    try:
+        user.email = new_email
+ 
+        # Invalidate all tokens — the email is the login identifier,
+        # so all existing sessions are now invalid.
+        user.session.access_token_version += 1
+        user.session.refresh_token_hash = None
+        user.session.refresh_token_family = None
+        user.session.refresh_token_expires_at = None
+ 
+        # Clear any pending email change — superseded by admin override.
+        user.session.pending_email = None
+        user.session.email_change_code_hash = None
+        user.session.email_change_code_expires_at = None
+ 
+        await db.commit()
+ 
+        await delete_cache(
+            user_detail_key_admin(user_id),
+            user_detail_key_staff(user_id),
+            user_detail_key_self(user_id),
+            access_token_version_key(user_id),
+        )
+ 
+        logger.info(
+            "admin_email_override",
+            target_user_id=user_id,
+            updated_by=current_user_id,
+        )
+ 
+    except IntegrityError as e:
+        await db.rollback()
+        logger.error(
+            "admin_email_override_failed",
+            target_user_id=user_id,
+            requested_by=current_user_id,
+            reason=str(e.orig),
+        )
+        handle_user_integrity_error(e)
+        raise
 
 
 class UserServiceStaff:
@@ -407,25 +475,21 @@ class UserServiceStaff:
             UserRepositoryBase.add_entity(db, new_user_activation)
             UserRepositoryBase.add_entity(db, new_user_session)
 
-            # subject, html_body, text_body = build_invite_email(raw_invite_token)
+            subject, html_body, text_body = build_invite_email(raw_invite_token)
 
-            # PendingEmailRepository.create(
-            #     db,
-            #     recipient=new_user.email,
-            #     subject=subject,
-            #     html_body=html_body,
-            #     text_body=text_body,
-            #     email_type="invite",
-            #     triggered_by=current_user_id,
-            #     recipient_user_id=new_user.id,
-            # )
+            PendingEmailRepository.create(
+                db,
+                recipient=new_user.email,
+                subject=subject,
+                html_body=html_body,
+                text_body=text_body,
+                email_type=EmailType.invite,
+                triggered_by=current_user_id,
+                recipient_user_id=new_user.id,
+            )
 
             await db.commit()
             await db.refresh(new_user)
-
-            invite_email_task = asyncio.create_task(
-                send_invite_email(new_user.email, raw_invite_token)
-            )
 
             logger.info(
                 "user_created",
@@ -752,7 +816,7 @@ class UserServicePublic:
  
         # Send code to the NEW address — proving ownership of the destination
         asyncio.create_task(
-            _send_safe(
+            send_safe(
                 send_email_change_verification(new_email, raw_code),
                 email_type="email_change_verification",
                 user_id=user_id,
