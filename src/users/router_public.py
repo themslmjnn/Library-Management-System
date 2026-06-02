@@ -1,9 +1,12 @@
+from typing import Unpack
+
 from fastapi import APIRouter, Request, status
 
 from src.core.dependencies import async_db_dependency, current_user_dependency
 from src.core.limiter import ip_limiter, user_limiter
 from src.users.schemas import (
     CreateUserPublic,
+    ForgotPasswordPublicRequest,
     UpdateUser,
     UpdateUserPasswordPublic,
     UserResponseBase,
@@ -29,7 +32,21 @@ async def create_account_public(
     return await UserServicePublic.create_account_public(db, user_request)
 
 
-@router.get("/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK)
+@router.post(
+    "/forgot_password", response_model=MessageResponse, status_code=status.HTTP_200_OK
+)
+@ip_limiter.limit("5/minute")
+async def create_forgot_password_request(
+    request: Request,
+    db: async_db_dependency,
+    forgot_password_request: ForgotPasswordPublicRequest,
+):
+    await UserServicePublic.create_forgot_passsword_request_public(
+        db, forgot_password_request
+    )
+
+
+@router.get("/me", response_model=Unpack[UserResponseBase], status_code=status.HTTP_200_OK)
 async def get_me(
     db: async_db_dependency,
     current_user: current_user_dependency,

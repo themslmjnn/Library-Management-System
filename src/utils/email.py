@@ -120,41 +120,41 @@ async def send_account_activation_code(email: str, code: str) -> None:
 
 
 async def send_already_registered_email(email: str) -> None:
-    forgot_password_link = f"{settings.APP_URL}/auth/forgot-password"
+    forgot_password_link = f"{settings.APP_URL}/auth/forgot_password"
 
     html = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
-        <div style="max-width:560px;margin:auto;background:white;
-                    padding:40px;border-radius:8px;">
-            <h1 style="color:#1d4ed8;">Library Management System</h1>
-            <h2>Registration attempt on your account</h2>
-            <p>
-                Someone tried to create a new account using your email address.
-            </p>
-            <p>
-                If this was you, your account already exists.
-                You can sign in or reset your password using the link below.
-            </p>
-            <div style="margin:40px 0;text-align:center;">
-                <a href="{forgot_password_link}"
-                    style="background:#1d4ed8;color:white;padding:14px 28px;
-                           border-radius:6px;text-decoration:none;font-weight:bold;">
-                    Reset Password
-                </a>
+        <!DOCTYPE html>
+        <html lang="en">
+        <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+            <div style="max-width:560px;margin:auto;background:white;
+                        padding:40px;border-radius:8px;">
+                <h1 style="color:#1d4ed8;">Library Management System</h1>
+                <h2>Registration attempt on your account</h2>
+                <p>
+                    Someone tried to create a new account using your email address.
+                </p>
+                <p>
+                    If this was you, your account already exists.
+                    You can sign in or reset your password using the link below.
+                </p>
+                <div style="margin:40px 0;text-align:center;">
+                    <a href="{forgot_password_link}"
+                        style="background:#1d4ed8;color:white;padding:14px 28px;
+                            border-radius:6px;text-decoration:none;font-weight:bold;">
+                        Reset Password
+                    </a>
+                </div>
+                <p>
+                    If this was not you, no action is needed.
+                    Your account and password have not been changed.
+                </p>
+                <p style="font-size:13px;color:#6b7280;">
+                    If you are concerned about your account security,
+                    consider changing your password.
+                </p>
             </div>
-            <p>
-                If this was not you, no action is needed.
-                Your account and password have not been changed.
-            </p>
-            <p style="font-size:13px;color:#6b7280;">
-                If you are concerned about your account security,
-                consider changing your password.
-            </p>
-        </div>
-    </body>
-    </html>
+        </body>
+        </html>
     """
 
     text = (
@@ -168,6 +168,97 @@ async def send_already_registered_email(email: str) -> None:
 
     await _send(
         subject="Someone tried to register with your email",
+        to_email=email,
+        html_body=html,
+        text_body=text,
+    )
+
+async def send_forgot_password_email(
+    email: str,
+    raw_reset_token: str,
+) -> None:
+    reset_link = (
+        f"{settings.APP_URL}/auth/reset_password?token={raw_reset_token}"
+    )
+ 
+    html = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+            <div style="max-width:560px;margin:auto;background:white;
+                        padding:40px;border-radius:8px;">
+                <h1 style="color:#1d4ed8;">Library Management System</h1>
+                <p>
+                    You requested a password reset for your account.
+                    Click the button below to set a new password.
+                    This link expires in
+                    <strong>{settings.RESET_PASSWORD_EXPIRES_MINUTES} minutes</strong>.
+                </p>
+                <div style="margin:40px 0;text-align:center;">
+                    <a href="{reset_link}"
+                        style="background:#1d4ed8;color:white;padding:14px 28px;
+                            border-radius:6px;text-decoration:none;font-weight:bold;">
+                        Reset Password
+                    </a>
+                </div>
+                <p style="font-size:13px;color:#6b7280;">
+                    If you did not request this, ignore this email.
+                    Your password has not been changed.
+                </p>
+            </div>
+        </body>
+        </html>
+    """
+ 
+    text = (
+        f"You requested a password reset for your "
+        f"Library Management System account.\n\n"
+        f"Reset your password using the link below:\n\n"
+        f"{reset_link}\n\n"
+        f"This link expires in {settings.RESET_PASSWORD_EXPIRES_MINUTES} minutes.\n\n"
+        f"If you did not request this, ignore this email. "
+        f"Your password has not been changed."
+    )
+ 
+    await _send(
+        subject="Your Library password reset link",
+        to_email=email,
+        html_body=html,
+        text_body=text,
+    )
+
+async def send_password_changed_confirmation(email: str) -> None:
+    html = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+            <div style="max-width:560px;margin:auto;background:white;
+                        padding:40px;border-radius:8px;">
+                <h1 style="color:#1d4ed8;">Library Management System</h1>
+                <h2>Your password was changed</h2>
+                <p>
+                    Your account password was successfully changed.
+                    If you made this change, no action is needed.
+                </p>
+                <p>
+                    If you did not change your password, contact your administrator
+                    immediately as your account may be compromised.
+                </p>
+            </div>
+        </body>
+        </html>
+    """
+ 
+    text = (
+        "Library Management System.\n\n"
+        "Your account password was successfully changed.\n\n"
+        "If you made this change, no action is needed.\n\n"
+        "If you did not change your password, contact your administrator "
+        "immediately as your account may be compromised."
+    )
+ 
+    await _send(
+        subject="Your Library password was changed",
         to_email=email,
         html_body=html,
         text_body=text,

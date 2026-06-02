@@ -30,6 +30,7 @@ from src.users.schemas import (
     CreateUserAdmin,
     CreateUserBase,
     CreateUserPublic,
+    ForgotPasswordPublicRequest,
     SearchUserAdmin,
     SearchUserBase,
     UpdateUser,
@@ -55,7 +56,9 @@ from src.utils.email import (
     build_activation_code_email,
     send_account_activation_code,
     send_already_registered_email,
+    send_forgot_password_email,
     send_invite_email,
+    send_password_changed_confirmation,
     send_reset_password_token,
     send_safe,
 )
@@ -548,7 +551,7 @@ class UserServicePublic:
             subject, html_body, text_body = build_activation_code_email(
                 raw_activation_code
             )
-            
+
             PendingEmailRepository.create(
                 db,
                 recipient=new_user.email,
@@ -590,6 +593,41 @@ class UserServicePublic:
                 raise
 
             return MessageResponse(detail=PublicMessages.REGISTRATION)
+
+    @staticmethod
+    async def create_forgot_passsword_request_public(
+        db: AsyncSession, forgot_password_request: ForgotPasswordPublicRequest
+    ) -> MessageResponse:
+        user = (
+            await UserRepositoryBase.get_user_by_username_and_phone_number_with_session(
+                db,
+                forgot_password_request.username,
+                forgot_password_request.phone_number,
+            )
+        )
+
+        if user is not None and user.session is None:
+            raw_reset_password_token, hashed_reset_password_token = (
+                generate_reset_password_token()
+            )
+
+            user.session.reset_password_token_hash = hashed_reset_password_token
+            user.session.reset_password_token_expires_at = datetime.now(
+                timedelta.utc
+            ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
+
+            await db.commit()
+
+            asyncio.create_task(
+                send_safe(
+                    send_forgot_password_email(user.email, raw_reset_password_token),
+                    email_type="forgot_password",
+                )
+            )
+
+            logger.info("forgot_password_request_processed")
+
+            return MessageResponse(PublicMessages.FORGOT_PASSWORD)
 
     @staticmethod
     async def get_me(db: AsyncSession, user_id: int) -> dict:
@@ -644,58 +682,14 @@ class UserServicePublic:
             handle_user_integrity_error(e)
             raise
 
-    # @staticmethod
-    # async def forgot_password_public(
-    #     db: AsyncSession, email: str
-    # ) -> dict:
-    #     """
-    #     Public forgot password with enumeration protection.
-
-    #     Looks up the user by email. If found, writes a reset token and
-    #     sends the email as fire-and-forget. If not found, does nothing.
-    #     Caller always receives the same response either way.
-    #     """
-    #     user = await UserRepositoryBase.get_user_by_email(db, email)
-
-    #     if user is not None and user.session is not None:
-    #         raw_reset_token, hashed_reset_token = generate_reset_password_token()
-
-    #         user.session.reset_password_token_hash = hashed_reset_token
-    #         user.session.reset_password_token_expires_at = datetime.now(
-    #             timezone.utc
-    #         ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
-
-    #         await db.commit()
-
-    #         asyncio.create_task(
-    #             _send_safe(
-    #                 send_forgot_password_email(user.email, raw_reset_token),
-    #                 email_type="forgot_password",
-    #                 # Do not log user_id here — would confirm email exists in logs
-    #             )
-    #         )
-
-    #         logger.info("forgot_password_request_processed")
-    #         # Note: deliberately no user_id in this log line —
-    #         # keeps logs from becoming an enumeration oracle too
-
-    #     # Always return the same response
-    #     return {
-    #         "detail": (
-    #             "If this email is registered, "
-    #             "you will receive a password reset link."
-    #         )
-    #     }
-
     @staticmethod
     async def update_my_password(
         db: AsyncSession, user_id: int, password_request: UpdateUserPasswordPublic
     ) -> None:
         user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
 
-        # # Admin-created users have no password hash
-        # if not user.password_hash:
-        #     raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)
+        if not user.password_hash:
+            raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)
 
         if not verify_password(password_request.old_password, user.password_hash):
             raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)
@@ -708,6 +702,14 @@ class UserServicePublic:
 
         await db.commit()
 
+        asyncio.create_task(
+            send_safe(
+                send_password_changed_confirmation(user.email),
+                email_type="password_changed_confirmation",
+                user_id=user_id,
+            )
+        )
+ 
         logger.info(
             "password_changed",
             user_id=user_id,

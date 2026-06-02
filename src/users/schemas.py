@@ -110,3 +110,13 @@ class SearchUserAdmin(SearchUserBase):
     username: str | None = Field(default=None, max_length=15)
     role: UserRole | None = None
     is_active: bool | None = None
+
+
+class ForgotPasswordPublicRequest(BaseModel):
+    username: str = Field(min_length=6, max_length=20)
+    phone_number: str
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone_number(cls, field: str) -> str:
+        return validate_phone_number(field)
