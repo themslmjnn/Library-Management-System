@@ -71,3 +71,44 @@ async def update_my_password(
     password_request: UpdateUserPasswordPublic,
 ):
     await UserServicePublic.update_my_password(db, current_user.id, password_request)
+
+@router.post(
+    "/me/email",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+)
+async def request_email_change(
+    db: async_db_dependency,
+    current_user: current_user_dependency,
+    body: RequestEmailChangeRequest,
+):
+    """
+    Step 1: user requests changing their email address.
+ 
+    Sends a verification code to the NEW address.
+    Does not change the current email until the code is confirmed.
+    """
+    return await UserServicePublic.request_email_change(
+        db, current_user.id, body.new_email
+    )
+ 
+ 
+@router.post(
+    "/me/email/confirm",
+    response_model=None,
+    status_code=status.HTTP_200_OK,
+)
+async def confirm_email_change(
+    db: async_db_dependency,
+    current_user: current_user_dependency,
+    body: ConfirmEmailChangeRequest,
+):
+    """
+    Step 2: user submits the code they received at their new address.
+ 
+    On success: email is updated, all tokens are invalidated,
+    user must log in again with new email.
+    """
+    return await UserServicePublic.confirm_email_change(
+        db, current_user.id, body.code
+    )

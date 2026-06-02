@@ -263,3 +263,65 @@ async def send_password_changed_confirmation(email: str) -> None:
         html_body=html,
         text_body=text,
     )
+
+async def send_email_change_verification(
+    new_email: str,
+    code: str,
+) -> None:
+    """
+    Sent to the NEW email address when a user requests an email change.
+    The code proves they own the new address before we update the record.
+ 
+    Sent to the new address — not the current one — because we're
+    verifying ownership of the destination address.
+ 
+    Fire and forget — if it fails, the user requests again.
+    The pending_email on their session is cleared on next request
+    or when a new change is initiated.
+    """
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+        <div style="max-width:560px;margin:auto;background:white;
+                    padding:40px;border-radius:8px;">
+            <h1 style="color:#1d4ed8;">Library Management System</h1>
+            <h2>Confirm your new email address</h2>
+            <p>
+                You requested to change your email address.
+                Enter the code below to confirm this new address.
+                It expires in
+                <strong>{settings.ACTIVATION_CODE_EXPIRES_MINUTES} minutes</strong>.
+            </p>
+            <div style="display:inline-block;background:#f0f4ff;
+                        border:2px solid #1d4ed8;border-radius:8px;
+                        padding:20px 48px;margin:24px 0;">
+                <span style="font-size:36px;font-weight:700;
+                             letter-spacing:10px;color:#1d4ed8;">
+                    {code}
+                </span>
+            </div>
+            <p style="font-size:13px;color:#6b7280;">
+                If you did not request this change, ignore this email.
+                Your current email address has not been changed.
+            </p>
+        </div>
+    </body>
+    </html>
+    """
+ 
+    text = (
+        f"Library Management System.\n\n"
+        f"You requested to change your email address.\n\n"
+        f"Your confirmation code is: {code}\n\n"
+        f"It expires in {settings.ACTIVATION_CODE_EXPIRES_MINUTES} minutes.\n\n"
+        f"If you did not request this change, ignore this email. "
+        f"Your current email address has not been changed."
+    )
+ 
+    await _send(
+        subject="Confirm your new Library email address",
+        to_email=new_email,
+        html_body=html,
+        text_body=text,
+    )
