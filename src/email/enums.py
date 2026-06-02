@@ -5,6 +5,7 @@ class EmailType(str, Enum):
     invite = "invite"
     password_reset_admin = "password_reset_admin"
     activation_with_token = "activation_with_token"
+    activation_with_code = "activation_with_code"
 
 
 class EmailSendingStatus(str, Enum):

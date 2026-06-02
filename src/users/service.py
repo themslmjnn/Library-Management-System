@@ -1,5 +1,8 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
+from email.enums import EmailType
+from email.repository import PendingEmailRepository
+from email.schemas import PendingEmailCreate
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +18,7 @@ from src.core.security import (
     hash_password,
     verify_password,
 )
+from src.email.models import PendingEmail
 from src.pagination import PaginatedResponse
 from src.users.models import User, UserActivation, UserSession
 from src.users.repository import (
@@ -47,14 +51,19 @@ from src.utils.custom_exceptions import (
     UserNotFoundError,
     handle_user_integrity_error,
 )
-from utils.email import (
+from src.utils.email import (
+    build_activation_code_email,
     send_account_activation_code,
+    send_already_registered_email,
     send_invite_email,
     send_reset_password_token,
+    send_safe,
 )
 from src.utils.enums import UserRole
 from src.utils.exception_constants import HTTP400, HTTP403, HTTP404
 from src.utils.helpers import ensure_exists, update_object
+from src.utils.response_messages import PublicMessages
+from src.utils.response_schemas import MessageResponse
 
 logger = get_logger(__name__)
 
@@ -500,7 +509,7 @@ class UserServicePublic:
     @staticmethod
     async def create_account_public(
         db: AsyncSession, user_request: CreateUserPublic
-    ) -> User:
+    ) -> MessageResponse:
         raw_activation_code, hashed_activation_code = generate_account_activation_code()
         account_activation_code_expires_at = datetime.now(timezone.utc) + timedelta(
             minutes=settings.ACTIVATION_CODE_EXPIRES_MINUTES
@@ -536,70 +545,51 @@ class UserServicePublic:
             UserRepositoryBase.add_entity(db, new_user_activation)
             UserRepositoryBase.add_entity(db, new_user_session)
 
-            await db.commit()
-            await db.refresh(new_user)
-
-            activation_task = asyncio.create_task(
-                send_account_activation_code(new_user.email, raw_activation_code)
+            subject, html_body, text_body = build_activation_code_email(
+                raw_activation_code
+            )
+            
+            PendingEmailRepository.create(
+                db,
+                recipient=new_user.email,
+                subject=subject,
+                html_body=html_body,
+                text_body=text_body,
+                email_type=EmailType.activation_with_code,
+                triggered_by=None,
+                recipient_user_id=new_user.id,
             )
 
-            # asyncio.create_task(
-            #     _send_safe(
-            #         send_account_activation_code(new_user.email, raw_activation_code),
-            #         email_type="activation",
-            #         user_id=new_user.id,
-            #     )
-            # )
+            await db.commit()
 
             logger.info(
                 "user_registered",
                 user_id=new_user.id,
                 method="self-registered",
             )
-
-            return new_user
         except IntegrityError as e:
             await db.rollback()
-            # if "users_email_key" in str(e.orig):
-            #     # Email already exists — notify the real owner silently.
-            #     # We do NOT raise here — attacker gets identical response.
-            #     logger.info(
-            #         "registration_attempted_with_existing_email",
-            #         # Log only that it happened, not the email itself (PII)
-            #     )
-            #     asyncio.create_task(
-            #         _send_safe(
-            #             send_already_registered_email(user_request.email),
-            #             email_type="already_registered_notice",
-            #         )
-            #     )
-            # else:
-            #     # Different integrity error (phone number, username) —
-            #     # these are safe to surface because they don't reveal
-            #     # whether a specific email account exists
-            #     logger.error(
-            #         "user_registration_failed",
-            #         reason="integrity_error",
-            #         error=str(e.orig),
-            #     )
-            #     handle_user_integrity_error(e)
-            #     raise
 
-            # return {
-            #     "detail": (
-            #         "If this email is not registered, "
-            #         "you will receive an activation code."
-            #     )
-            # }
+            if "users_email_key" in str(e.orig):
+                logger.info("registration_attempted_with_existing_email")
 
-            logger.error(
-                "user_registration_failed",
-                reason="integrity_error",
-                error=str(e.orig),
-            )
+                asyncio.create_task(
+                    send_safe(
+                        send_already_registered_email(user_request.email),
+                        email_type="already_registered_notice",
+                    )
+                )
+            else:
+                logger.error(
+                    "user_registration_failed",
+                    reason="integrity_error",
+                    error=str(e.orig),
+                )
 
-            handle_user_integrity_error(e)
-            raise
+                handle_user_integrity_error(e)
+                raise
+
+            return MessageResponse(detail=PublicMessages.REGISTRATION)
 
     @staticmethod
     async def get_me(db: AsyncSession, user_id: int) -> dict:

@@ -16,11 +16,8 @@ class PendingEmail(Base):
     html_body: Mapped[str] = mapped_column(Text, nullable=False)
     text_body: Mapped[str] = mapped_column(Text, nullable=False)
 
-    email_type: Mapped[EmailType] = mapped_column(
-        SQLEnum(EmailType), nullable=False
-    )
+    email_type: Mapped[EmailType] = mapped_column(SQLEnum(EmailType), nullable=False)
 
-    # Status tracking
     status: Mapped[str] = mapped_column(
         SQLEnum(EmailSendingStatus),
         nullable=False,
@@ -54,4 +51,3 @@ class PendingEmail(Base):
         "User",
         foreign_keys=[recipient_user_id],
     )
-

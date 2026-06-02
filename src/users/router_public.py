@@ -9,6 +9,7 @@ from src.users.schemas import (
     UserResponseBase,
 )
 from src.users.service import UserServicePublic
+from src.utils.response_schemas import MessageResponse
 
 router = APIRouter(
     prefix="/users",
@@ -17,7 +18,7 @@ router = APIRouter(
 
 
 @router.post(
-    "/register", response_model=UserResponseBase, status_code=status.HTTP_201_CREATED
+    "/register", response_model=MessageResponse, status_code=status.HTTP_200_OK
 )
 @ip_limiter.limit("3/minute")
 async def create_account_public(
