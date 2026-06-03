@@ -421,3 +421,40 @@ async def send_reset_password_token(email: str, raw_reset_token: str) -> None:
     subject, html, text = build_reset_password_email(raw_reset_token)
 
     await _send(subject=subject, to_email=email, html_body=html, text_body=text)
+
+async def send_account_deactivation_email(email: str) -> None:
+    html = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+            <div style="max-width:560px;margin:auto;background:white;
+                        padding:40px;border-radius:8px;">
+                <h1 style="color:#1d4ed8;">Library Management System</h1>
+                <h2>Your account has been deactivated</h2>
+                <p>
+                    An administrator has deactivated your account.
+                    You will no longer be able to log in.
+                </p>
+                <p>
+                    If you believe this was done in error, please contact
+                    your library administrator.
+                </p>
+            </div>
+        </body>
+        </html>
+    """
+
+    text = (
+        "Library Management System.\n\n"
+        "An administrator has deactivated your account. "
+        "You will no longer be able to log in.\n\n"
+        "If you believe this was done in error, please contact "
+        "your library administrator."
+    )
+
+    await _send(
+        subject="Your Library account has been deactivated",
+        to_email=email,
+        html_body=html,
+        text_body=text,
+    )

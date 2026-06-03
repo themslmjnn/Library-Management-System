@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +9,6 @@ from src.email.repository import PendingEmailRepository
 from src.users.models import User, UserRole
 from src.users.repository import UserRepositoryBase
 from src.users.schemas import CreateUserAdmin
-from src.utils.custom_exceptions import CannotCreateSystemAdminError
 from tests.conftest import make_auth_header
 from tests.constants import NEW_PASSWORD
 from tests.factories import make_library_admin, make_member, make_system_admin
@@ -330,7 +331,9 @@ class TestGetUserByIDAdmin:
     ):
         user = await make_member(test_db)
         non_existant_id = user.id + 9999999
+
         headers = await make_auth_header(test_db, system_admin)
+
         response = await client.get(
             f"/users/{non_existant_id}",
             headers=headers,
@@ -360,8 +363,13 @@ class TestGetUserByIDAdmin:
 
 class TestDeactivateUserAdmin:
     async def test_deactivates_user(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mocker
     ):
+        mocker.patch(
+            "src.users.service.send_account_deactivation_email",
+            new_callable=AsyncMock,
+        )
+
         user = await make_member(test_db)
         headers = await make_auth_header(test_db, system_admin)
 
@@ -376,8 +384,13 @@ class TestDeactivateUserAdmin:
         assert user.is_active is False
 
     async def test_returns_409_if_already_inactive(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mocker
     ):
+        mocker.patch(
+            "src.users.service.send_account_deactivation_email",
+            new_callable=AsyncMock,
+        )
+
         user = await make_member(test_db, is_active=False)
         headers = await make_auth_header(test_db, system_admin)
 
@@ -389,8 +402,13 @@ class TestDeactivateUserAdmin:
         assert response.status_code == 409
 
     async def test_receptionist_cannot_deactivate(
-        self, test_db: AsyncSession, client: AsyncClient, receptionist: User
+        self, test_db: AsyncSession, client: AsyncClient, receptionist: User, mocker
     ):
+        mocker.patch(
+            "src.users.service.send_account_deactivation_email",
+            new_callable=AsyncMock,
+        )
+
         user = await make_member(test_db)
         headers = await make_auth_header(test_db, receptionist)
 
@@ -402,15 +420,17 @@ class TestDeactivateUserAdmin:
         assert response.status_code == 403
 
     async def test_invalidates_session(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mocker
     ):
+        mocker.patch(
+            "src.users.service.send_account_deactivation_email",
+            new_callable=AsyncMock,
+        )
+
         user = await make_member(test_db)
         headers = await make_auth_header(test_db, system_admin)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
-        )
-        session = user_session.session
-        original_access_token_version = session.access_token_version
+
+        original_access_token_version = 1
 
         response = await client.patch(
             f"/users/{user.id}/deactivate",
@@ -484,7 +504,7 @@ class TestActivateUserAdmin:
 class TestUpdateUserAdmin:
     async def test_updates_user_successfully(
         self, test_db: AsyncSession, client: AsyncClient, system_admin: User
-    ):
+    ):  
         user = await make_member(test_db)
 
         update_request = {"username": "new_test_username"}

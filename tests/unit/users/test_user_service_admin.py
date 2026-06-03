@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -656,7 +657,7 @@ class TestDeactivateUserAdmin:
         non_existant_id = user.id + 999999
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.deactivate_user_admin(
+            await UserServiceAdmin.deactivate_user(
                 test_db, system_admin.id, non_existant_id
             )
 
@@ -669,7 +670,7 @@ class TestDeactivateUserAdmin:
         )
 
         with pytest.raises(UserAlreadyInactiveError):
-            await UserServiceAdmin.deactivate_user_admin(
+            await UserServiceAdmin.deactivate_user(
                 test_db, system_admin.id, user.id
             )
 
@@ -678,7 +679,11 @@ class TestDeactivateUserAdmin:
     ):
         user = await make_member(test_db)
 
-        await UserServiceAdmin.deactivate_user_admin(test_db, system_admin.id, user.id)
+        with patch(
+            "src.users.service.send_account_deactivation_email",
+            new_callable=AsyncMock,
+        ):
+            await UserServiceAdmin.deactivate_user(test_db, system_admin.id, user.id)
 
         await test_db.refresh(user)
         user_session = await UserRepositoryBase.get_user_by_id_with_session(
@@ -698,19 +703,18 @@ class TestDeactivateUserAdmin:
         user_session = await UserRepositoryBase.get_user_by_id_with_session(
             test_db, user.id
         )
-        session = user_session.session
 
-        original_version = session.access_token_version
+        original_version = user_session.session.access_token_version
 
-        await UserServiceAdmin.deactivate_user_admin(test_db, system_admin.id, user.id)
+        with patch(
+            "src.users.service.send_account_deactivation_email",
+            new_callable=AsyncMock,
+        ):
+            await UserServiceAdmin.deactivate_user(test_db, system_admin.id, user.id)
 
-        user_session_updated = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
-        )
-        session = user_session_updated.session
+        await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
 
-        assert session.access_token_version == original_version + 1
-
+        assert user_session.session.access_token_version == original_version + 1
 
 class TestActivateUserAdmin:
     async def test_does_not_activate_unknown_user(
