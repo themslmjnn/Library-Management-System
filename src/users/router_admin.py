@@ -30,7 +30,7 @@ router = APIRouter(
 
 @router.post("", response_model=UserResponseAdmin, status_code=status.HTTP_201_CREATED)
 @user_limiter.limit("5/minute")
-async def create_account_admin(
+async def create_account(
     request: Request,
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_admin)],
@@ -47,7 +47,7 @@ async def create_account_admin(
     status_code=status.HTTP_200_OK,
 )
 @user_limiter.limit("15/minute")
-async def get_users_admin(
+async def get_users(
     request: Request,
     db: async_db_dependency,
     _: Annotated[User, Depends(require_system_admin)],
@@ -69,7 +69,7 @@ async def get_users_admin(
 @router.get(
     "/{user_id}", response_model=UserResponseAdmin, status_code=status.HTTP_200_OK
 )
-async def get_user_by_id_admin(
+async def get_user_by_id(
     db: async_db_dependency,
     _: Annotated[User, Depends(require_system_admin)],
     user_id: Annotated[int, Path(ge=1)],
@@ -98,13 +98,13 @@ async def activate_user_admin(
 @router.patch(
     "/{user_id}", response_model=UserResponseAdmin, status_code=status.HTTP_200_OK
 )
-async def update_user_admin(
+async def update_user(
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_admin)],
     user_id: Annotated[int, Path(ge=1)],
     update_request: UpdateUser,
 ):
-    return await UserServiceAdmin.update_user_admin(
+    return await UserServiceAdmin.update_user(
         db, current_user.id, user_id, update_request
     )
 

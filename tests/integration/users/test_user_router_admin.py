@@ -2,12 +2,210 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.email.enums import EmailType
+from src.email.repository import PendingEmailRepository
 from src.users.models import User, UserRole
 from src.users.repository import UserRepositoryBase
 from src.users.schemas import CreateUserAdmin
+from src.utils.custom_exceptions import CannotCreateSystemAdminError
 from tests.conftest import make_auth_header
 from tests.constants import NEW_PASSWORD
 from tests.factories import make_library_admin, make_member, make_system_admin
+
+
+class TestCreateAccountAdmin:
+    async def test_creates_user_with_invite_token(
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        system_admin: User,
+        valid_create_user_request_admin: CreateUserAdmin,
+    ):
+        headers = await make_auth_header(test_db, system_admin)
+        valid_create_user_request_admin.role = UserRole.library_admin
+
+        response = await client.post(
+            "/users",
+            json=valid_create_user_request_admin.model_dump(mode="json"),
+            headers=headers,
+        )
+
+        data = response.json()
+        user = await UserRepositoryBase.get_user_by_id_with_activation(
+            test_db, data["id"]
+        )
+        user_activation = user.activation
+
+        pending_email = await PendingEmailRepository.get_pending_email_by_triggered_by(
+            test_db, system_admin.id
+        )
+
+        email = pending_email[0]
+
+        assert len(pending_email) == 1
+
+        assert response.status_code == 201
+        assert data["id"] is not None
+        assert data["role"] == "library_admin"
+        assert data["is_active"] is False
+        assert user_activation.invite_token_hash is not None
+        assert user_activation.invite_token_expires_at is not None
+        assert user_activation.user_id == data["id"]
+        assert email.email_type == EmailType.invite
+
+    async def test_rejects_system_admin_role(
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        system_admin: User,
+        valid_create_user_request_admin: CreateUserAdmin,
+    ):
+        headers = await make_auth_header(test_db, system_admin)
+        valid_create_user_request_admin.role = UserRole.system_admin
+
+        response = await client.post(
+            "/users",
+            json=valid_create_user_request_admin.model_dump(mode="json"),
+            headers=headers,
+        )
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Cannot create system admin through the API"
+
+    @pytest.mark.parametrize(
+        ("existing_user_data", "request_override"),
+        [
+            (
+                {"email": "taken@gmail.com"},
+                {"email": "taken@gmail.com"},
+            ),
+            (
+                {"username": "taken_username"},
+                {"username": "taken_username"},
+            ),
+            (
+                {"phone_number": "+992 000 000 000"},
+                {"phone_number": "+992 000 000 000"},
+            ),
+        ],
+    )
+    async def test_reject_duplicate_fields(
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        system_admin: User,
+        valid_create_user_request_admin: CreateUserAdmin,
+        existing_user_data: dict,
+        request_override: dict,
+    ):
+        await make_member(
+            test_db,
+            **existing_user_data,
+        )
+
+        for field, value in request_override.items():
+            setattr(valid_create_user_request_admin, field, value)
+
+        headers = await make_auth_header(test_db, system_admin)
+
+        response = await client.post(
+            "/users",
+            json=valid_create_user_request_admin.model_dump(mode="json"),
+            headers=headers,
+        )
+
+        assert response.status_code == 409
+
+    async def test_returns_403_for_non_admin(
+        self, test_db: AsyncSession, client: AsyncClient, library_admin: User
+    ):
+        headers = await make_auth_header(test_db, library_admin)
+
+        response = await client.post(
+            "/users",
+            headers=headers,
+        )
+
+        assert response.status_code == 403
+
+    async def test_rejects_invalid_names(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        headers = await make_auth_header(test_db, system_admin)
+
+        payload = {
+            "first_name": "Name123",
+            "last_name": "Surname123",
+            "email": "duplicate@gmail.com",
+            "phone_number": "+1 111 111 111",
+            "date_of_birth": "1990-01-01",
+            "role": "member",
+        }
+
+        response = await client.post(
+            "/users",
+            json=payload,
+            headers=headers,
+        )
+
+        errors = response.json()["detail"]
+        error_fields = [error["loc"][-1] for error in errors]
+
+        assert response.status_code == 422
+        assert "first_name" in error_fields
+        assert "last_name" in error_fields
+
+    async def test_rejects_invalid_phone_number(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        headers = await make_auth_header(test_db, system_admin)
+
+        payload = {
+            "first_name": "Name",
+            "last_name": "Surname",
+            "email": "duplicate@gmail.com",
+            "phone_number": "1 11a 1d1",
+            "date_of_birth": "1990-01-01",
+            "role": "member",
+        }
+
+        response = await client.post(
+            "/users",
+            json=payload,
+            headers=headers,
+        )
+
+        errors = response.json()["detail"]
+        error_fields = [error["loc"][-1] for error in errors]
+
+        assert response.status_code == 422
+        assert "phone_number" in error_fields
+
+    async def test_rejects_invalid_date_of_birth(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        headers = await make_auth_header(test_db, system_admin)
+
+        payload = {
+            "first_name": "Name",
+            "last_name": "Surname",
+            "email": "duplicate@gmail.com",
+            "phone_number": "+1 111 111 111",
+            "date_of_birth": "2015-01-01",
+            "role": "member",
+        }
+
+        response = await client.post(
+            "/users",
+            json=payload,
+            headers=headers,
+        )
+
+        errors = response.json()["detail"]
+        error_fields = [error["loc"][-1] for error in errors]
+
+        assert response.status_code == 422
+        assert "date_of_birth" in error_fields
 
 
 class TestGetUsersAdmin:
@@ -275,127 +473,6 @@ class TestActivateUserAdmin:
         )
 
         assert response.status_code == 403
-
-
-class TestCreateAccountAdmin:
-    async def test_creates_user_with_invite_token(
-        self,
-        test_db: AsyncSession,
-        client: AsyncClient,
-        system_admin: User,
-        valid_create_user_request_admin: CreateUserAdmin,
-    ):
-        headers = await make_auth_header(test_db, system_admin)
-        valid_create_user_request_admin.role = UserRole.library_admin
-
-        response = await client.post(
-            "/users",
-            json=valid_create_user_request_admin.model_dump(mode="json"),
-            headers=headers,
-        )
-
-        data = response.json()
-
-        assert response.status_code == 201
-        assert data["id"] is not None
-        assert data["role"] == "library_admin"
-        assert data["is_active"] is False
-
-    async def test_rejects_system_admin_role(
-        self,
-        test_db: AsyncSession,
-        client: AsyncClient,
-        system_admin: User,
-        valid_create_user_request_admin: CreateUserAdmin,
-    ):
-        headers = await make_auth_header(test_db, system_admin)
-        valid_create_user_request_admin.role = UserRole.system_admin
-
-        response = await client.post(
-            "/users",
-            json=valid_create_user_request_admin.model_dump(mode="json"),
-            headers=headers,
-        )
-
-        assert response.status_code == 403
-
-    @pytest.mark.parametrize(
-        ("existing_user_data", "request_override"),
-        [
-            (
-                {"email": "taken@gmail.com"},
-                {"email": "taken@gmail.com"},
-            ),
-            (
-                {"username": "taken_username"},
-                {"username": "taken_username"},
-            ),
-            (
-                {"phone_number": "+992 000 000 000"},
-                {"phone_number": "+992 000 000 000"},
-            ),
-        ],
-    )
-    async def test_reject_duplicate_fields(
-        self,
-        test_db: AsyncSession,
-        client: AsyncClient,
-        system_admin: User,
-        valid_create_user_request_admin: CreateUserAdmin,
-        existing_user_data: dict,
-        request_override: dict,
-    ):
-        await make_member(
-            test_db,
-            **existing_user_data,
-        )
-
-        for field, value in request_override.items():
-            setattr(valid_create_user_request_admin, field, value)
-
-        headers = await make_auth_header(test_db, system_admin)
-
-        response = await client.post(
-            "/users",
-            json=valid_create_user_request_admin.model_dump(mode="json"),
-            headers=headers,
-        )
-
-        assert response.status_code == 409
-
-    async def test_returns_403_for_non_admin(
-        self, test_db: AsyncSession, client: AsyncClient, library_admin: User
-    ):
-        headers = await make_auth_header(test_db, library_admin)
-
-        response = await client.post(
-            "/users",
-            headers=headers,
-        )
-
-        assert response.status_code == 403
-
-    async def test_rejects_invalid_input(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
-    ):
-        await make_member(test_db)
-        headers = await make_auth_header(test_db, system_admin)
-        payload = {
-            "first_name": "Co",
-            "last_name": "Ca",
-            "email": "duplicate@gmailcom",
-            "phone_number": "+15550008888",
-            "date_of_birth": "1990-01-01",
-            "role": "member",
-        }
-
-        response = await client.post(
-            "/users",
-            json=payload,
-            headers=headers,
-        )
-
-        assert response.status_code == 422
 
 
 class TestUpdateUserAdmin:

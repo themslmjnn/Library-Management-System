@@ -69,29 +69,29 @@ _PHONE_RE = re.compile(r"^[+\d][\d\s\-().]{5,19}$")
 _DIGIT_RE = re.compile(r"\d")
 
 
-def validate_phone_number(phone: str) -> str:
-    phone = phone.strip()
+def validate_phone_number(phone_number: str) -> str:
+    phone_number = phone_number.strip()
 
-    if not _PHONE_RE.match(phone):
+    if not _PHONE_RE.match(phone_number):
         raise PydanticCustomError(
-            "phone_invalid_format",
+            "phone_number_invalid_format",
             "Phone number contains invalid characters",
         )
 
-    digit_count = len(_DIGIT_RE.findall(phone))
+    digit_count = len(_DIGIT_RE.findall(phone_number))
 
     if digit_count < 7:
         raise PydanticCustomError(
-            "phone_too_short",
+            "phone_number_too_short",
             "Phone number must contain at least 7 digits",
         )
     if digit_count > 15:
         raise PydanticCustomError(
-            "phone_too_long",
+            "phone_number_too_long",
             "Phone number must not exceed 15 digits",
         )
 
-    return phone
+    return phone_number
 
 
 def validate_publishing_date(publishing_date: date | str) -> date:
@@ -111,3 +111,22 @@ def validate_publishing_date(publishing_date: date | str) -> date:
         )
 
     return publishing_date
+
+
+def validate_first_name(first_name: str) -> str:
+    if not first_name.isalpha():
+        raise PydanticCustomError(
+            "first_name_must_only_have_letters",
+            "First name must only contain letters",
+        )
+    
+    return first_name
+
+def validate_last_name(last_name: str) -> str:
+    if not last_name.isalpha():
+        raise PydanticCustomError(
+            "last_name_must_only_have_letters",
+            "Last name must only contain letters",
+        )
+    
+    return last_name

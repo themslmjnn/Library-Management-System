@@ -2,6 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -27,21 +28,6 @@ setup_logging()
 
 logger = get_logger(__name__)
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    try:
-        await redis_client.ping()
-        logger.info("redis_connected")
-    except Exception as e:
-        logger.warning("redis_unavailable", error=str(e))
-
-    yield
-
-    await redis_client.aclose()
-    logger.info("redis_disconnected")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -63,7 +49,7 @@ async def lifespan(app: FastAPI):
     email_worker_task.cancel()
     try:
         await email_worker_task
-    except asyncio.CancelledError:
+    except (asyncio.CancelledError, Exception):
         logger.info("email_worker_stopped")
         raise
 
@@ -79,7 +65,6 @@ app = FastAPI(
     redoc_url=None if settings.ENVIRONMENT == "production" else "/redoc",
 )
 
-
 app.state.limiter = ip_limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
@@ -89,12 +74,20 @@ app.include_router(auth_router)
 app.include_router(user_router_public)
 app.include_router(user_router_staff)
 app.include_router(user_router_admin)
-app.include_router(book_router)
-app.include_router(inventory_router)
-app.include_router(loan_router_public)
-app.include_router(loan_staff_router)
+# app.include_router(book_router)
+# app.include_router(inventory_router)
+# app.include_router(loan_router_public)
+# app.include_router(loan_staff_router)
 app.include_router(email_router)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
 EXCEPTION_STATUS_MAP = {
     exc.UserNotFoundError: 404,

@@ -6,6 +6,8 @@ from src.users.models import UserRole
 from src.utils.base_schema import BaseSchema
 from src.utils.validators import (
     validate_date_of_birth,
+    validate_first_name,
+    validate_last_name,
     validate_password,
     validate_phone_number,
 )
@@ -18,6 +20,16 @@ class CreateUserBase(BaseModel):
     date_of_birth: date
     email: EmailStr
     phone_number: str
+
+    @field_validator("first_name")
+    @classmethod
+    def validate_first_name(cls, field: str) -> str:
+        return validate_first_name(field)
+    
+    @field_validator("last_name")
+    @classmethod
+    def validate_last_name(cls, field: str) -> str:
+        return validate_last_name(field)
 
     @field_validator("date_of_birth")
     @classmethod
@@ -70,7 +82,6 @@ class UpdateUser(BaseModel):
     first_name: str | None = Field(min_length=2, max_length=20, default=None)
     last_name: str | None = Field(min_length=2, max_length=20, default=None)
     date_of_birth: date | None = None
-    email: EmailStr | None = None
     phone_number: str | None = Field(min_length=10, max_length=20, default=None)
 
     @field_validator("date_of_birth", mode="after")
@@ -109,7 +120,7 @@ class SearchUserBase(BaseModel):
 class SearchUserAdmin(SearchUserBase):
     username: str | None = Field(default=None, max_length=15)
     role: UserRole | None = None
-    is_active: bool | None = None
+    is_active: bool | None = Field(default=True)
 
 
 class ForgotPasswordPublicRequest(BaseModel):

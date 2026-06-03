@@ -3,17 +3,18 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.email.enums import EmailType
+from src.email.repository import PendingEmailRepository
 from src.users.models import User, UserRole
 from src.users.repository import UserRepositoryBase
 from src.users.schemas import (
     CreateUserAdmin,
     SearchUserAdmin,
     UpdateUser,
-    UpdateUserPasswordAdmin,
 )
 from src.users.service import UserServiceAdmin
-from src.utils.cache_keys import user_detail_key_admin
-from utils.custom_exceptions import (
+from src.utils.cache_keys import UserCacheKey
+from src.utils.custom_exceptions import (
     CannotCreateSystemAdminError,
     EmailAlreadyTakenError,
     PhonenumberAlreadyTakenError,
@@ -110,6 +111,11 @@ class TestCreateAccountAdmin:
         assert session.refresh_token_family is None
         assert session.failed_login_attempts == 0
         assert session.locked_until is None
+        assert session.reset_password_token_hash is None
+        assert session.reset_password_token_expires_at is None
+        assert session.pending_new_email is None
+        assert session.email_change_code_hash is None
+        assert session.email_change_code_expires_at is None
 
     async def test_create_user_activation_table_successfully(
         self,
@@ -132,6 +138,32 @@ class TestCreateAccountAdmin:
         assert activation.invite_token_expires_at is not None
         assert activation.account_activation_code_hash is None
         assert activation.account_activation_code_expires_at is None
+        assert activation.invite_token_expires_at > datetime.now(timezone.utc)
+
+    async def test_create_pending_email_table_successfully(
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
+        valid_create_user_request_admin: CreateUserAdmin,
+    ):
+        user = await UserServiceAdmin.create_account_admin(
+            test_db, system_admin.id, valid_create_user_request_admin
+        )
+
+        pending_email = await PendingEmailRepository.get_pending_email_by_triggered_by(
+            test_db, system_admin.id
+        )
+
+        email = pending_email[0]
+
+        assert len(pending_email) == 1
+        assert email.recipient == user.email
+        assert email.subject is not None
+        assert email.html_body is not None
+        assert email.text_body is not None
+        assert email.email_type == EmailType.invite
+        assert email.triggered_by == system_admin.id
+        assert email.recipient_user_id == user.id
 
     async def test_create_user_successfully(
         self,
@@ -581,7 +613,7 @@ class TestGetUserByIDAdmin:
         await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
 
         mock_set_cache.assert_called_once_with(
-            user_detail_key_admin(user.id),
+            UserCacheKey.user_detail_key_admin(user.id),
             mocker.ANY,
             900,
         )

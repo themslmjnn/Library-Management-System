@@ -124,7 +124,9 @@ class UserServiceAdmin:
             UserRepositoryBase.add_entity(db, new_user_activation)
             UserRepositoryBase.add_entity(db, new_user_session)
 
-            subject, html_body, text_body = build_invite_email(raw_invite_token)
+            subject, html_body, text_body = build_invite_email(
+                raw_invite_token, new_user.email
+            )
 
             PendingEmailRepository.create(
                 db,
@@ -198,71 +200,75 @@ class UserServiceAdmin:
 
         return serialized
 
+    # @staticmethod
+    # async def deactivate_user_admin(
+    #     db: AsyncSession, current_user_id: int, user_id: int
+    # ) -> None:
+    #     user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
+    #     ensure_exists(user, UserNotFoundError(HTTP404.USER))
+
+    #     if not user.is_active:
+    #         logger.error(
+    #             "deactivate_user_failed",
+    #             target_user_id=user_id,
+    #             requested_by=current_user_id,
+    #             reason="user_is_already_deactivated",
+    #         )
+
+    #         raise UserAlreadyInactiveError("User is already deactivated")
+
+    #     user.is_active = False
+    #     user.session.access_token_version += 1
+    #     user.session.refresh_token_hash = None
+    #     user.session.refresh_token_family = None
+    #     user.session.refresh_token_expires_at = None
+
+    #     await db.commit()
+
+    #     asyncio.create_task(
+    #         send_safe()
+    #     )
+
+    #     await delete_cache(UserCacheKey.user_detail_key_admin(user_id))
+    #     await delete_cache(SessionCacheKey.access_token_version_key(user_id))
+
+    #     logger.info(
+    #         "user_deactivated",
+    #         target_user_id=user_id,
+    #         deactivated_by=current_user_id,
+    #     )
+
+    # @staticmethod
+    # async def activate_user_admin(
+    #     db: AsyncSession, current_user_id: int, user_id: int
+    # ) -> None:
+    #     user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
+    #     ensure_exists(user, UserNotFoundError(HTTP404.USER))
+
+    #     if user.is_active:
+    #         logger.error(
+    #             "activate_user_failed",
+    #             target_user_id=user_id,
+    #             requested_by=current_user_id,
+    #             reason="user_is_already_activated",
+    #         )
+
+    #         raise UserAlreadyActiveError("User is already activated")
+
+    #     user.is_active = True
+
+    #     await db.commit()
+
+    #     await delete_cache(UserCacheKey.user_detail_key_admin(user_id))
+
+    #     logger.info(
+    #         "user_activated",
+    #         target_user_id=user_id,
+    #         activated_by=current_user_id,
+    #     )
+
     @staticmethod
-    async def deactivate_user_admin(
-        db: AsyncSession, current_user_id: int, user_id: int
-    ) -> None:
-        user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
-        ensure_exists(user, UserNotFoundError(HTTP404.USER))
-
-        if not user.is_active:
-            logger.error(
-                "deactivate_user_failed",
-                target_user_id=user_id,
-                requested_by=current_user_id,
-                reason="user_is_already_deactivated",
-            )
-
-            raise UserAlreadyInactiveError("User is already deactivated")
-
-        user.is_active = False
-        user.session.access_token_version += 1
-        user.session.refresh_token_hash = None
-        user.session.refresh_token_family = None
-        user.session.refresh_token_expires_at = None
-
-        await db.commit()
-
-        await delete_cache(UserCacheKey.user_detail_key_admin(user_id))
-        await delete_cache(SessionCacheKey.access_token_version_key(user_id))
-
-        logger.info(
-            "user_deactivated",
-            target_user_id=user_id,
-            deactivated_by=current_user_id,
-        )
-
-    @staticmethod
-    async def activate_user_admin(
-        db: AsyncSession, current_user_id: int, user_id: int
-    ) -> None:
-        user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
-        ensure_exists(user, UserNotFoundError(HTTP404.USER))
-
-        if user.is_active:
-            logger.error(
-                "activate_user_failed",
-                target_user_id=user_id,
-                requested_by=current_user_id,
-                reason="user_is_already_activated",
-            )
-
-            raise UserAlreadyActiveError("User is already activated")
-
-        user.is_active = True
-
-        await db.commit()
-
-        await delete_cache(UserCacheKey.user_detail_key_admin(user_id))
-
-        logger.info(
-            "user_activated",
-            target_user_id=user_id,
-            activated_by=current_user_id,
-        )
-
-    @staticmethod
-    async def update_user_admin(
+    async def update_user(
         db: AsyncSession,
         current_user_id: int,
         user_id: int,

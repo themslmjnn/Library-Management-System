@@ -56,8 +56,8 @@ async def send_safe(coro, **log_context) -> None:
         )
 
 
-def build_invite_email(invite_token: str, user_email: str) -> tuple[str, str, str]:
-    encoded_email = urllib.parse.quote(user_email)
+def build_invite_email(invite_token: str, email: str) -> tuple[str, str, str]:
+    encoded_email = urllib.parse.quote(email)
     activation_link = (
         f"{settings.APP_URL}/auth/activate_with_token"
         f"?token={invite_token}"

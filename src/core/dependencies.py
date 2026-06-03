@@ -116,7 +116,7 @@ require_system_admin_and_staff = require_roles(
 
 class PaginationParams(BaseModel):
     skip: int = Query(ge=0, default=0)
-    limit: int = Query(ge=1, le=100, default=20)
+    limit: int = Query(ge=1, le=100, default=10)
 
 
 pagination_dependency = Annotated[PaginationParams, Depends(PaginationParams)]

@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.email.models import PendingEmail
 from src.email.enums import EmailSendingStatus
+from src.email.models import PendingEmail
 
 
 class PendingEmailRepository:
@@ -118,14 +118,23 @@ class PendingEmailRepository:
         return list(result.scalars().all()), total
 
     @staticmethod
-    async def get_by_id(
-        db: AsyncSession,
-        email_id: int,
-    ) -> PendingEmail | None:
-        result = await db.execute(
-            select(PendingEmail).where(PendingEmail.id == email_id)
-        )
+    async def get_pending_email_by_id(db: AsyncSession, email_id: int) -> PendingEmail | None:
+        query = select(PendingEmail).filter(PendingEmail.id == email_id)
+
+        result = await db.execute(query)
+
         return result.scalar_one_or_none()
+    
+    @staticmethod
+    async def get_pending_email_by_triggered_by(db: AsyncSession, triggered_by: int) -> list[PendingEmail]:
+        query = (
+            select(PendingEmail)
+            .filter(PendingEmail.triggered_by == triggered_by)
+        )
+
+        result = await db.execute(query)
+
+        return result.scalars().all()        
 
     @staticmethod
     async def mark_sent(db: AsyncSession, record: PendingEmail) -> None:
