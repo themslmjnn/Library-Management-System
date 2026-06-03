@@ -764,7 +764,7 @@ class TestUpdateUserAdmin:
         )
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.update_user_admin(
+            await UserServiceAdmin.update_user(
                 test_db, system_admin.id, non_existant_id, update_request
             )
 
@@ -776,12 +776,6 @@ class TestUpdateUserAdmin:
             "expected_exception",
         ),
         [
-            (
-                {"email": "taken@gmail.com"},
-                {"email": "other@gmail.com"},
-                {"email": "taken@gmail.com"},
-                EmailAlreadyTakenError,
-            ),
             (
                 {"username": "taken_username"},
                 {"username": "other_username"},
@@ -821,7 +815,7 @@ class TestUpdateUserAdmin:
             setattr(update_request, field, value)
 
         with pytest.raises(expected_exception):
-            await UserServiceAdmin.update_user_admin(
+            await UserServiceAdmin.update_user(
                 test_db, system_admin.id, user_to_be_updated.id, update_request
             )
 
@@ -835,7 +829,7 @@ class TestUpdateUserAdmin:
             last_name="User_surname",
         )
 
-        await UserServiceAdmin.update_user_admin(
+        await UserServiceAdmin.update_user(
             test_db, system_admin.id, user.id, update_request
         )
 

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Union
 
 from fastapi import APIRouter, Depends, Path, Request, status
 
@@ -36,7 +36,7 @@ async def create_account(
     current_user: Annotated[User, Depends(require_system_admin)],
     user_request: CreateUserAdmin,
 ):
-    return await UserServiceAdmin.create_account_admin(
+    return await UserServiceAdmin.create_account(
         db, current_user.id, user_request
     )
 
@@ -56,7 +56,7 @@ async def get_users(
     sort_by: str = UserSortField.created_at,
     order: str = OrderBy.desc,
 ):
-    return await UserServiceAdmin.get_users_admin(
+    return await UserServiceAdmin.get_users(
         db,
         pagination.skip,
         pagination.limit,
@@ -67,7 +67,7 @@ async def get_users(
 
 
 @router.get(
-    "/{user_id}", response_model=UserResponseAdmin, status_code=status.HTTP_200_OK
+    "/{user_id}", response_model=Union[UserResponseAdmin | dict], status_code=status.HTTP_200_OK
 )
 async def get_user_by_id(
     db: async_db_dependency,
@@ -78,21 +78,21 @@ async def get_user_by_id(
 
 
 @router.patch("/{user_id}/deactivate", status_code=status.HTTP_204_NO_CONTENT)
-async def deactivate_user_admin(
+async def deactivate_user(
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_admin)],
     user_id: Annotated[int, Path(ge=1)],
 ):
-    return await UserServiceAdmin.deactivate_user_admin(db, current_user.id, user_id)
+    return await UserServiceAdmin.deactivate_user(db, current_user.id, user_id)
 
 
 @router.patch("/{user_id}/activate", status_code=status.HTTP_204_NO_CONTENT)
-async def activate_user_admin(
+async def activate_user(
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_admin)],
     user_id: Annotated[int, Path(ge=1)],
 ):
-    return await UserServiceAdmin.activate_user_admin(db, current_user.id, user_id)
+    return await UserServiceAdmin.activate_user(db, current_user.id, user_id)
 
 
 @router.patch(

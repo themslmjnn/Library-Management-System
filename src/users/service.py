@@ -75,7 +75,7 @@ logger = get_logger(__name__)
 
 class UserServiceAdmin:
     @staticmethod
-    async def create_account_admin(
+    async def create_account(
         db: AsyncSession, current_user_id: int, user_request: CreateUserAdmin
     ) -> User:
         if user_request.role == UserRole.system_admin:
@@ -164,7 +164,7 @@ class UserServiceAdmin:
             raise
 
     @staticmethod
-    async def get_users_admin(
+    async def get_users(
         db: AsyncSession,
         skip: int,
         limit: int,
@@ -186,7 +186,7 @@ class UserServiceAdmin:
         )
 
     @staticmethod
-    async def get_user_by_id_admin(db: AsyncSession, user_id: int) -> dict:
+    async def get_user_by_id(db: AsyncSession, user_id: int) -> UserResponseAdmin | dict:
         cache_key = UserCacheKey.user_detail_key_admin(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
