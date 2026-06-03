@@ -74,7 +74,7 @@ async def get_user_by_id(
     _: Annotated[User, Depends(require_system_admin)],
     user_id: Annotated[int, Path(ge=1)],
 ):
-    return await UserServiceAdmin.get_user_by_id_admin(db, user_id)
+    return await UserServiceAdmin.get_user_by_id(db, user_id)
 
 
 @router.patch("/{user_id}/deactivate", status_code=status.HTTP_204_NO_CONTENT)

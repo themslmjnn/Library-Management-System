@@ -4,24 +4,40 @@ from datetime import date
 from pydantic_core import PydanticCustomError
 
 
-def validate_password(password: str) -> str:
-    if not any(c.isupper() for c in password):
+def validate_username(username: str) -> str:
+    if any(symbol in "\\~`!@#$%^&*()-=+{}[]|;:'<>,/?\"" for symbol in username):
         raise PydanticCustomError(
-            "password_no_uppercase",
-            "Password must contain at least one uppercase letter",
-        )
-    if not any(c.isdigit() for c in password):
-        raise PydanticCustomError(
-            "password_no_digit",
-            "Password must contain at least one digit",
-        )
-    if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password):
-        raise PydanticCustomError(
-            "password_no_special_character",
-            "Password must contain at least one special character",
+            "invalid_username_symbols",
+            "Username can only contain (.) and (_) symbols",
         )
 
-    return password
+    if not username.replace(".", "").replace("_", "").isalnum():
+        raise PydanticCustomError(
+            "invalid_username_characters",
+            "Username can only contain lowercase letters and numbers",
+        )
+    
+    return username
+
+
+def validate_first_name(first_name: str) -> str:
+    if not first_name.isalpha():
+        raise PydanticCustomError(
+            "invalid_first_name_characters",
+            "First name can only contain letters",
+        )
+
+    return first_name
+
+
+def validate_last_name(last_name: str) -> str:
+    if not last_name.isalpha():
+        raise PydanticCustomError(
+            "invalid_first_name_characters",
+            "Last name can only contain letters",
+        )
+
+    return last_name
 
 
 def validate_date_of_birth(birth_date: date) -> date:
@@ -51,6 +67,28 @@ def validate_date_of_birth(birth_date: date) -> date:
         )
 
     return birth_date
+
+
+def validate_password(password: str) -> str:
+    if not any(c.isupper() for c in password):
+        raise PydanticCustomError(
+            "password_no_uppercase",
+            "Password must contain at least one uppercase letter",
+        )
+
+    if not any(c.isdigit() for c in password):
+        raise PydanticCustomError(
+            "password_no_digit",
+            "Password must contain at least one digit",
+        )
+
+    if not any(c in "!@#$%^&*()_+-=[]{}|;:,.<>?" for c in password):
+        raise PydanticCustomError(
+            "password_no_special_character",
+            "Password must contain at least one special character",
+        )
+
+    return password
 
 
 # PHONE NUMBER
@@ -111,23 +149,3 @@ def validate_publishing_date(publishing_date: date | str) -> date:
         )
 
     return publishing_date
-
-
-def validate_first_name(first_name: str) -> str:
-    if not first_name.isalpha():
-        raise PydanticCustomError(
-            "first_name_must_only_have_letters",
-            "First name must only contain letters",
-        )
-
-    return first_name
-
-
-def validate_last_name(last_name: str) -> str:
-    if not last_name.isalpha():
-        raise PydanticCustomError(
-            "last_name_must_only_have_letters",
-            "Last name must only contain letters",
-        )
-
-    return last_name

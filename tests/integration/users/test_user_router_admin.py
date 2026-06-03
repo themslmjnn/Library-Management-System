@@ -31,8 +31,8 @@ class TestCreateAccountAdmin:
         )
 
         data = response.json()
-        user = await UserRepositoryBase.get_user_by_id_with_activation(
-            test_db, data["id"]
+        user = await UserRepositoryBase.get_user_by_id(
+            test_db, data["id"], load_activation=True
         )
         user_activation = user.activation
 
@@ -42,9 +42,8 @@ class TestCreateAccountAdmin:
 
         email = pending_email[0]
 
-        assert len(pending_email) == 1
-
         assert response.status_code == 201
+        assert len(pending_email) == 1
         assert data["id"] is not None
         assert data["role"] == "library_admin"
         assert data["is_active"] is False

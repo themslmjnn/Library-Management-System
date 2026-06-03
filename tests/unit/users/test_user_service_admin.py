@@ -15,7 +15,7 @@ from src.users.schemas import (
     UpdateUser,
 )
 from src.users.service import UserServiceAdmin
-from src.utils.cache_keys import UserCacheKey
+from src.utils.cache_keys import SessionCacheKey, UserCacheKey
 from src.utils.custom_exceptions import (
     CannotCreateSystemAdminError,
     EmailAlreadyTakenError,
@@ -100,8 +100,8 @@ class TestCreateAccountAdmin:
             test_db, system_admin.id, valid_create_user_request_admin
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
         )
         session = user_session.session
 
@@ -129,8 +129,8 @@ class TestCreateAccountAdmin:
             test_db, system_admin.id, valid_create_user_request_admin
         )
 
-        user_activation = await UserRepositoryBase.get_user_by_id_with_activation(
-            test_db, user.id
+        user_activation = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_activation=True
         )
         activation = user_activation.activation
 
@@ -189,7 +189,7 @@ class TestGetUsersAdmin:
     async def test_returns_empty_when_no_users(self, test_db: AsyncSession):
         filters = SearchUserAdmin()
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -209,7 +209,7 @@ class TestGetUsersAdmin:
 
         filters = SearchUserAdmin()
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -231,7 +231,7 @@ class TestGetUsersAdmin:
 
         filters = SearchUserAdmin()
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -263,7 +263,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin()
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=2,
@@ -286,7 +286,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin()
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -312,7 +312,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin()
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=1,
             limit=1,
@@ -336,7 +336,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin(email="target")
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -361,7 +361,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin(first_name="Unique")
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -386,7 +386,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin(last_name="Targetlast")
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -410,7 +410,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin(phone_number="+15550000099")
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -428,7 +428,7 @@ class TestGetUsersAdmin:
 
         filters = SearchUserAdmin(role=UserRole.member)
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -455,7 +455,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin(is_active=True)
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -482,7 +482,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin(is_active=False)
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -515,7 +515,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin()
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -547,7 +547,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin()
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -571,7 +571,7 @@ class TestGetUsersAdmin:
         )
         filters = SearchUserAdmin()
 
-        result = await UserServiceAdmin.get_users_admin(
+        result = await UserServiceAdmin.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -589,7 +589,7 @@ class TestGetUserByIDAdmin:
         non_existent_id = user.id + 9999999
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.get_user_by_id_admin(test_db, non_existent_id)
+            await UserServiceAdmin.get_user_by_id(test_db, non_existent_id)
 
     async def test_get_user_by_id_admin_returns_correct_data(
         self, test_db: AsyncSession
@@ -600,7 +600,7 @@ class TestGetUserByIDAdmin:
             phone_number="+1 000 0000",
         )
 
-        result = await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+        result = await UserServiceAdmin.get_user_by_id(test_db, user.id)
 
         assert result["id"] == user.id
         assert result["email"] == "test_email@gmail.com"
@@ -615,7 +615,7 @@ class TestGetUserByIDAdmin:
 
         mock_set_cache = mocker.patch("src.users.service.set_cache")
 
-        await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+        await UserServiceAdmin.get_user_by_id(test_db, user.id)
 
         mock_set_cache.assert_called_once_with(
             UserCacheKey.user_detail_key_admin(user.id),
@@ -628,9 +628,9 @@ class TestGetUserByIDAdmin:
     ):
         user = await make_member(test_db)
 
-        first_result = await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+        first_result = await UserServiceAdmin.get_user_by_id(test_db, user.id)
 
-        second_result = await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+        second_result = await UserServiceAdmin.get_user_by_id(test_db, user.id)
 
         assert second_result == first_result
 
@@ -639,11 +639,11 @@ class TestGetUserByIDAdmin:
     ):
         user = await make_member(test_db)
 
-        await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+        await UserServiceAdmin.get_user_by_id(test_db, user.id)
 
         mock_get_user = mocker.patch.object(UserRepositoryBase, "get_user_by_id")
 
-        await UserServiceAdmin.get_user_by_id_admin(test_db, user.id)
+        await UserServiceAdmin.get_user_by_id(test_db, user.id)
 
         mock_get_user.assert_not_called()
 
@@ -677,14 +677,14 @@ class TestDeactivateUserAdmin:
         user = await make_member(test_db)
 
         with patch(
-            "src.users.service.send_account_deactivation_email",
+            "src.users.service.email_sender.send_account_deactivation_email",
             new_callable=AsyncMock,
         ):
             await UserServiceAdmin.deactivate_user(test_db, system_admin.id, user.id)
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
         )
         session = user_session.session
 
@@ -697,21 +697,35 @@ class TestDeactivateUserAdmin:
         self, test_db: AsyncSession, system_admin: User
     ):
         user = await make_member(test_db)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
         )
 
         original_version = user_session.session.access_token_version
 
         with patch(
-            "src.users.service.send_account_deactivation_email",
+            "src.users.service.email_sender.send_account_deactivation_email",
             new_callable=AsyncMock,
         ):
             await UserServiceAdmin.deactivate_user(test_db, system_admin.id, user.id)
 
-        await UserRepositoryBase.get_user_by_id_with_session(test_db, user.id)
+        await UserRepositoryBase.get_user_by_id(test_db, user.id, load_session=True)
 
         assert user_session.session.access_token_version == original_version + 1
+
+    async def test_cache_is_invalidated_after_deactivation(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+
+        mock_delete_cache = mocker.patch("src.users.service.delete_cache")
+
+        await UserServiceAdmin.deactivate_user(test_db, system_admin.id, user.id)
+
+        mock_delete_cache.assert_called_once_with(
+            UserCacheKey.user_detail_key_admin(user.id), 
+            SessionCacheKey.access_token_version_key(user.id),
+        )
 
 
 class TestActivateUserAdmin:
@@ -755,6 +769,16 @@ class TestActivateUserAdmin:
 
         assert user.is_active is True
 
+    async def test_cache_is_invalidated_after_activation(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+
+        mock_delete_cache = mocker.patch("src.users.service.delete_cache")
+
+        await UserServiceAdmin.activate_user(test_db, system_admin.id, user.id)
+
+        mock_delete_cache.assert_called_once_with(UserCacheKey.user_detail_key_admin(user.id))
 
 class TestUpdateUserAdmin:
     async def test_does_not_update_unknown_user(
@@ -841,3 +865,18 @@ class TestUpdateUserAdmin:
 
         assert user.first_name == "User_name"
         assert user.last_name == "User_surname"
+
+    async def test_cache_is_invalidated_after_deactivation(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+
+        mock_delete_cache = mocker.patch("src.users.service.delete_cache")
+
+        await UserServiceAdmin.update_user(test_db, system_admin.id, user.id)
+
+        mock_delete_cache.assert_called_once_with(
+            UserCacheKey.user_detail_key_admin(user.id), 
+            UserCacheKey.user_detail_key_staff(user.id),
+            UserCacheKey.user_detail_key_self(user.id),
+        )

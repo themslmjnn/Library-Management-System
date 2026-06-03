@@ -26,6 +26,7 @@ from src.users.repository import (
     UserRepositoryAdmin,
     UserRepositoryBase,
 )
+from src.utils import email as email_sender
 from src.utils.cache_keys import (
     SessionCacheKey,
     UserCacheKey,
@@ -40,19 +41,6 @@ from src.utils.custom_exceptions import (
     UserAlreadyInactiveError,
     UserNotFoundError,
     handle_user_integrity_error,
-)
-from src.utils.email import (
-    build_activation_code_email,
-    build_invite_email,
-    build_reset_password_email,
-    send_account_activation_email,
-    send_account_deactivation_email,
-    send_admin_email_override_notification,
-    send_already_registered_email,
-    send_email_change_verification,
-    send_forgot_password_email,
-    send_password_changed_confirmation,
-    send_safe,
 )
 from src.utils.enums import UserRole
 from src.utils.exception_constants import HTTP400, HTTP403, HTTP404
@@ -122,7 +110,7 @@ class UserServiceAdmin:
             UserRepositoryBase.add_entity(db, new_user_activation)
             UserRepositoryBase.add_entity(db, new_user_session)
 
-            subject, html_body, text_body = build_invite_email(
+            subject, html_body, text_body = email_sender.build_invite_email(
                 raw_invite_token, new_user.email
             )
 
@@ -232,14 +220,16 @@ class UserServiceAdmin:
         await db.commit()
 
         asyncio.create_task(
-            send_safe(
-                send_account_deactivation_email(user.email),
+            email_sender.send_safe(
+                email_sender.send_account_deactivation_email(user.email),
                 email_type="account_deactivation",
             )
         )
 
-        await delete_cache(UserCacheKey.user_detail_key_admin(user_id))
-        await delete_cache(SessionCacheKey.access_token_version_key(user_id))
+        await delete_cache(
+            UserCacheKey.user_detail_key_admin(user_id),
+            SessionCacheKey.access_token_version_key(user_id),
+        )
 
         logger.info(
             "user_deactivated",
@@ -271,8 +261,8 @@ class UserServiceAdmin:
         await db.commit()
 
         asyncio.create_task(
-            send_safe(
-                send_account_activation_email(user.email),
+            email_sender.send_safe(
+                email_sender.send_account_activation_email(user.email),
                 email_type="account_activation",
             )
         )

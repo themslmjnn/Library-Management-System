@@ -123,8 +123,8 @@ async def flush_cache():
 
 
 async def make_auth_header(test_db: AsyncSession, user: User) -> dict:
-    user_session = await UserRepositoryBase.get_user_by_id_with_session(
-        test_db, user.id
+    user_session = await UserRepositoryBase.get_user_by_id(
+        test_db, user.id, load_session=True
     )
 
     token = create_access_token(

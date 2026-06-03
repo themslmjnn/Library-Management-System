@@ -65,7 +65,7 @@ async def get_current_user(
             role=UserRole(payload.get("role")),
         )
 
-    user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
+    user = await UserRepositoryBase.get_user_by_id(db, user_id, load_session=True)
 
     if user is None:
         raise InvalidAccessTokenError(HTTP401.INVALID_ACCESS_TOKEN)

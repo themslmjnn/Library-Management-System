@@ -3,14 +3,8 @@ from datetime import date, datetime
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from src.users.models import UserRole
+from src.utils import validators as field_validators
 from src.utils.base_schema import BaseSchema
-from src.utils.validators import (
-    validate_date_of_birth,
-    validate_first_name,
-    validate_last_name,
-    validate_password,
-    validate_phone_number,
-)
 
 
 class CreateUserBase(BaseModel):
@@ -21,25 +15,32 @@ class CreateUserBase(BaseModel):
     email: EmailStr
     phone_number: str
 
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, username: str) -> str | None:
+        if username is None:
+            return None
+        return field_validators.validate_username(username)
+
     @field_validator("first_name")
     @classmethod
     def validate_first_name(cls, field: str) -> str:
-        return validate_first_name(field)
+        return field_validators.validate_first_name(field)
 
     @field_validator("last_name")
     @classmethod
     def validate_last_name(cls, field: str) -> str:
-        return validate_last_name(field)
+        return field_validators.validate_last_name(field)
 
     @field_validator("date_of_birth")
     @classmethod
     def validate_date_of_birth(cls, field: date) -> date:
-        return validate_date_of_birth(field)
+        return field_validators.validate_date_of_birth(field)
 
     @field_validator("phone_number")
     @classmethod
     def validate_phone_number(cls, field: str) -> str:
-        return validate_phone_number(field)
+        return field_validators.validate_phone_number(field)
 
 
 class CreateUserAdmin(CreateUserBase):
@@ -52,7 +53,7 @@ class CreateUserPublic(CreateUserBase):
     @field_validator("password")
     @classmethod
     def validate_password_strength(cls, field: str) -> str:
-        return validate_password(field)
+        return field_validators.validate_password(field)
 
 
 class UserResponseBase(BaseSchema):
@@ -89,14 +90,14 @@ class UpdateUser(BaseModel):
     def validate_date_of_birth(cls, field: date | None) -> date | None:
         if field is None:
             return None
-        return validate_date_of_birth(field)
+        return field_validators.validate_date_of_birth(field)
 
     @field_validator("phone_number", mode="after")
     @classmethod
     def validate_phone_number(cls, field: str | None) -> str | None:
         if field is None:
             return None
-        return validate_phone_number(field)
+        return field_validators.validate_phone_number(field)
 
 
 class UpdateUserEmail(BaseModel):
@@ -110,7 +111,7 @@ class UpdateUserPasswordPublic(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_password_strength(cls, field: str) -> str:
-        return validate_password(field)
+        return field_validators.validate_password(field)
 
 
 class SearchUserBase(BaseModel):
@@ -134,7 +135,7 @@ class ForgotPasswordPublicRequest(BaseModel):
     @field_validator("phone_number")
     @classmethod
     def validate_phone_number(cls, field: str) -> str:
-        return validate_phone_number(field)
+        return field_validators.validate_phone_number(field)
 
 
 class EmailChangeRequest(BaseModel):
