@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -25,7 +25,6 @@ from src.utils.custom_exceptions import (
     UsernameAlreadyTakenError,
     UserNotFoundError,
 )
-from tests.constants import NEW_PASSWORD, OLD_PASSWORD
 from tests.factories import (
     make_library_admin,
     make_member,
@@ -45,7 +44,7 @@ class TestCreateAccountAdmin:
         valid_create_user_request_admin.role = UserRole.system_admin
 
         with pytest.raises(CannotCreateSystemAdminError):
-            await UserServiceAdmin.create_account_admin(
+            await UserServiceAdmin.create_account(
                 test_db, system_admin.id, valid_create_user_request_admin
             )
 
@@ -87,7 +86,7 @@ class TestCreateAccountAdmin:
             setattr(valid_create_user_request_admin, field, value)
 
         with pytest.raises(expected_exception):
-            await UserServiceAdmin.create_account_admin(
+            await UserServiceAdmin.create_account(
                 test_db, system_admin.id, valid_create_user_request_admin
             )
 
@@ -97,7 +96,7 @@ class TestCreateAccountAdmin:
         system_admin: User,
         valid_create_user_request_admin: CreateUserAdmin,
     ):
-        user = await UserServiceAdmin.create_account_admin(
+        user = await UserServiceAdmin.create_account(
             test_db, system_admin.id, valid_create_user_request_admin
         )
 
@@ -126,7 +125,7 @@ class TestCreateAccountAdmin:
         system_admin: User,
         valid_create_user_request_admin: CreateUserAdmin,
     ):
-        user = await UserServiceAdmin.create_account_admin(
+        user = await UserServiceAdmin.create_account(
             test_db, system_admin.id, valid_create_user_request_admin
         )
 
@@ -149,7 +148,7 @@ class TestCreateAccountAdmin:
         system_admin: User,
         valid_create_user_request_admin: CreateUserAdmin,
     ):
-        user = await UserServiceAdmin.create_account_admin(
+        user = await UserServiceAdmin.create_account(
             test_db, system_admin.id, valid_create_user_request_admin
         )
 
@@ -174,7 +173,7 @@ class TestCreateAccountAdmin:
         system_admin: User,
         valid_create_user_request_admin: CreateUserAdmin,
     ):
-        user = await UserServiceAdmin.create_account_admin(
+        user = await UserServiceAdmin.create_account(
             test_db, system_admin.id, valid_create_user_request_admin
         )
 
@@ -295,7 +294,7 @@ class TestGetUsersAdmin:
             sort_by=BookSortField.created_at,
             order=OrderBy.desc,
         )
-        
+
         assert result.total == 2
         assert result.has_more is False
 
@@ -670,9 +669,7 @@ class TestDeactivateUserAdmin:
         )
 
         with pytest.raises(UserAlreadyInactiveError):
-            await UserServiceAdmin.deactivate_user(
-                test_db, system_admin.id, user.id
-            )
+            await UserServiceAdmin.deactivate_user(test_db, system_admin.id, user.id)
 
     async def test_deactivate_active_user(
         self, test_db: AsyncSession, system_admin: User
@@ -716,6 +713,7 @@ class TestDeactivateUserAdmin:
 
         assert user_session.session.access_token_version == original_version + 1
 
+
 class TestActivateUserAdmin:
     async def test_does_not_activate_unknown_user(
         self, test_db: AsyncSession, system_admin: User
@@ -737,9 +735,7 @@ class TestActivateUserAdmin:
         )
 
         with pytest.raises(UserAlreadyActiveError):
-            await UserServiceAdmin.activate_user(
-                test_db, system_admin.id, user.id
-            )
+            await UserServiceAdmin.activate_user(test_db, system_admin.id, user.id)
 
     async def test_activate_inactive_user(
         self, test_db: AsyncSession, system_admin: User
@@ -845,61 +841,3 @@ class TestUpdateUserAdmin:
 
         assert user.first_name == "User_name"
         assert user.last_name == "User_surname"
-
-
-class TestUpdateUserPasswordAdmin:
-    async def test_does_not_update_unknown_user(
-        self, test_db: AsyncSession, system_admin: User
-    ):
-        user = await make_member(test_db)
-        non_existant_id = user.id + 999999
-
-        update_request = UpdateUserPasswordAdmin(
-            new_password=NEW_PASSWORD,
-        )
-
-        with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.update_user_password_admin(
-                test_db, system_admin.id, non_existant_id, update_request
-            )
-
-    async def test_update_password_and_invalidates_tokens(self, test_db, system_admin):
-        user = await make_member(
-            test_db,
-            password=OLD_PASSWORD,
-        )
-
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
-        )
-        session = user_session.session
-
-        session.refresh_token_hash = "some_token"
-        session.refresh_token_family = "some_family"
-        session.refresh_token_expires_at = datetime.now(timezone.utc) + timedelta(
-            hours=1
-        )
-        original_version = session.access_token_version
-        old_password_hash = user.password_hash
-
-        await test_db.commit()
-
-        update_request = UpdateUserPasswordAdmin(
-            new_password=NEW_PASSWORD,
-        )
-
-        await UserServiceAdmin.update_user_password_admin(
-            test_db, system_admin.id, user.id, update_request
-        )
-
-        await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
-        )
-        session = user_session.session
-
-        assert old_password_hash != user.password_hash
-        assert session.access_token_version == original_version + 1
-        assert session.refresh_token_hash is None
-        assert session.refresh_token_family is None
-        assert session.refresh_token_expires_at is None

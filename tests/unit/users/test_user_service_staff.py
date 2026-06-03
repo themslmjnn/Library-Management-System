@@ -38,8 +38,9 @@ class TestCreateAccountStaff:
         user_activation = await UserRepositoryBase.get_user_by_id_with_activation(
             test_db, user.id
         )
-        pending_email = await PendingEmailRepository.get_pending_email_by_triggered_by(test_db, library_admin.id)
-
+        pending_email = await PendingEmailRepository.get_pending_email_by_triggered_by(
+            test_db, library_admin.id
+        )
 
         assert user.id is not None
         assert user.email == "test_email@gmail.com"
@@ -51,7 +52,6 @@ class TestCreateAccountStaff:
         assert user_activation is not None
         assert pending_email is not None
         assert len(pending_email) == 1
-
 
 
 class TestGetUsersStaff:

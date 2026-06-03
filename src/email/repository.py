@@ -118,23 +118,24 @@ class PendingEmailRepository:
         return list(result.scalars().all()), total
 
     @staticmethod
-    async def get_pending_email_by_id(db: AsyncSession, email_id: int) -> PendingEmail | None:
+    async def get_pending_email_by_id(
+        db: AsyncSession, email_id: int
+    ) -> PendingEmail | None:
         query = select(PendingEmail).filter(PendingEmail.id == email_id)
 
         result = await db.execute(query)
 
         return result.scalar_one_or_none()
-    
+
     @staticmethod
-    async def get_pending_email_by_triggered_by(db: AsyncSession, triggered_by: int) -> list[PendingEmail]:
-        query = (
-            select(PendingEmail)
-            .filter(PendingEmail.triggered_by == triggered_by)
-        )
+    async def get_pending_email_by_triggered_by(
+        db: AsyncSession, triggered_by: int
+    ) -> list[PendingEmail]:
+        query = select(PendingEmail).filter(PendingEmail.triggered_by == triggered_by)
 
         result = await db.execute(query)
 
-        return result.scalars().all()        
+        return result.scalars().all()
 
     @staticmethod
     async def mark_sent(db: AsyncSession, record: PendingEmail) -> None:

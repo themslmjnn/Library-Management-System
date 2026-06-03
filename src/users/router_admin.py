@@ -13,10 +13,10 @@ from src.core.limiter import user_limiter
 from src.pagination import PaginatedResponse
 from src.users.models import User
 from src.users.schemas import (
-    AdminUpdateEmailRequest,
     CreateUserAdmin,
     SearchUserAdmin,
     UpdateUser,
+    UpdateUserEmail,
     UserResponseAdmin,
 )
 from src.users.service import UserServiceAdmin
@@ -36,9 +36,7 @@ async def create_account(
     current_user: Annotated[User, Depends(require_system_admin)],
     user_request: CreateUserAdmin,
 ):
-    return await UserServiceAdmin.create_account(
-        db, current_user.id, user_request
-    )
+    return await UserServiceAdmin.create_account(db, current_user.id, user_request)
 
 
 @router.get(
@@ -67,7 +65,9 @@ async def get_users(
 
 
 @router.get(
-    "/{user_id}", response_model=Union[UserResponseAdmin | dict], status_code=status.HTTP_200_OK
+    "/{user_id}",
+    response_model=Union[UserResponseAdmin | dict],
+    status_code=status.HTTP_200_OK,
 )
 async def get_user_by_id(
     db: async_db_dependency,
@@ -109,29 +109,27 @@ async def update_user(
     )
 
 
+@router.patch(
+    "/{user_id}/email",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def update_user_email(
+    db: async_db_dependency,
+    current_user: Annotated[User, Depends(require_system_admin)],
+    user_id: Annotated[int, Path(ge=1)],
+    update_request: UpdateUserEmail,
+):
+    await UserServiceAdmin.update_user_email(
+        db, current_user.id, user_id, update_request
+    )
+
+
 @router.post("/{user_id}/password", status_code=status.HTTP_204_NO_CONTENT)
 @user_limiter.limit("5/minute")
-async def create_reset_password_request_admin(
+async def create_reset_password_request(
     request: Request,
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_and_library_admin)],
     user_id: Annotated[int, Path(ge=1)],
 ):
-    await UserServiceAdmin.create_reset_password_request_admins(
-        db, current_user, user_id
-    )
-
-
-@router.patch(
-    "/{user_id}/email",
-    status_code=status.HTTP_204_NO_CONTENT,
-)
-async def admin_update_user_email(
-    db: async_db_dependency,
-    current_user: Annotated[User, Depends(require_system_admin)],
-    user_id: Annotated[int, Path(ge=1)],
-    body: AdminUpdateEmailRequest,
-):
-    await UserServiceAdmin.admin_update_user_email(
-        db, current_user.id, user_id, body.new_email
-    )
+    await UserServiceAdmin.create_reset_password_request(db, current_user, user_id)

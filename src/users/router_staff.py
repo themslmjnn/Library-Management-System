@@ -26,9 +26,7 @@ async def create_account(
     current_user: Annotated[User, Depends(require_staff)],
     user_request: CreateUserBase,
 ):
-    return await UserServiceStaff.create_account(
-        db, current_user.id, user_request
-    )
+    return await UserServiceStaff.create_account(db, current_user.id, user_request)
 
 
 @router.get(

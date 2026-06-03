@@ -28,6 +28,7 @@ setup_logging()
 
 logger = get_logger(__name__)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -121,6 +122,8 @@ EXCEPTION_STATUS_MAP = {
     exc.InvalidResetPasswordTokenError: 400,
     exc.ExpiredResetPasswordTokenError: 400,
     exc.PendingEmailNotFoundError: 404,
+    exc.InvalidEmailChangeCodeError: 400,
+    exc.ExpiredEmailChangeCodeError: 400,
 }
 
 

@@ -46,9 +46,7 @@ async def create_forgot_password_request(
     )
 
 
-@router.get(
-    "/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK
-)
+@router.get("/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK)
 async def get_me(
     db: async_db_dependency,
     current_user: current_user_dependency,

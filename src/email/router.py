@@ -25,7 +25,11 @@ router = APIRouter(
 )
 
 
-@router.get("/failed", response_model=PaginatedResponse[PendingEmailResponse], status_code=status.HTTP_200_OK)
+@router.get(
+    "/failed",
+    response_model=PaginatedResponse[PendingEmailResponse],
+    status_code=status.HTTP_200_OK,
+)
 async def get_all_failed_emails(
     db: async_db_dependency,
     pagination: pagination_dependency,

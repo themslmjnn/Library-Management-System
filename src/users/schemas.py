@@ -25,7 +25,7 @@ class CreateUserBase(BaseModel):
     @classmethod
     def validate_first_name(cls, field: str) -> str:
         return validate_first_name(field)
-    
+
     @field_validator("last_name")
     @classmethod
     def validate_last_name(cls, field: str) -> str:
@@ -139,7 +139,7 @@ class ForgotPasswordPublicRequest(BaseModel):
 
 class RequestEmailChangeRequest(BaseModel):
     new_email: EmailStr
- 
- 
+
+
 class ConfirmEmailChangeRequest(BaseModel):
     code: str

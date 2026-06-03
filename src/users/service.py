@@ -47,8 +47,10 @@ from src.utils.cache_keys import (
 from src.utils.custom_exceptions import (
     AccessDeniedError,
     CannotCreateSystemAdminError,
+    ExpiredEmailChangeCodeError,
     IncorrectPasswordError,
     InvalidActivationCodeError,
+    InvalidEmailChangeCodeError,
     UserAlreadyActiveError,
     UserAlreadyInactiveError,
     UserNotFoundError,
@@ -190,7 +192,9 @@ class UserServiceAdmin:
         )
 
     @staticmethod
-    async def get_user_by_id(db: AsyncSession, user_id: int) -> UserResponseAdmin | dict:
+    async def get_user_by_id(
+        db: AsyncSession, user_id: int
+    ) -> UserResponseAdmin | dict:
         cache_key = UserCacheKey.user_detail_key_admin(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
@@ -323,7 +327,7 @@ class UserServiceAdmin:
 
             handle_user_integrity_error(e)
             raise
-    
+
     @staticmethod
     async def update_user_email(
         db: AsyncSession,
@@ -432,7 +436,8 @@ class UserServiceAdmin:
         asyncio.create_task(
             send_safe(
                 send_reset_password_token(user.email, raw_reset_token),
-                email_type=EmailType.password_reset_admin)
+                email_type=EmailType.password_reset_admin,
+            )
         )
 
         logger.info(
@@ -481,7 +486,9 @@ class UserServiceStaff:
             UserRepositoryBase.add_entity(db, new_user_activation)
             UserRepositoryBase.add_entity(db, new_user_session)
 
-            subject, html_body, text_body = build_invite_email(raw_invite_token, new_user.email)
+            subject, html_body, text_body = build_invite_email(
+                raw_invite_token, new_user.email
+            )
 
             PendingEmailRepository.create(
                 db,
@@ -560,7 +567,11 @@ class UserServiceStaff:
 
         match current_user.role:
             case UserRole.library_admin:
-                user = await UserRepositoryStaff.get_user_by_id_with_session_library_admin(db, user_id)
+                user = (
+                    await UserRepositoryStaff.get_user_by_id_with_session_library_admin(
+                        db, user_id
+                    )
+                )
             case UserRole.receptionist:
                 user = await UserRepositoryStaff.get_user_by_id_receptionist(
                     db, user_id
@@ -698,7 +709,7 @@ class UserServicePublic:
             return MessageResponse(PublicMessages.FORGOT_PASSWORD)
 
     @staticmethod
-    async def get_me(db: AsyncSession, user_id: int) -> dict:
+    async def get_me(db: AsyncSession, user_id: int) -> UserResponseBase | dict:
         cache_key = UserCacheKey.user_detail_key_self(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
@@ -793,20 +804,20 @@ class UserServicePublic:
         user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
-        raw_code, hashed_code = generate_email_change_code()
-        expires_at = datetime.now(timezone.utc) + timedelta(
+        raw_email_change_code, hashed_email_change_code = generate_email_change_code()
+        email_change_code_expires_at = datetime.now(timezone.utc) + timedelta(
             minutes=settings.ACTIVATION_CODE_EXPIRES_MINUTES
         )
 
         user.session.pending_email = new_email
-        user.session.email_change_code_hash = hashed_code
-        user.session.email_change_code_expires_at = expires_at
+        user.session.email_change_code_hash = hashed_email_change_code
+        user.session.email_change_code_expires_at = email_change_code_expires_at
 
         await db.commit()
 
         asyncio.create_task(
             send_safe(
-                send_email_change_verification(new_email, raw_code),
+                send_email_change_verification(new_email, raw_email_change_code),
                 email_type="email_change_verification",
                 user_id=user_id,
             )
@@ -829,19 +840,18 @@ class UserServicePublic:
             user.session.pending_email is None
             or user.session.email_change_code_hash is None
         ):
-            raise InvalidActivationCodeError(HTTP400.INVALID_ACTIVATION_CODE)
+            raise InvalidEmailChangeCodeError(HTTP400.INVALID_EMAIL_CHANGE_CODE)
 
         if (
             user.session.email_change_code_expires_at is None
             or datetime.now(timezone.utc) > user.session.email_change_code_expires_at
         ):
-            raise InvalidActivationCodeError(HTTP400.INVALID_ACTIVATION_CODE)
+            raise ExpiredEmailChangeCodeError(HTTP400.EXPIRED_EMAIL_CHANGE_CODE)
 
         if not verify_email_change_code(code, user.session.email_change_code_hash):
-            raise InvalidActivationCodeError(HTTP400.INVALID_ACTIVATION_CODE)
+            raise InvalidEmailChangeCodeError(HTTP400.INVALID_EMAIL_CHANGE_CODE)
 
-        new_email = user.session.pending_email
-        user.email = new_email
+        user.email = user.session.pending_email
 
         user.session.pending_email = None
         user.session.email_change_code_hash = None

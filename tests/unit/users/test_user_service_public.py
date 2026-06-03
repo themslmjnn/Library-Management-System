@@ -6,9 +6,9 @@ from src.users.repository import UserRepositoryBase
 from src.users.schemas import CreateUserPublic, UpdateUser, UpdateUserPasswordPublic
 from src.users.service import UserServicePublic
 from src.utils.cache_keys import user_detail_key_self
-from utils.custom_exceptions import IncorrectPasswordError
 from tests.constants import NEW_PASSWORD, OLD_PASSWORD, WRONG_PASSWORD
 from tests.factories import make_member, make_user
+from utils.custom_exceptions import IncorrectPasswordError
 
 
 class TestCreateAccountPublic:
@@ -80,7 +80,6 @@ class TestUpdateMe:
             username="username_test",
             first_name="User_name",
             last_name="User_surname",
-            email="new_email@gmail.com",
             phone_number="+992 101 101 101",
         )
 
@@ -91,7 +90,6 @@ class TestUpdateMe:
         assert user.username == "username_test"
         assert user.first_name == "User_name"
         assert user.last_name == "User_surname"
-        assert user.email == "new_email@gmail.com"
         assert user.phone_number == "+992 101 101 101"
 
     async def test_partially_updates_user_successfully(self, test_db: AsyncSession):

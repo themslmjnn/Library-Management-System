@@ -509,7 +509,7 @@ class TestActivateUserAdmin:
 class TestUpdateUserAdmin:
     async def test_updates_user_successfully(
         self, test_db: AsyncSession, client: AsyncClient, system_admin: User
-    ):  
+    ):
         user = await make_member(test_db)
 
         update_request = {"username": "new_test_username"}
@@ -554,7 +554,7 @@ class TestUpdateUserAdmin:
         update_request = {"username": "new_test_username"}
 
         response = await client.patch(
-            f"/users/{non_existant_id}", 
+            f"/users/{non_existant_id}",
             json=update_request,
         )
 
@@ -569,62 +569,8 @@ class TestUpdateUserAdmin:
         update_request = {"username": "new_test_username"}
 
         response = await client.patch(
-            f"/users/{user.id}", 
+            f"/users/{user.id}",
             json=update_request,
-            headers=headers,
-        )
-
-        assert response.status_code == 403
-
-class TestUpdateUserPasswordAdmin:
-    async def test_successfully_updates_password(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
-    ):
-        user = await make_member(test_db)
-
-        update_request = {
-            "new_password": NEW_PASSWORD,
-        }
-
-        headers = await make_auth_header(test_db, system_admin)
-
-        response = await client.put(
-            f"/users/{user.id}/password",
-            json=update_request,
-            headers=headers,
-        )
-
-        assert response.status_code == 204
-
-    async def test_does_not_update_unknown_user(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
-    ):
-        user = await make_member(test_db)
-        non_existant_id = user.id + 9999999
-
-        update_request = {
-            "new_password": NEW_PASSWORD,
-        }
-
-        headers = await make_auth_header(test_db, system_admin)
-
-        response = await client.put(
-            f"/users/{non_existant_id}/password",
-            json=update_request,
-            headers=headers,
-        )
-
-        assert response.status_code == 404
-
-    async def test_returns_403_for_non_admin(
-        self, test_db: AsyncSession, client: AsyncClient, library_admin
-    ):
-        user = await make_member(test_db)
-        headers = await make_auth_header(test_db, library_admin)
-
-        response = await client.put(
-            f"/users/{user.id}/password",
-            json={"new_password": NEW_PASSWORD},
             headers=headers,
         )
 

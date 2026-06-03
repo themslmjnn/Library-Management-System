@@ -422,6 +422,7 @@ async def send_reset_password_token(email: str, raw_reset_token: str) -> None:
 
     await _send(subject=subject, to_email=email, html_body=html, text_body=text)
 
+
 async def send_account_deactivation_email(email: str) -> None:
     html = """
         <!DOCTYPE html>
@@ -458,6 +459,7 @@ async def send_account_deactivation_email(email: str) -> None:
         html_body=html,
         text_body=text,
     )
+
 
 async def send_account_activation_email(email: str) -> None:
     login_link = f"{settings.APP_URL}/auth/login"
@@ -503,6 +505,7 @@ async def send_account_activation_email(email: str) -> None:
         html_body=html,
         text_body=text,
     )
+
 
 async def send_admin_email_override_notification(email: str) -> None:
     html = """

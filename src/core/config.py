@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     INVITE_TOKEN_EXPIRES_HOURS: int = 24
     ACTIVATION_CODE_EXPIRES_MINUTES: int = 15
     RESET_PASSWORD_EXPIRES_MINUTES: int = 15
+    EMAIL_CHANGE_CODE_EXPIRES_MINUTES: int = 15
 
     ENVIRONMENT: str = "development"
 

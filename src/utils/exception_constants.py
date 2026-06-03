@@ -7,6 +7,8 @@ class HTTP400:
     INVALID_ACTIVATION_CODE = "Invalid activation code"
     INVALID_RESET_PASSWORD_TOKEN = "Invalid reset password token"
     EXPIRED_RESET_PASSWORD_TOKEN = "Expired reset password token"
+    INVALID_EMAIL_CHANGE_CODE = "Invalid email change code"
+    EXPIRED_EMAIL_CHANGE_CODE = "Expired email change code"
 
 
 class HTTP401:

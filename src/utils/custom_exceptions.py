@@ -64,6 +64,7 @@ class ExpiredResetPasswordTokenError(AppException):
 class AccessDeniedError(AppException):
     pass
 
+
 class PendingEmailNotFoundError(AppException):
     pass
 
@@ -133,6 +134,14 @@ class LoanAlreadyReturnedError(AppException):
 
 
 class UserAlreadyHasActiveLoanError(AppException):
+    pass
+
+
+class InvalidEmailChangeCodeError(AppException):
+    pass
+
+
+class ExpiredEmailChangeCodeError(AppException):
     pass
 
 

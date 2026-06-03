@@ -119,8 +119,9 @@ def validate_first_name(first_name: str) -> str:
             "first_name_must_only_have_letters",
             "First name must only contain letters",
         )
-    
+
     return first_name
+
 
 def validate_last_name(last_name: str) -> str:
     if not last_name.isalpha():
@@ -128,5 +129,5 @@ def validate_last_name(last_name: str) -> str:
             "last_name_must_only_have_letters",
             "Last name must only contain letters",
         )
-    
+
     return last_name
