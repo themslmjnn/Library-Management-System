@@ -7,6 +7,73 @@ from tests.conftest import make_auth_header
 from tests.factories import make_member, make_system_admin
 
 
+class TestCreateAccountStaff:
+    async def test_creates_user_with_invite_token(
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        library_admin: User,
+        valid_create_user_request_staff: CreateUserBase,
+    ):
+        headers = await make_auth_header(test_db, library_admin)
+
+        response = await client.post(
+            "/users/staff",
+            json=valid_create_user_request_staff.model_dump(mode="json"),
+            headers=headers,
+        )
+
+        data = response.json()
+
+        assert response.status_code == 201
+        assert data["role"] == "guest"
+
+    async def test_require_library_admin(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        headers = await make_auth_header(test_db, system_admin)
+
+        response = await client.post(
+            "/users/staff",
+            headers=headers,
+        )
+
+        assert response.status_code == 403
+
+    async def test_require_receptionist(
+        self, test_db: AsyncSession, client: AsyncClient, member: User
+    ):
+        headers = await make_auth_header(test_db, member)
+
+        response = await client.post(
+            "/users/staff",
+            headers=headers,
+        )
+
+        assert response.status_code == 403
+
+    async def test_rejects_invalid_input(
+        self, test_db: AsyncSession, client: AsyncClient, library_admin: User
+    ):
+        await make_member(test_db)
+        headers = await make_auth_header(test_db, library_admin)
+        payload = {
+            "first_name": "Co",
+            "last_name": "Ca",
+            "email": "duplicate@gmailcom",
+            "phone_number": "+15550008888",
+            "date_of_birth": "1990-01-01",
+        }
+
+        response = await client.post(
+            "/users/staff",
+            json=payload,
+            headers=headers,
+        )
+
+        assert response.status_code == 422
+
+
 class TestGetUsersStaff:
     async def test_returns_paginated_users(
         self, test_db: AsyncSession, client: AsyncClient, library_admin: User
@@ -154,70 +221,3 @@ class TestGetUserByIDStaff:
         )
 
         assert response.status_code == 403
-
-
-class TestCreateAccountStaff:
-    async def test_creates_user_with_invite_token(
-        self,
-        test_db: AsyncSession,
-        client: AsyncClient,
-        library_admin: User,
-        valid_create_user_request_staff: CreateUserBase,
-    ):
-        headers = await make_auth_header(test_db, library_admin)
-
-        response = await client.post(
-            "/users/staff",
-            json=valid_create_user_request_staff.model_dump(mode="json"),
-            headers=headers,
-        )
-
-        data = response.json()
-
-        assert response.status_code == 201
-        assert data["role"] == "guest"
-
-    async def test_require_library_admin(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
-    ):
-        headers = await make_auth_header(test_db, system_admin)
-
-        response = await client.post(
-            "/users/staff",
-            headers=headers,
-        )
-
-        assert response.status_code == 403
-
-    async def test_require_receptionist(
-        self, test_db: AsyncSession, client: AsyncClient, member: User
-    ):
-        headers = await make_auth_header(test_db, member)
-
-        response = await client.post(
-            "/users/staff",
-            headers=headers,
-        )
-
-        assert response.status_code == 403
-
-    async def test_rejects_invalid_input(
-        self, test_db: AsyncSession, client: AsyncClient, library_admin: User
-    ):
-        await make_member(test_db)
-        headers = await make_auth_header(test_db, library_admin)
-        payload = {
-            "first_name": "Co",
-            "last_name": "Ca",
-            "email": "duplicate@gmailcom",
-            "phone_number": "+15550008888",
-            "date_of_birth": "1990-01-01",
-        }
-
-        response = await client.post(
-            "/users/staff",
-            json=payload,
-            headers=headers,
-        )
-
-        assert response.status_code == 422

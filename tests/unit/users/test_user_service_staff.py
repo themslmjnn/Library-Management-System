@@ -1,15 +1,18 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.core.enums import OrderBy
+from src.email.repository import PendingEmailRepository
 from src.users.models import User, UserRole
 from src.users.repository import UserRepositoryBase
 from src.users.schemas import CreateUserBase
 from src.users.service import UserServiceStaff
-from src.utils.cache_keys import user_detail_key_staff
-from utils.custom_exceptions import (
+from src.utils.cache_keys import UserCacheKey
+from src.utils.custom_exceptions import (
     AccessDeniedError,
     UserNotFoundError,
 )
+from src.utils.enums import UserSortField
 from tests.factories import (
     make_library_admin,
     make_member,
@@ -25,7 +28,7 @@ class TestCreateAccountStaff:
         library_admin: User,
         valid_create_user_request_staff: CreateUserBase,
     ):
-        user = await UserServiceStaff.create_account_staff(
+        user = await UserServiceStaff.create_account(
             test_db, library_admin.id, valid_create_user_request_staff
         )
 
@@ -35,6 +38,8 @@ class TestCreateAccountStaff:
         user_activation = await UserRepositoryBase.get_user_by_id_with_activation(
             test_db, user.id
         )
+        pending_email = await PendingEmailRepository.get_pending_email_by_triggered_by(test_db, library_admin.id)
+
 
         assert user.id is not None
         assert user.email == "test_email@gmail.com"
@@ -44,6 +49,9 @@ class TestCreateAccountStaff:
         assert user.created_by == library_admin.id
         assert user_session is not None
         assert user_activation is not None
+        assert pending_email is not None
+        assert len(pending_email) == 1
+
 
 
 class TestGetUsersStaff:
@@ -57,11 +65,11 @@ class TestGetUsersStaff:
         result = await UserServiceStaff.get_users_staff(
             test_db,
             skip=0,
-            limit=20,
+            limit=10,
             filters=None,
             current_user=library_admin,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         roles = [user.role for user in result.items]
@@ -81,11 +89,11 @@ class TestGetUsersStaff:
         result = await UserServiceStaff.get_users_staff(
             test_db,
             skip=0,
-            limit=20,
+            limit=10,
             filters=None,
             current_user=receptionist,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         roles = [user.role for user in result.items]
@@ -103,10 +111,10 @@ class TestGetUsersStaff:
                 test_db,
                 current_user=system_admin,
                 skip=0,
-                limit=20,
+                limit=10,
                 filters=None,
-                sort_by="created_at",
-                order="desc",
+                sort_by=UserSortField.created_at,
+                order=OrderBy.desc,
             )
 
 
@@ -186,7 +194,7 @@ class TestGetUserByIDStaff:
         await UserServiceStaff.get_user_by_id_staff(test_db, library_admin, user.id)
 
         mock_set_cache.assert_called_once_with(
-            user_detail_key_staff(user.id),
+            UserCacheKey.user_detail_key_staff(user.id),
             mocker.ANY,
             900,
         )

@@ -99,6 +99,10 @@ class UpdateUser(BaseModel):
         return validate_phone_number(field)
 
 
+class UpdateUserEmail(BaseModel):
+    new_email: EmailStr
+
+
 class UpdateUserPasswordPublic(BaseModel):
     old_password: str
     new_password: str = Field(min_length=8)
@@ -132,8 +136,6 @@ class ForgotPasswordPublicRequest(BaseModel):
     def validate_phone_number(cls, field: str) -> str:
         return validate_phone_number(field)
 
-class AdminUpdateEmailRequest(BaseModel):
-    new_email: EmailStr
 
 class RequestEmailChangeRequest(BaseModel):
     new_email: EmailStr

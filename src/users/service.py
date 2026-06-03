@@ -34,6 +34,7 @@ from src.users.schemas import (
     SearchUserAdmin,
     SearchUserBase,
     UpdateUser,
+    UpdateUserEmail,
     UpdateUserPasswordPublic,
     UserResponseAdmin,
     UserResponseBase,
@@ -59,6 +60,7 @@ from src.utils.email import (
     build_reset_password_email,
     send_account_activation_email,
     send_account_deactivation_email,
+    send_admin_email_override_notification,
     send_already_registered_email,
     send_email_change_verification,
     send_forgot_password_email,
@@ -321,9 +323,68 @@ class UserServiceAdmin:
 
             handle_user_integrity_error(e)
             raise
+    
+    @staticmethod
+    async def update_user_email(
+        db: AsyncSession,
+        current_user_id: int,
+        user_id: int,
+        update_request: UpdateUserEmail,
+    ) -> None:
+        user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
+
+        try:
+            old_email = user.email
+
+            user.email = update_request.new_email
+
+            user.session.access_token_version += 1
+            user.session.refresh_token_hash = None
+            user.session.refresh_token_family = None
+            user.session.refresh_token_expires_at = None
+
+            user.session.pending_email = None
+            user.session.email_change_code_hash = None
+            user.session.email_change_code_expires_at = None
+
+            await db.commit()
+
+            asyncio.create_task(
+                send_safe(
+                    send_admin_email_override_notification(old_email),
+                    email_type=EmailType.admin_email_override,
+                )
+            )
+
+            await delete_cache(
+                UserCacheKey.user_detail_key_admin(user_id),
+                UserCacheKey.user_detail_key_staff(user_id),
+                UserCacheKey.user_detail_key_self(user_id),
+                SessionCacheKey.access_token_version_key(user_id),
+            )
+
+            logger.info(
+                "admin_email_override",
+                target_user_id=user_id,
+                updated_by=current_user_id,
+            )
+
+        except IntegrityError as e:
+            await db.rollback()
+
+            logger.error(
+                "admin_email_override_failed",
+                target_user_id=user_id,
+                requested_by=current_user_id,
+                reason=str(e.orig),
+            )
+
+            handle_user_integrity_error(e)
+            raise
 
     @staticmethod
-    async def create_reset_password_request_admins(
+    async def create_reset_password_request(
         db: AsyncSession,
         current_user: CurrentUser,
         user_id: int,
@@ -360,7 +421,7 @@ class UserServiceAdmin:
             subject=subject,
             html_body=html_body,
             text_body=text_body,
-            email_type="password_reset_admin",
+            email_type=EmailType.password_reset_admin,
             triggered_by=current_user.id,
             recipient_user_id=user.id,
         )
@@ -368,67 +429,21 @@ class UserServiceAdmin:
         await db.commit()
         await db.refresh(user)
 
-        asyncio.create_task(send_reset_password_token(user.email, raw_reset_token))
+        asyncio.create_task(
+            send_safe(
+                send_reset_password_token(user.email, raw_reset_token),
+                email_type=EmailType.password_reset_admin)
+        )
 
         logger.info(
             "reset_password_request_created",
             user_id=user.id,
         )
 
-    @staticmethod
-    async def admin_update_user_email(
-        db: AsyncSession,
-        current_user_id: int,
-        user_id: int,
-        new_email: str,
-    ) -> None:
-        user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
-        ensure_exists(user, UserNotFoundError(HTTP404.USER))
-
-        try:
-            user.email = new_email
-
-            user.session.access_token_version += 1
-            user.session.refresh_token_hash = None
-            user.session.refresh_token_family = None
-            user.session.refresh_token_expires_at = None
-
-            user.session.pending_email = None
-            user.session.email_change_code_hash = None
-            user.session.email_change_code_expires_at = None
-
-            await db.commit()
-
-            await delete_cache(
-                UserCacheKey.user_detail_key_admin(user_id),
-                UserCacheKey.user_detail_key_staff(user_id),
-                UserCacheKey.user_detail_key_self(user_id),
-                SessionCacheKey.access_token_version_key(user_id),
-            )
-
-            logger.info(
-                "admin_email_override",
-                target_user_id=user_id,
-                updated_by=current_user_id,
-            )
-
-        except IntegrityError as e:
-            await db.rollback()
-
-            logger.error(
-                "admin_email_override_failed",
-                target_user_id=user_id,
-                requested_by=current_user_id,
-                reason=str(e.orig),
-            )
-
-            handle_user_integrity_error(e)
-            raise
-
 
 class UserServiceStaff:
     @staticmethod
-    async def create_account_staff(
+    async def create_account(
         db: AsyncSession, current_user_id: int, user_request: CreateUserBase
     ) -> User:
         raw_invite_token, invite_token_hash = generate_invite_token()
@@ -466,7 +481,7 @@ class UserServiceStaff:
             UserRepositoryBase.add_entity(db, new_user_activation)
             UserRepositoryBase.add_entity(db, new_user_session)
 
-            subject, html_body, text_body = build_invite_email(raw_invite_token)
+            subject, html_body, text_body = build_invite_email(raw_invite_token, new_user.email)
 
             PendingEmailRepository.create(
                 db,
@@ -545,9 +560,7 @@ class UserServiceStaff:
 
         match current_user.role:
             case UserRole.library_admin:
-                user = await UserRepositoryStaff.get_user_by_id_with_library_admin(
-                    db, user_id
-                )
+                user = await UserRepositoryStaff.get_user_by_id_with_session_library_admin(db, user_id)
             case UserRole.receptionist:
                 user = await UserRepositoryStaff.get_user_by_id_receptionist(
                     db, user_id

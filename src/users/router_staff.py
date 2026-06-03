@@ -21,12 +21,12 @@ router = APIRouter(
 @router.post(
     "/staff", response_model=UserResponseStaff, status_code=status.HTTP_201_CREATED
 )
-async def create_account_staff(
+async def create_account(
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_staff)],
     user_request: CreateUserBase,
 ):
-    return await UserServiceStaff.create_account_staff(
+    return await UserServiceStaff.create_account(
         db, current_user.id, user_request
     )
 

@@ -503,3 +503,44 @@ async def send_account_activation_email(email: str) -> None:
         html_body=html,
         text_body=text,
     )
+
+async def send_admin_email_override_notification(email: str) -> None:
+    html = """
+        <!DOCTYPE html>
+        <html lang="en">
+        <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+            <div style="max-width:560px;margin:auto;background:white;
+                        padding:40px;border-radius:8px;">
+                <h1 style="color:#1d4ed8;">Library Management System</h1>
+                <h2>Your email address was changed</h2>
+                <p>
+                    An administrator has updated the email address on your account.
+                </p>
+                <p>
+                    If you were expecting this change, no action is needed.
+                    You will need to log in again using your new email address.
+                </p>
+                <p>
+                    If you were not expecting this change, contact your
+                    administrator immediately.
+                </p>
+            </div>
+        </body>
+        </html>
+    """
+
+    text = (
+        "Library Management System.\n\n"
+        "An administrator has updated the email address on your account.\n\n"
+        "If you were expecting this change, no action is needed. "
+        "You will need to log in again using your new email address.\n\n"
+        "If you were not expecting this change, contact your "
+        "administrator immediately."
+    )
+
+    await _send(
+        subject="Your Library account email was changed",
+        to_email=email,
+        html_body=html,
+        text_body=text,
+    )
