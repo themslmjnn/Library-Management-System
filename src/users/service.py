@@ -57,6 +57,7 @@ from src.utils.email import (
     build_activation_code_email,
     build_invite_email,
     build_reset_password_email,
+    send_account_activation_email,
     send_account_deactivation_email,
     send_already_registered_email,
     send_email_change_verification,
@@ -242,34 +243,41 @@ class UserServiceAdmin:
             deactivated_by=current_user_id,
         )
 
-    # @staticmethod
-    # async def activate_user_admin(
-    #     db: AsyncSession, current_user_id: int, user_id: int
-    # ) -> None:
-    #     user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
-    #     ensure_exists(user, UserNotFoundError(HTTP404.USER))
+    @staticmethod
+    async def activate_user(
+        db: AsyncSession, current_user_id: int, user_id: int
+    ) -> None:
+        user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
+        ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
-    #     if user.is_active:
-    #         logger.error(
-    #             "activate_user_failed",
-    #             target_user_id=user_id,
-    #             requested_by=current_user_id,
-    #             reason="user_is_already_activated",
-    #         )
+        if user.is_active:
+            logger.error(
+                "activate_user_failed",
+                target_user_id=user_id,
+                requested_by=current_user_id,
+                reason="user_is_already_activated",
+            )
 
-    #         raise UserAlreadyActiveError("User is already activated")
+            raise UserAlreadyActiveError("User is already activated")
 
-    #     user.is_active = True
+        user.is_active = True
 
-    #     await db.commit()
+        await db.commit()
 
-    #     await delete_cache(UserCacheKey.user_detail_key_admin(user_id))
+        asyncio.create_task(
+            send_safe(
+                send_account_activation_email(user.email),
+                email_type="account_activation",
+            )
+        )
 
-    #     logger.info(
-    #         "user_activated",
-    #         target_user_id=user_id,
-    #         activated_by=current_user_id,
-    #     )
+        await delete_cache(UserCacheKey.user_detail_key_admin(user_id))
+
+        logger.info(
+            "user_activated",
+            target_user_id=user_id,
+            activated_by=current_user_id,
+        )
 
     @staticmethod
     async def update_user(

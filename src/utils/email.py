@@ -458,3 +458,48 @@ async def send_account_deactivation_email(email: str) -> None:
         html_body=html,
         text_body=text,
     )
+
+async def send_account_activation_email(email: str) -> None:
+    login_link = f"{settings.APP_URL}/auth/login"
+
+    html = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <body style="font-family: Arial, sans-serif; background:#f4f4f5; padding:40px;">
+            <div style="max-width:560px;margin:auto;background:white;
+                        padding:40px;border-radius:8px;">
+                <h1 style="color:#1d4ed8;">Library Management System</h1>
+                <h2>Your account has been activated</h2>
+                <p>
+                    An administrator has activated your account.
+                    You can now log in and access the system.
+                </p>
+                <div style="margin:40px 0;text-align:center;">
+                    <a href="{login_link}"
+                        style="background:#1d4ed8;color:white;padding:14px 28px;
+                            border-radius:6px;text-decoration:none;font-weight:bold;">
+                        Log In
+                    </a>
+                </div>
+                <p style="font-size:13px;color:#6b7280;">
+                    If you were not expecting this, contact your administrator.
+                </p>
+            </div>
+        </body>
+        </html>
+    """
+
+    text = (
+        "Library Management System.\n\n"
+        "An administrator has activated your account. "
+        "You can now log in and access the system.\n\n"
+        f"Log in at: {login_link}\n\n"
+        "If you were not expecting this, contact your administrator."
+    )
+
+    await _send(
+        subject="Your Library account has been activated",
+        to_email=email,
+        html_body=html,
+        text_body=text,
+    )

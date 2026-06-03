@@ -724,7 +724,7 @@ class TestActivateUserAdmin:
         non_existant_id = user.id + 999999
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.activate_user_admin(
+            await UserServiceAdmin.activate_user(
                 test_db, system_admin.id, non_existant_id
             )
 
@@ -737,7 +737,7 @@ class TestActivateUserAdmin:
         )
 
         with pytest.raises(UserAlreadyActiveError):
-            await UserServiceAdmin.activate_user_admin(
+            await UserServiceAdmin.activate_user(
                 test_db, system_admin.id, user.id
             )
 
@@ -749,7 +749,11 @@ class TestActivateUserAdmin:
             is_active=False,
         )
 
-        await UserServiceAdmin.activate_user_admin(test_db, system_admin.id, user.id)
+        with patch(
+            "src.users.service.send_account_activation_email",
+            new_callable=AsyncMock,
+        ):
+            await UserServiceAdmin.activate_user(test_db, system_admin.id, user.id)
 
         await test_db.refresh(user)
 

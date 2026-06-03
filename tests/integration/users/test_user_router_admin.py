@@ -453,8 +453,13 @@ class TestDeactivateUserAdmin:
 
 class TestActivateUserAdmin:
     async def test_activate_user(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mocker
     ):
+        mocker.patch(
+            "src.users.service.send_account_activation_email",
+            new_callable=AsyncMock,
+        )
+
         user = await make_member(
             test_db,
             is_active=False,

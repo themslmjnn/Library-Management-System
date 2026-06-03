@@ -7,6 +7,7 @@ class EmailType(str, Enum):
     activation_with_token = "activation_with_token"
     activation_with_code = "activation_with_code"
     # account_deactivation = "account_deactivation"
+    # account_activation = "account_activation"
 
 
 class EmailSendingStatus(str, Enum):
