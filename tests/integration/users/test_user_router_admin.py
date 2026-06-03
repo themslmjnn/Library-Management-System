@@ -128,6 +128,11 @@ class TestCreateAccountAdmin:
 
         assert response.status_code == 403
 
+    async def test_unauthenticated_request_returns_401(self, client: AsyncClient):
+        response = await client.post("/users")
+
+        assert response.status_code == 401
+
     async def test_rejects_invalid_names(
         self, test_db: AsyncSession, client: AsyncClient, system_admin: User
     ):
@@ -270,7 +275,7 @@ class TestGetUsersAdmin:
 
         headers = await make_auth_header(test_db, system_admin)
         response = await client.get(
-            "/users?sort_by=created_at&order=desc&skip=0&limit=20&role=member",
+            "/users?sort_by=created_at&order=desc&skip=0&limit=10&role=member",
             headers=headers,
         )
 
@@ -294,6 +299,7 @@ class TestGetUsersAdmin:
         data = response.json()
         roles = [user["role"] for user in data["items"]]
         ids = [user["id"] for user in data["items"]]
+        
         assert response.status_code == 200
         assert UserRole.library_admin in roles
         assert UserRole.system_admin not in roles

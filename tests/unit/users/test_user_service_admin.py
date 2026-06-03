@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.enums import OrderBy
 from src.email.enums import EmailType
 from src.email.repository import PendingEmailRepository
 from src.users.models import User, UserRole
@@ -30,6 +31,7 @@ from tests.factories import (
     make_receptionist,
     make_user,
 )
+from utils.enums import BookSortField, UserSortField
 
 
 class TestCreateAccountAdmin:
@@ -192,8 +194,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         assert result.items == []
@@ -204,6 +206,7 @@ class TestGetUsersAdmin:
         self, test_db: AsyncSession, system_admin: User
     ):
         await make_member(test_db)
+
         filters = SearchUserAdmin()
 
         result = await UserServiceAdmin.get_users_admin(
@@ -211,8 +214,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         returned_ids = [user.id for user in result.items]
@@ -233,8 +236,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         returned_ids = [user.id for user in result.items]
@@ -265,8 +268,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=2,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         assert result.has_more is True
@@ -288,10 +291,11 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=BookSortField.created_at,
+            order=OrderBy.desc,
         )
-
+        
+        assert result.total == 2
         assert result.has_more is False
 
     async def test_skip_and_limit_return_correct_slice(self, test_db: AsyncSession):
@@ -313,8 +317,8 @@ class TestGetUsersAdmin:
             skip=1,
             limit=1,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         assert len(result.items) == 1
@@ -337,8 +341,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         assert len(result.items) == 1
@@ -362,8 +366,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         assert len(result.items) == 1
@@ -387,8 +391,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         assert len(result.items) == 1
@@ -411,8 +415,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         assert len(result.items) == 1
@@ -421,6 +425,7 @@ class TestGetUsersAdmin:
     async def test_filter_by_role(self, test_db: AsyncSession):
         member = await make_member(test_db)
         await make_library_admin(test_db)
+
         filters = SearchUserAdmin(role=UserRole.member)
 
         result = await UserServiceAdmin.get_users_admin(
@@ -428,8 +433,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         returned_ids = [user.id for user in result.items]
@@ -455,8 +460,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         returned_ids = [user.id for user in result.items]
@@ -482,8 +487,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="created_at",
-            order="desc",
+            sort_by=UserSortField.created_at,
+            order=OrderBy.desc,
         )
 
         returned_ids = [user.id for user in result.items]
@@ -515,8 +520,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="first_name",
-            order="asc",
+            sort_by=UserSortField.first_name,
+            order=OrderBy.asc,
         )
 
         first_names = [user.first_name for user in result.items]
@@ -547,8 +552,8 @@ class TestGetUsersAdmin:
             skip=0,
             limit=10,
             filters=filters,
-            sort_by="first_name",
-            order="desc",
+            sort_by=UserSortField.first_name,
+            order=OrderBy.desc,
         )
 
         first_names = [user.first_name for user in result.items]
@@ -572,7 +577,7 @@ class TestGetUsersAdmin:
             limit=10,
             filters=filters,
             sort_by="invalid_field",
-            order="desc",
+            order=OrderBy.desc,
         )
 
         assert result.total == 2

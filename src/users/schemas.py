@@ -114,7 +114,7 @@ class SearchUserBase(BaseModel):
     last_name: str | None = Field(default=None, max_length=20)
     date_of_birth: date | None = None
     email: str | None = Field(default=None, max_length=20)
-    phone_number: str | None = Field(default=None, max_length=10)
+    phone_number: str | None = Field(default=None, max_length=15)
 
 
 class SearchUserAdmin(SearchUserBase):
