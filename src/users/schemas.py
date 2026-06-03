@@ -124,7 +124,7 @@ class SearchUserBase(BaseModel):
 class SearchUserAdmin(SearchUserBase):
     username: str | None = Field(default=None, max_length=15)
     role: UserRole | None = None
-    is_active: bool | None = Field(default=True)
+    is_active: bool | None = None
 
 
 class ForgotPasswordPublicRequest(BaseModel):
@@ -137,9 +137,9 @@ class ForgotPasswordPublicRequest(BaseModel):
         return validate_phone_number(field)
 
 
-class RequestEmailChangeRequest(BaseModel):
+class EmailChangeRequest(BaseModel):
     new_email: EmailStr
 
 
-class ConfirmEmailChangeRequest(BaseModel):
+class ConfirmEmailChange(BaseModel):
     code: str

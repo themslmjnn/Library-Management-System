@@ -3,15 +3,15 @@ from datetime import date
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.enums import SortOrder
 from src.books.schemas import CreateBook, UpdateBook
 from src.books.service import BookService
 from src.core.dependencies import BookQueryParams
+from src.core.enums import OrderBy
 from src.users.models import User
-from utils.custom_exceptions import BookAlreadyExistsError, BookNotFoundError
+from src.utils.cache_keys import BookCacheKey
+from src.utils.custom_exceptions import BookAlreadyExistsError, BookNotFoundError
+from src.utils.enums import BookCategory
 from tests.factories import make_book
-from utils.cache_keys import book_detail_key
-from utils.enums import BookCategory
 
 
 class TestCreateBook:
@@ -233,7 +233,7 @@ class TestGetBooks:
 
         result = await BookService.get_books(
             test_db,
-            **BookQueryParams(sort_by="title", order=SortOrder.asc).model_dump(),
+            **BookQueryParams(sort_by="title", order=OrderBy.asc).model_dump(),
         )
 
         titles = sorted(["Zebra Book", "Apple Book", "Mango Book"])
@@ -381,7 +381,7 @@ class TestGetBookByIDCache:
         await BookService.get_book_by_id(test_db, book.id)
 
         mock_set_cache.assert_called_once_with(
-            book_detail_key(book.id),
+            BookCacheKey.book_detail_key(book.id),
             mocker.ANY,
             600,
         )

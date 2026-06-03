@@ -20,25 +20,11 @@ from src.core.security import (
 from src.email.enums import EmailType
 from src.email.repository import PendingEmailRepository
 from src.pagination import PaginatedResponse
+from src.users import schemas as user_schemas
 from src.users.models import User, UserActivation, UserSession
 from src.users.repository import (
     UserRepositoryAdmin,
     UserRepositoryBase,
-    UserRepositoryStaff,
-)
-from src.users.schemas import (
-    CreateUserAdmin,
-    CreateUserBase,
-    CreateUserPublic,
-    ForgotPasswordPublicRequest,
-    SearchUserAdmin,
-    SearchUserBase,
-    UpdateUser,
-    UpdateUserEmail,
-    UpdateUserPasswordPublic,
-    UserResponseAdmin,
-    UserResponseBase,
-    UserResponseStaff,
 )
 from src.utils.cache_keys import (
     SessionCacheKey,
@@ -49,7 +35,6 @@ from src.utils.custom_exceptions import (
     CannotCreateSystemAdminError,
     ExpiredEmailChangeCodeError,
     IncorrectPasswordError,
-    InvalidActivationCodeError,
     InvalidEmailChangeCodeError,
     UserAlreadyActiveError,
     UserAlreadyInactiveError,
@@ -67,7 +52,6 @@ from src.utils.email import (
     send_email_change_verification,
     send_forgot_password_email,
     send_password_changed_confirmation,
-    send_reset_password_token,
     send_safe,
 )
 from src.utils.enums import UserRole
@@ -78,11 +62,19 @@ from src.utils.response_schemas import MessageResponse
 
 logger = get_logger(__name__)
 
+SYSTEM_ADMIN_INVISIBLE_ROLES = frozenset({UserRole.system_admin})
+LIBRARY_ADMIN_INVISIBLE_ROLES = frozenset(
+    {UserRole.system_admin, UserRole.library_admin}
+)
+RECEPTIONIST_VISIBLE_ROLES = frozenset({UserRole.member, UserRole.guest})
+
 
 class UserServiceAdmin:
     @staticmethod
     async def create_account(
-        db: AsyncSession, current_user_id: int, user_request: CreateUserAdmin
+        db: AsyncSession,
+        current_user_id: int,
+        user_request: user_schemas.CreateUserAdmin,
     ) -> User:
         if user_request.role == UserRole.system_admin:
             logger.warning(
@@ -174,7 +166,7 @@ class UserServiceAdmin:
         db: AsyncSession,
         skip: int,
         limit: int,
-        filters: SearchUserAdmin,
+        filters: user_schemas.SearchUserAdmin,
         sort_by: str,
         order: str,
     ) -> PaginatedResponse:
@@ -194,16 +186,20 @@ class UserServiceAdmin:
     @staticmethod
     async def get_user_by_id(
         db: AsyncSession, user_id: int
-    ) -> UserResponseAdmin | dict:
+    ) -> user_schemas.UserResponseAdmin | dict:
         cache_key = UserCacheKey.user_detail_key_admin(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
             return cached
 
-        user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id(
+            db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
+        )
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
-        serialized = UserResponseAdmin.model_validate(user).model_dump(mode="json")
+        serialized = user_schemas.UserResponseAdmin.model_validate(user).model_dump(
+            mode="json"
+        )
         await set_cache(cache_key, serialized, 900)
 
         return serialized
@@ -212,7 +208,9 @@ class UserServiceAdmin:
     async def deactivate_user(
         db: AsyncSession, current_user_id: int, user_id: int
     ) -> None:
-        user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id(
+            db, user_id, load_session=True, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
+        )
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if not user.is_active:
@@ -253,7 +251,9 @@ class UserServiceAdmin:
     async def activate_user(
         db: AsyncSession, current_user_id: int, user_id: int
     ) -> None:
-        user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id(
+            db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
+        )
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if user.is_active:
@@ -290,9 +290,11 @@ class UserServiceAdmin:
         db: AsyncSession,
         current_user_id: int,
         user_id: int,
-        update_request: UpdateUser,
+        update_request: user_schemas.UpdateUser,
     ) -> User:
-        user = await UserRepositoryAdmin.get_user_by_id_admin(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id(
+            db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
+        )
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         try:
@@ -333,9 +335,11 @@ class UserServiceAdmin:
         db: AsyncSession,
         current_user_id: int,
         user_id: int,
-        update_request: UpdateUserEmail,
+        update_request: user_schemas.UpdateUserEmail,
     ) -> None:
-        user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id(
+            db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
+        )
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         try:
@@ -348,7 +352,7 @@ class UserServiceAdmin:
             user.session.refresh_token_family = None
             user.session.refresh_token_expires_at = None
 
-            user.session.pending_email = None
+            user.session.pending_new_email = None
             user.session.email_change_code_hash = None
             user.session.email_change_code_expires_at = None
 
@@ -396,14 +400,12 @@ class UserServiceAdmin:
 
         match current_user.role:
             case UserRole.system_admin:
-                user = await UserRepositoryAdmin.get_user_by_id_with_session_admin(
-                    db, user_id
+                user = await UserRepositoryBase.get_user_by_id(
+                    db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
                 )
             case UserRole.library_admin:
-                user = (
-                    await UserRepositoryStaff.get_user_by_id_with_session_library_admin(
-                        db, user_id
-                    )
+                user = await UserRepositoryBase.get_user_by_id(
+                    db, user_id, excluded_roles=LIBRARY_ADMIN_INVISIBLE_ROLES
                 )
             case _:
                 raise AccessDeniedError(HTTP403.ACCESS_DENIED)
@@ -431,14 +433,6 @@ class UserServiceAdmin:
         )
 
         await db.commit()
-        await db.refresh(user)
-
-        asyncio.create_task(
-            send_safe(
-                send_reset_password_token(user.email, raw_reset_token),
-                email_type=EmailType.password_reset_admin,
-            )
-        )
 
         logger.info(
             "reset_password_request_created",
@@ -449,7 +443,9 @@ class UserServiceAdmin:
 class UserServiceStaff:
     @staticmethod
     async def create_account(
-        db: AsyncSession, current_user_id: int, user_request: CreateUserBase
+        db: AsyncSession,
+        current_user_id: int,
+        user_request: user_schemas.CreateUserBase,
     ) -> User:
         raw_invite_token, invite_token_hash = generate_invite_token()
         invite_token_expires_at = datetime.now(timezone.utc) + timedelta(
@@ -531,19 +527,31 @@ class UserServiceStaff:
         current_user: CurrentUser,
         skip: int,
         limit: int,
-        filters: SearchUserBase,
+        filters: user_schemas.SearchUserBase,
         sort_by: str,
         order: str,
     ) -> PaginatedResponse:
 
         match current_user.role:
             case UserRole.library_admin:
-                users, total = await UserRepositoryStaff.get_users_library_admin(
-                    db, skip, limit, filters, sort_by, order
+                users, total = await UserRepositoryBase.get_users(
+                    db,
+                    excluded_roles=LIBRARY_ADMIN_INVISIBLE_ROLES,
+                    skip=skip,
+                    limit=limit,
+                    filters=filters,
+                    sort_by=sort_by,
+                    order=order,
                 )
             case UserRole.receptionist:
-                users, total = await UserRepositoryStaff.get_users_receptionist(
-                    db, skip, limit, filters, sort_by, order
+                users, total = await UserRepositoryBase.get_users(
+                    db,
+                    allowed_roles=RECEPTIONIST_VISIBLE_ROLES,
+                    skip=skip,
+                    limit=limit,
+                    filters=filters,
+                    sort_by=sort_by,
+                    order=order,
                 )
             case _:
                 raise AccessDeniedError(HTTP403.ACCESS_DENIED)
@@ -567,21 +575,21 @@ class UserServiceStaff:
 
         match current_user.role:
             case UserRole.library_admin:
-                user = (
-                    await UserRepositoryStaff.get_user_by_id_with_session_library_admin(
-                        db, user_id
-                    )
+                user = await UserRepositoryBase.get_user_by_id(
+                    db, user_id, excluded_roles=LIBRARY_ADMIN_INVISIBLE_ROLES
                 )
             case UserRole.receptionist:
-                user = await UserRepositoryStaff.get_user_by_id_receptionist(
-                    db, user_id
+                user = await UserRepositoryBase.get_user_by_id(
+                    db, user_id, allowed_roles=RECEPTIONIST_VISIBLE_ROLES
                 )
             case _:
                 raise AccessDeniedError(HTTP403.ACCESS_DENIED)
 
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
-        serialized = UserResponseStaff.model_validate(user).model_dump(mode="json")
+        serialized = user_schemas.UserResponseStaff.model_validate(user).model_dump(
+            mode="json"
+        )
         await set_cache(cache_key, serialized, 900)
 
         return serialized
@@ -590,7 +598,7 @@ class UserServiceStaff:
 class UserServicePublic:
     @staticmethod
     async def create_account_public(
-        db: AsyncSession, user_request: CreateUserPublic
+        db: AsyncSession, user_request: user_schemas.CreateUserPublic
     ) -> MessageResponse:
         raw_activation_code, hashed_activation_code = generate_account_activation_code()
         account_activation_code_expires_at = datetime.now(timezone.utc) + timedelta(
@@ -675,7 +683,8 @@ class UserServicePublic:
 
     @staticmethod
     async def create_forgot_passsword_request_public(
-        db: AsyncSession, forgot_password_request: ForgotPasswordPublicRequest
+        db: AsyncSession,
+        forgot_password_request: user_schemas.ForgotPasswordPublicRequest,
     ) -> MessageResponse:
         user = (
             await UserRepositoryBase.get_user_by_username_and_phone_number_with_session(
@@ -685,14 +694,14 @@ class UserServicePublic:
             )
         )
 
-        if user is not None and user.session is None:
+        if user is not None and user.session is not None:
             raw_reset_password_token, hashed_reset_password_token = (
                 generate_reset_password_token()
             )
 
             user.session.reset_password_token_hash = hashed_reset_password_token
             user.session.reset_password_token_expires_at = datetime.now(
-                timedelta.utc
+                timezone.utc
             ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
 
             await db.commit()
@@ -706,10 +715,12 @@ class UserServicePublic:
 
             logger.info("forgot_password_request_processed")
 
-            return MessageResponse(PublicMessages.FORGOT_PASSWORD)
+        return MessageResponse(detail=PublicMessages.FORGOT_PASSWORD)
 
     @staticmethod
-    async def get_me(db: AsyncSession, user_id: int) -> UserResponseBase | dict:
+    async def get_me(
+        db: AsyncSession, user_id: int
+    ) -> user_schemas.UserResponseBase | dict:
         cache_key = UserCacheKey.user_detail_key_self(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
@@ -718,14 +729,16 @@ class UserServicePublic:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
-        serialized = UserResponseBase.model_validate(user).model_dump(mode="json")
+        serialized = user_schemas.UserResponseBase.model_validate(user).model_dump(
+            mode="json"
+        )
         await set_cache(cache_key, serialized, 900)
 
         return serialized
 
     @staticmethod
     async def update_me(
-        db: AsyncSession, user_id: int, update_request: UpdateUser
+        db: AsyncSession, user_id: int, update_request: user_schemas.UpdateUser
     ) -> User:
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
@@ -763,9 +776,11 @@ class UserServicePublic:
 
     @staticmethod
     async def update_my_password(
-        db: AsyncSession, user_id: int, password_request: UpdateUserPasswordPublic
+        db: AsyncSession,
+        user_id: int,
+        password_request: user_schemas.UpdateUserPasswordPublic,
     ) -> None:
-        user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id(db, user_id, load_session=True)
 
         if not user.password_hash:
             raise IncorrectPasswordError(HTTP400.INCORRECT_PASSWORD)
@@ -801,7 +816,7 @@ class UserServicePublic:
         user_id: int,
         new_email: str,
     ) -> dict:
-        user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id(db, user_id, load_session=True)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         raw_email_change_code, hashed_email_change_code = generate_email_change_code()
@@ -809,7 +824,7 @@ class UserServicePublic:
             minutes=settings.ACTIVATION_CODE_EXPIRES_MINUTES
         )
 
-        user.session.pending_email = new_email
+        user.session.pending_new_email = new_email
         user.session.email_change_code_hash = hashed_email_change_code
         user.session.email_change_code_expires_at = email_change_code_expires_at
 
@@ -825,7 +840,7 @@ class UserServicePublic:
 
         logger.info("email_change_requested", user_id=user_id)
 
-        return MessageResponse(PublicMessages.EMAIL_CHANGE_REQUESTED)
+        return MessageResponse(detail=PublicMessages.EMAIL_CHANGE_REQUESTED)
 
     @staticmethod
     async def confirm_email_change(
@@ -833,7 +848,7 @@ class UserServicePublic:
         user_id: int,
         code: str,
     ) -> dict:
-        user = await UserRepositoryBase.get_user_by_id_with_session(db, user_id)
+        user = await UserRepositoryBase.get_user_by_id(db, user_id, load_session=True)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if (
@@ -851,9 +866,9 @@ class UserServicePublic:
         if not verify_email_change_code(code, user.session.email_change_code_hash):
             raise InvalidEmailChangeCodeError(HTTP400.INVALID_EMAIL_CHANGE_CODE)
 
-        user.email = user.session.pending_email
+        user.email = user.session.pending_new_email
 
-        user.session.pending_email = None
+        user.session.pending_new_email = None
         user.session.email_change_code_hash = None
         user.session.email_change_code_expires_at = None
 
@@ -876,4 +891,4 @@ class UserServicePublic:
             user_id=user_id,
         )
 
-        return MessageResponse(PublicMessages.EMAIL_CHANGE_CONFIRMED)
+        return MessageResponse(detail=PublicMessages.EMAIL_CHANGE_CONFIRMED)

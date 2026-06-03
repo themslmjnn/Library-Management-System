@@ -3,10 +3,10 @@ from fastapi import APIRouter, Request, status
 from src.core.dependencies import async_db_dependency, current_user_dependency
 from src.core.limiter import ip_limiter, user_limiter
 from src.users.schemas import (
-    ConfirmEmailChangeRequest,
+    ConfirmEmailChange,
     CreateUserPublic,
+    EmailChangeRequest,
     ForgotPasswordPublicRequest,
-    RequestEmailChangeRequest,
     UpdateUser,
     UpdateUserPasswordPublic,
     UserResponseBase,
@@ -23,7 +23,7 @@ router = APIRouter(
 @router.post(
     "/register", response_model=MessageResponse, status_code=status.HTTP_200_OK
 )
-@ip_limiter.limit("3/minute")
+@ip_limiter.limit("5/minute")
 async def create_account_public(
     request: Request,
     db: async_db_dependency,
@@ -41,7 +41,7 @@ async def create_forgot_password_request(
     db: async_db_dependency,
     forgot_password_request: ForgotPasswordPublicRequest,
 ):
-    await UserServicePublic.create_forgot_passsword_request_public(
+    return await UserServicePublic.create_forgot_passsword_request_public(
         db, forgot_password_request
     )
 
@@ -82,10 +82,10 @@ async def update_my_password(
 async def request_email_change(
     db: async_db_dependency,
     current_user: current_user_dependency,
-    body: RequestEmailChangeRequest,
+    update_request: EmailChangeRequest,
 ):
     return await UserServicePublic.request_email_change(
-        db, current_user.id, body.new_email
+        db, current_user.id, update_request.new_email
     )
 
 
@@ -97,6 +97,6 @@ async def request_email_change(
 async def confirm_email_change(
     db: async_db_dependency,
     current_user: current_user_dependency,
-    body: ConfirmEmailChangeRequest,
+    body: ConfirmEmailChange,
 ):
     return await UserServicePublic.confirm_email_change(db, current_user.id, body.code)

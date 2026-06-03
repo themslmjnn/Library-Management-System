@@ -30,17 +30,6 @@ async def create_account(
 
 
 @router.get(
-    "/{user_id}/staff", response_model=UserResponseStaff, status_code=status.HTTP_200_OK
-)
-async def get_user_by_id_staff(
-    db: async_db_dependency,
-    current_user: Annotated[User, Depends(require_staff)],
-    user_id: Annotated[int, Path(ge=1)],
-):
-    return await UserServiceStaff.get_user_by_id_staff(db, current_user, user_id)
-
-
-@router.get(
     "/staff",
     response_model=PaginatedResponse[UserResponseStaff],
     status_code=status.HTTP_200_OK,
@@ -62,3 +51,14 @@ async def get_users_staff(
         sort_by,
         order,
     )
+
+
+@router.get(
+    "/{user_id}/staff", response_model=UserResponseStaff, status_code=status.HTTP_200_OK
+)
+async def get_user_by_id_staff(
+    db: async_db_dependency,
+    current_user: Annotated[User, Depends(require_staff)],
+    user_id: Annotated[int, Path(ge=1)],
+):
+    return await UserServiceStaff.get_user_by_id_staff(db, current_user, user_id)

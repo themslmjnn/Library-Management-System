@@ -1,4 +1,4 @@
-from sqlalchemy import Select, and_, func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -10,11 +10,6 @@ from src.users.schemas import (
 )
 from src.utils.enums import UserRole, UserSortField
 
-LIBRARY_ADMIN_VISIBLE_ROLES = frozenset(
-    {UserRole.receptionist, UserRole.member, UserRole.guest}
-)
-RECEPTIONIST_VISIBLE_ROLES = frozenset({UserRole.member, UserRole.guest})
-
 
 class UserRepositoryBase:
     @staticmethod
@@ -22,38 +17,6 @@ class UserRepositoryBase:
         db: AsyncSession, new_user: User | UserSession | UserActivation
     ) -> None:
         db.add(new_user)
-
-    @staticmethod
-    async def get_user_by_id(db: AsyncSession, user_id: int) -> User | None:
-        query = select(User).filter(User.id == user_id)
-
-        result = await db.execute(query)
-
-        return result.scalar_one_or_none()
-
-    @staticmethod
-    async def get_user_by_id_with_session(
-        db: AsyncSession, user_id: int
-    ) -> User | None:
-        query = (
-            select(User).options(joinedload(User.session)).filter(User.id == user_id)
-        )
-
-        result = await db.execute(query)
-
-        return result.scalar_one_or_none()
-
-    @staticmethod
-    async def get_user_by_id_with_activation(
-        db: AsyncSession, user_id: int
-    ) -> User | None:
-        query = (
-            select(User).options(joinedload(User.activation)).filter(User.id == user_id)
-        )
-
-        result = await db.execute(query)
-
-        return result.scalar_one_or_none()
 
     @staticmethod
     async def get_user_by_email(
@@ -135,6 +98,54 @@ class UserRepositoryBase:
 
         return result.scalars().all(), total
 
+    @staticmethod
+    async def get_users(
+        db: AsyncSession,
+        *,
+        excluded_roles: frozenset[UserRole] | None = None,
+        allowed_roles: frozenset[UserRole] | None = None,
+        filters: SearchUserBase | SearchUserAdmin | None = None,
+        sort_by: str = UserSortField.created_at,
+        order: str = OrderBy.desc,
+        skip: int = 0,
+        limit: int = 10,
+    ) -> tuple[list[User], int]:
+        query = select(User)
+
+        if excluded_roles:
+            query = query.filter(User.role.not_in(excluded_roles))
+        if allowed_roles:
+            query = query.filter(User.role.in_(allowed_roles))
+
+        query = UserRepositoryBase.apply_base_filters(query, filters)
+        query = UserRepositoryBase.apply_sorting(query, sort_by, order)
+
+        return await UserRepositoryBase.paginate(db, query, skip, limit)
+
+    @staticmethod
+    async def get_user_by_id(
+        db: AsyncSession,
+        user_id: int,
+        *,
+        load_session: bool = False,
+        load_activation: bool = False,
+        allowed_roles: frozenset[UserRole] | None = None,
+        excluded_roles: frozenset[UserRole] | None = None,
+    ) -> User | None:
+        query = select(User).filter(User.id == user_id)
+
+        if allowed_roles:
+            query = query.filter(User.role.in_(allowed_roles))
+        if excluded_roles:
+            query = query.filter(User.role.not_in(excluded_roles))
+        if load_session:
+            query = query.options(joinedload(User.session))
+        if load_activation:
+            query = query.options(joinedload(User.activation))
+
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
 
 class UserRepositoryAdmin:
     @staticmethod
@@ -172,117 +183,3 @@ class UserRepositoryAdmin:
             skip=skip,
             limit=limit,
         )
-
-    @staticmethod
-    async def get_user_by_id_admin(db: AsyncSession, user_id: int) -> User | None:
-        query = select(User).filter(
-            and_(
-                User.role != UserRole.system_admin,
-                User.id == user_id,
-            )
-        )
-
-        result = await db.execute(query)
-
-        return result.scalar_one_or_none()
-
-    @staticmethod
-    async def get_user_by_id_with_session_admin(
-        db: AsyncSession, user_id: int
-    ) -> User | None:
-        query = (
-            select(User)
-            .options(joinedload(User.session))
-            .filter(
-                and_(
-                    User.role != UserRole.system_admin,
-                    User.id == user_id,
-                )
-            )
-        )
-
-        result = await db.execute(query)
-
-        return result.scalar_one_or_none()
-
-
-class UserRepositoryStaff:
-    @staticmethod
-    async def get_users_library_admin(
-        db: AsyncSession,
-        skip: int,
-        limit: int,
-        filters: SearchUserBase | None = None,
-        sort_by: str = UserSortField.created_at,
-        order: str = OrderBy.desc,
-    ) -> tuple[list[User], int]:
-
-        base_query = select(User).filter(User.role.in_(LIBRARY_ADMIN_VISIBLE_ROLES))
-
-        query = UserRepositoryBase.apply_base_filters(base_query, filters)
-
-        query = UserRepositoryBase.apply_sorting(query, sort_by, order)
-
-        return await UserRepositoryBase.paginate(
-            db=db,
-            query=query,
-            skip=skip,
-            limit=limit,
-        )
-
-    @staticmethod
-    async def get_user_by_id_with_session_library_admin(
-        db: AsyncSession, user_id: int
-    ) -> User | None:
-        query = (
-            select(User)
-            .options(joinedload(User.session))
-            .filter(
-                and_(
-                    User.id == user_id,
-                    User.role.in_(LIBRARY_ADMIN_VISIBLE_ROLES),
-                )
-            )
-        )
-
-        result = await db.execute(query)
-
-        return result.scalar_one_or_none()
-
-    @staticmethod
-    async def get_users_receptionist(
-        db: AsyncSession,
-        skip: int,
-        limit: int,
-        filters: SearchUserBase | None = None,
-        sort_by: str = UserSortField.created_at,
-        order: str = OrderBy.desc,
-    ) -> tuple[list[User], int]:
-
-        base_query = select(User).filter(User.role.in_(RECEPTIONIST_VISIBLE_ROLES))
-
-        query = UserRepositoryBase.apply_base_filters(base_query, filters)
-
-        query = UserRepositoryBase.apply_sorting(query, sort_by, order)
-
-        return await UserRepositoryBase.paginate(
-            db=db,
-            query=query,
-            skip=skip,
-            limit=limit,
-        )
-
-    @staticmethod
-    async def get_user_by_id_receptionist(
-        db: AsyncSession, user_id: int
-    ) -> User | None:
-        query = select(User).filter(
-            and_(
-                User.id == user_id,
-                User.role.in_(RECEPTIONIST_VISIBLE_ROLES),
-            )
-        )
-
-        result = await db.execute(query)
-
-        return result.scalar_one_or_none()

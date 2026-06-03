@@ -84,34 +84,38 @@ class BookService:
         )
 
     @staticmethod
-    async def get_book_by_id(db: AsyncSession, book_id: int) -> dict:
-        key = BookCacheKey.book_detail_key(book_id)
-        cached = await get_cache(key)
+    async def _get_book_cached(
+        db: AsyncSession,
+        book_id: int,
+        schema_class: type,
+        cache_key: str,
+    ) -> dict:
+        cached = await get_cache(cache_key)
         if cached is not None:
             return cached
 
         book = await BookRepository.get_book_by_id(db, book_id)
         ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
 
-        serialized = BookResponse.model_validate(book).model_dump(mode="json")
-        await set_cache(key, serialized, 600)
+        serialized = schema_class.model_validate(book).model_dump(mode="json")
+        await set_cache(cache_key, serialized, 900)
 
         return serialized
 
     @staticmethod
-    async def get_book_by_id_public(db: AsyncSession, book_id: int) -> dict:
-        key = BookCacheKey.book_detail_key_public(book_id)
-        cached = await get_cache(key)
-        if cached is not None:
-            return cached
+    async def get_book_by_id(db, book_id) -> dict:
+        return await BookService._get_book_cached(
+            db, book_id, BookResponse, BookCacheKey.book_detail_key(book_id)
+        )
 
-        book = await BookRepository.get_book_by_id(db, book_id)
-        ensure_exists(book, BookNotFoundError(HTTP404.BOOK))
-
-        serialized = BookResponsePublic.model_validate(book).model_dump(mode="json")
-        await set_cache(key, serialized, 600)
-
-        return serialized
+    @staticmethod
+    async def get_book_by_id_public(db, book_id) -> dict:
+        return await BookService._get_book_cached(
+            db,
+            book_id,
+            BookResponsePublic,
+            BookCacheKey.book_detail_key_public(book_id),
+        )
 
     @staticmethod
     async def update_book(
@@ -133,6 +137,7 @@ class BookService:
             )
 
             await delete_cache(BookCacheKey.book_detail_key(book_id))
+            await delete_cache(BookCacheKey.book_detail_key_public(book_id))
 
             return book
         except IntegrityError as error:

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Union
 
 from fastapi import APIRouter, Depends, Path, status
 
@@ -49,15 +49,6 @@ async def get_books(
     )
 
 
-@router.get("/{book_id}", response_model=BookResponse, status_code=status.HTTP_200_OK)
-async def get_book_by_id(
-    db: async_db_dependency,
-    book_id: Annotated[int, Path(ge=1)],
-    _: Annotated[User, Depends(require_system_admin_and_staff)],
-):
-    return await BookService.get_book_by_id(db, book_id)
-
-
 @router.get(
     "/public",
     response_model=PaginatedResponse[BookResponsePublic],
@@ -80,8 +71,21 @@ async def get_books_public(
 
 
 @router.get(
+    "/{book_id}",
+    response_model=Union[BookResponse, dict],
+    status_code=status.HTTP_200_OK,
+)
+async def get_book_by_id(
+    db: async_db_dependency,
+    book_id: Annotated[int, Path(ge=1)],
+    _: Annotated[User, Depends(require_system_admin_and_staff)],
+):
+    return await BookService.get_book_by_id(db, book_id)
+
+
+@router.get(
     "/{book_id}/public",
-    response_model=BookResponsePublic,
+    response_model=Union[BookResponsePublic, dict],
     status_code=status.HTTP_200_OK,
 )
 async def get_book_by_id_public(
