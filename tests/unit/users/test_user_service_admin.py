@@ -934,14 +934,14 @@ class TestUpdateUser:
         assert user.first_name == "User_name"
         assert user.last_name == "User_surname"
 
-    async def test_cache_is_invalidated_after_deactivation(
+    async def test_cache_is_invalidated_after_update(
         self, test_db: AsyncSession, system_admin: User, mocker
     ):
         user = await make_member(test_db)
 
         mock_delete_cache = mocker.patch("src.users.service.delete_cache")
 
-        await UserServiceAdmin.update_user(test_db, system_admin.id, user.id)
+        await UserServiceAdmin.update_user(test_db, system_admin.id, user.id, UpdateUser())
 
         assert mock_delete_cache.call_count == 1
         mock_delete_cache.assert_called_once_with(

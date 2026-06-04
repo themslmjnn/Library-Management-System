@@ -1,3 +1,4 @@
+# 6. tests/integration/auth/test_auth_router.py
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 

@@ -6,7 +6,6 @@ from src.users.schemas import (
     ConfirmEmailChange,
     CreateUserPublic,
     EmailChangeRequest,
-    ForgotPasswordPublicRequest,
     UpdateUser,
     UpdateUserPasswordPublic,
     UserResponseBase,
@@ -30,20 +29,6 @@ async def create_account_public(
     user_request: CreateUserPublic,
 ):
     return await UserServicePublic.create_account_public(db, user_request)
-
-
-@router.post(
-    "/forgot_password", response_model=MessageResponse, status_code=status.HTTP_200_OK
-)
-@ip_limiter.limit("5/minute")
-async def create_forgot_password_request(
-    request: Request,
-    db: async_db_dependency,
-    forgot_password_request: ForgotPasswordPublicRequest,
-):
-    return await UserServicePublic.create_forgot_passsword_request_public(
-        db, forgot_password_request
-    )
 
 
 @router.get("/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK)

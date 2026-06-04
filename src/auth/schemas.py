@@ -1,7 +1,7 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from src.utils.enums import UserRole
-from src.utils.validators import validate_password
+from src.utils.validators import validate_password, validate_phone_number
 
 
 class CreateAccessTokenRequest(BaseModel):
@@ -43,3 +43,12 @@ class ResetPasswordRequest(BaseModel):
 
 class CreateResetPasswordRequest(BaseModel):
     identifier: str | EmailStr
+
+class ForgotPasswordPublicRequest(BaseModel):
+    username: str = Field(min_length=6, max_length=20)
+    phone_number: str
+
+    @field_validator("phone_number")
+    @classmethod
+    def validate_phone_number(cls, field: str) -> str:
+        return validate_phone_number(field)

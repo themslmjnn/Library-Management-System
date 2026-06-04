@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import pytest_asyncio
@@ -193,4 +193,11 @@ def valid_create_user_request_public():
     return CreateUserPublic(
         **create_user_request,
         password=NEW_PASSWORD,
+    )
+
+@pytest.fixture
+def mock_send_forgot_password_email(mocker):
+    return mocker.patch(
+        "src.auth.service.send_forgot_password_email",
+        new_callable=AsyncMock,
     )

@@ -1,3 +1,4 @@
+# 4. src/auth/service.py
 import asyncio
 import hmac
 import secrets
@@ -15,6 +16,7 @@ from src.auth.schemas import (
     CreateAccessTokenRequest,
     CreateRefreshTokenRequest,
     CreateResetPasswordRequest,
+    ForgotPasswordPublicRequest,
     LoginResponse,
     ResetPasswordRequest,
 )
@@ -49,8 +51,14 @@ from src.utils.custom_exceptions import (
     InvalidRefreshTokenError,
     InvalidResetPasswordTokenError,
 )
-from src.utils.email import send_reset_password_token
+from src.utils.email import (
+    send_forgot_password_email,
+    send_reset_password_token,
+    send_safe,
+)
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
+from src.utils.response_messages import PublicMessages
+from src.utils.response_schemas import MessageResponse
 
 logger = get_logger(__name__)
 
@@ -555,3 +563,40 @@ class AuthService:
             "password_changed",
             user_id=user.id,
         )
+
+
+    @staticmethod
+    async def create_forgot_passsword_request(
+        db: AsyncSession,
+        forgot_password_request: ForgotPasswordPublicRequest,
+    ) -> MessageResponse:
+        user = (
+            await UserRepositoryBase.get_user_by_username_and_phone_number_with_session(
+                db,
+                forgot_password_request.username,
+                forgot_password_request.phone_number,
+            )
+        )
+
+        if user is not None and user.session is not None:
+            raw_reset_password_token, hashed_reset_password_token = (
+                generate_reset_password_token()
+            )
+
+            user.session.reset_password_token_hash = hashed_reset_password_token
+            user.session.reset_password_token_expires_at = datetime.now(
+                timezone.utc
+            ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
+
+            await db.commit()
+
+            asyncio.create_task(
+                send_safe(
+                    send_forgot_password_email(user.email, raw_reset_password_token),
+                    email_type="forgot_password",
+                )
+            )
+
+            logger.info("forgot_password_request_processed")
+
+        return MessageResponse(detail=PublicMessages.FORGOT_PASSWORD)

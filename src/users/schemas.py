@@ -128,16 +128,6 @@ class SearchUserAdmin(SearchUserBase):
     is_active: bool | None = None
 
 
-class ForgotPasswordPublicRequest(BaseModel):
-    username: str = Field(min_length=6, max_length=20)
-    phone_number: str
-
-    @field_validator("phone_number")
-    @classmethod
-    def validate_phone_number(cls, field: str) -> str:
-        return field_validators.validate_phone_number(field)
-
-
 class EmailChangeRequest(BaseModel):
     new_email: EmailStr
 

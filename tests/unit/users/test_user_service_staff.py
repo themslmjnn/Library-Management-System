@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.core.enums import OrderBy
+from src.email.enums import EmailType
 from src.email.repository import PendingEmailRepository
 from src.users.models import User, UserRole
 from src.users.repository import UserRepositoryBase
@@ -32,15 +33,16 @@ class TestCreateAccountStaff:
             test_db, library_admin.id, valid_create_user_request_staff
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
         )
-        user_activation = await UserRepositoryBase.get_user_by_id_with_activation(
-            test_db, user.id
+        user_activation = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_activation=True
         )
         pending_email = await PendingEmailRepository.get_pending_email_by_triggered_by(
             test_db, library_admin.id
         )
+        email = pending_email[0]
 
         assert user.id is not None
         assert user.email == "test_email@gmail.com"
@@ -52,6 +54,8 @@ class TestCreateAccountStaff:
         assert user_activation is not None
         assert pending_email is not None
         assert len(pending_email) == 1
+        assert email.email_type == EmailType.invite
+        assert email.triggered_by == library_admin.id
 
 
 class TestGetUsersStaff:
@@ -198,3 +202,16 @@ class TestGetUserByIDStaff:
             mocker.ANY,
             900,
         )
+
+    async def test_request_doesnot_hit_db_on_second_call(
+        self, test_db: AsyncSession, library_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+
+        await UserServiceStaff.get_user_by_id_staff(test_db, library_admin, user.id)
+
+        mock_get_user = mocker.patch.object(UserRepositoryBase, "get_user_by_id")
+
+        await UserServiceStaff.get_user_by_id_staff(test_db, library_admin, user.id)
+
+        mock_get_user.assert_not_called()

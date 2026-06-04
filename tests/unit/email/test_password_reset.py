@@ -1,3 +1,4 @@
+# 8. tests/unit/email/test_password_reset.py
 import asyncio
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
@@ -9,16 +10,6 @@ from src.auth.schemas import CreateResetPasswordRequest, ResetPasswordRequest
 from src.auth.service import AuthService
 from src.core.config import settings
 from src.users.repository import UserRepositoryBase
-from utils.email import (
-    _reset_password_html,
-    _reset_password_text,
-    send_reset_password_token,
-)
-from utils.custom_exceptions import (
-    ExpiredResetPasswordTokenError,
-    InvalidCredentialsError,
-    InvalidResetPasswordTokenError,
-)
 from tests.conftest import make_member
 from tests.constants import (
     CORRECT_PASSWORD,
@@ -27,6 +18,16 @@ from tests.constants import (
     NEW_PASSWORD,
 )
 from tests.factories import make_user_with_reset_token
+from utils.custom_exceptions import (
+    ExpiredResetPasswordTokenError,
+    InvalidCredentialsError,
+    InvalidResetPasswordTokenError,
+)
+from utils.email import (
+    _reset_password_html,
+    _reset_password_text,
+    send_reset_password_token,
+)
 
 
 class TestResetPasswordHtml:

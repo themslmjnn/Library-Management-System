@@ -129,7 +129,7 @@ class PendingEmailRepository:
 
     @staticmethod
     async def get_pending_email_by_triggered_by(
-        db: AsyncSession, triggered_by: int
+        db: AsyncSession, triggered_by: int | None
     ) -> list[PendingEmail]:
         query = select(PendingEmail).filter(PendingEmail.triggered_by == triggered_by)
 

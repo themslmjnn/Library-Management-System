@@ -1,3 +1,4 @@
+# 7. tests/unit/email/test_email_activation.py
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
@@ -5,6 +6,12 @@ import pytest
 import structlog.testing
 
 from src.core.config import settings
+from tests.constants import (
+    FAKE_ACTIVATION_CODE,
+    FAKE_EMAIL,
+    FAKE_INVITE_TOKEN,
+    RESEND_URL,
+)
 from utils.email import (
     _activation_code_html,
     _activation_code_text,
@@ -13,12 +20,6 @@ from utils.email import (
     _send,
     send_account_activation_code,
     send_invite_email,
-)
-from tests.constants import (
-    FAKE_ACTIVATION_CODE,
-    FAKE_EMAIL,
-    FAKE_INVITE_TOKEN,
-    RESEND_URL,
 )
 
 

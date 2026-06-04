@@ -1,6 +1,7 @@
+import asyncio
 import secrets
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,11 +10,13 @@ from src.auth.schemas import (
     ActivateAccountWithCode,
     ActivateAccountWithToken,
     CreateRefreshTokenRequest,
+    ForgotPasswordPublicRequest,
 )
 from src.auth.service import AuthService
 from src.core.security import create_refresh_token, decode_access_token
 from src.users.models import UserRole
-from utils.custom_exceptions import (
+from src.users.repository import UserRepositoryBase
+from src.utils.custom_exceptions import (
     AccountInactiveError,
     AccountLockedError,
     EmptyCredentialsError,
@@ -24,8 +27,9 @@ from utils.custom_exceptions import (
     InvalidCredentialsError,
     InvalidInviteTokenError,
     InvalidRefreshTokenError,
-    RefreshTokenFamilyError,
 )
+from src.utils.response_messages import PublicMessages
+from src.utils.response_schemas import MessageResponse
 from tests.constants import (
     CORRECT_PASSWORD,
     DEFAULT_PASSWORD,
@@ -38,7 +42,6 @@ from tests.factories import (
     make_user_with_activation_code,
     make_user_with_refresh_token,
 )
-from users.repository import UserRepositoryBase
 
 
 class _MockForm:
@@ -747,3 +750,175 @@ class TestRefreshToken:
             test_db, user.id
         )
         assert payload["version"] == user_session.session.access_token_version
+
+
+class TestForgotPasswordPublic:
+    """
+    Forgot password is enumeration-protected — always returns the same
+    MessageResponse regardless of whether the user exists or not.
+    The only observable difference is whether the email was sent and
+    whether the reset token was written to the session.
+    """
+ 
+    async def test_returns_message_response_when_user_found(
+        self, test_db: AsyncSession, mock_send_forgot_password_email
+    ):
+        user = await make_member(test_db)
+ 
+        request = ForgotPasswordPublicRequest(
+            username=user.username,
+            phone_number=user.phone_number,
+        )
+ 
+        result = await AuthService.create_forgot_passsword_request(
+            test_db, request
+        )
+ 
+        assert isinstance(result, MessageResponse)
+        assert result.detail == PublicMessages.FORGOT_PASSWORD
+ 
+    async def test_returns_same_message_response_when_user_not_found(
+        self, test_db: AsyncSession
+    ):
+        request = ForgotPasswordPublicRequest(
+            username="nonexistent_user",
+            phone_number="+15550000099",
+        )
+ 
+        result = await AuthService.create_forgot_passsword_request(
+            test_db, request
+        )
+ 
+        assert isinstance(result, MessageResponse)
+        assert result.detail == PublicMessages.FORGOT_PASSWORD
+ 
+    async def test_reset_token_written_to_session_when_user_found(
+        self, test_db: AsyncSession, mock_send_forgot_password_email
+    ):
+        user = await make_member(test_db)
+ 
+        request = ForgotPasswordPublicRequest(
+            username=user.username,
+            phone_number=user.phone_number,
+        )
+ 
+        await AuthService.create_forgot_passsword_request(
+            test_db, request
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        session = user_with_session.session
+ 
+        assert session.reset_password_token_hash is not None
+        assert session.reset_password_token_expires_at is not None
+        assert session.reset_password_token_expires_at > datetime.now(timezone.utc)
+ 
+    async def test_reset_token_not_written_when_user_not_found(
+        self, test_db: AsyncSession
+    ):
+        user = await make_member(test_db)
+ 
+        request = ForgotPasswordPublicRequest(
+            username="nonexistent_user",
+            phone_number="+15550000099",
+        )
+ 
+        await AuthService.create_forgot_passsword_request(
+            test_db, request
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        session = user_with_session.session
+ 
+        assert session.reset_password_token_hash is None
+        assert session.reset_password_token_expires_at is None
+ 
+    async def test_send_forgot_password_email_called_when_user_found(
+        self, test_db: AsyncSession, mock_send_forgot_password_email
+    ):
+        user = await make_member(test_db)
+ 
+        request = ForgotPasswordPublicRequest(
+            username=user.username,
+            phone_number=user.phone_number,
+        )
+ 
+        await AuthService.create_forgot_passsword_request(
+            test_db, request
+        )
+ 
+        await asyncio.sleep(0)
+
+        call_args = mock_send_forgot_password_email.call_args
+
+        mock_send_forgot_password_email.assert_called_once()
+        assert call_args.args[0] == user.email
+ 
+    async def test_send_forgot_password_email_not_called_when_user_not_found(
+        self, test_db: AsyncSession, mock_send_forgot_password_email
+    ):
+        request = ForgotPasswordPublicRequest(
+            username="nonexistent_user",
+            phone_number="+15550000099",
+        )
+ 
+        await AuthService.create_forgot_passsword_request(
+            test_db, request
+        )
+ 
+        await asyncio.sleep(0)
+ 
+        mock_send_forgot_password_email.assert_not_called()
+ 
+    async def test_username_matches_but_phone_number_does_not_takes_no_action(
+        self, test_db: AsyncSession, mock_send_forgot_password_email
+    ):
+        user = await make_member(test_db)
+ 
+        request = ForgotPasswordPublicRequest(
+            username=user.username,
+            phone_number="+15559999999",
+        )
+ 
+        await AuthService.create_forgot_passsword_request(
+            test_db, request
+        )
+ 
+        await asyncio.sleep(0)
+ 
+        mock_send_forgot_password_email.assert_not_called()
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        assert user_with_session.session.reset_password_token_hash is None
+        assert user_with_session.session.refresh_token_expires_at is None
+ 
+    async def test_phone_number_matches_but_username_does_not_takes_no_action(
+        self, test_db: AsyncSession, mock_send_forgot_password_email
+    ):
+        user = await make_member(test_db)
+ 
+        request = ForgotPasswordPublicRequest(
+            username="wrong_username",
+            phone_number=user.phone_number,
+        )
+ 
+        await AuthService.create_forgot_passsword_request(
+            test_db, request
+        )
+ 
+        await asyncio.sleep(0)
+ 
+        mock_send_forgot_password_email.assert_not_called()
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+
+        assert user_with_session.session.reset_password_token_hash is None
+        assert user_with_session.session.reset_password_token_expires_at is None

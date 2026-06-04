@@ -1,3 +1,4 @@
+# 2. src/core/email_worker.py
 import asyncio
 
 from src.core.logging import get_logger

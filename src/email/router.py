@@ -1,5 +1,3 @@
-# src/email/router.py
-
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status

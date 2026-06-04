@@ -24,6 +24,7 @@ class UserRepositoryBase:
         email: str,
     ) -> User | None:
         result = await db.execute(select(User).filter(User.email == email))
+        
         return result.scalar_one_or_none()
 
     @staticmethod
