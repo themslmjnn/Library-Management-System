@@ -201,3 +201,10 @@ def mock_send_forgot_password_email(mocker):
         "src.auth.service.send_forgot_password_email",
         new_callable=AsyncMock,
     )
+
+@pytest.fixture
+def mock_send_email_change_verification(mocker):
+    return mocker.patch(
+        "src.users.service.email_sender.send_email_change_verification",
+        new_callable=AsyncMock,
+    )

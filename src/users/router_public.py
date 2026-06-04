@@ -67,10 +67,10 @@ async def update_my_password(
 async def request_email_change(
     db: async_db_dependency,
     current_user: current_user_dependency,
-    update_request: EmailChangeRequest,
+    request: EmailChangeRequest,
 ):
     return await UserServicePublic.request_email_change(
-        db, current_user.id, update_request.new_email
+        db, current_user.id, request
     )
 
 

@@ -1,4 +1,5 @@
-from datetime import date
+import asyncio
+from datetime import date, datetime, timezone
 from unittest.mock import AsyncMock
 
 import pytest
@@ -8,16 +9,22 @@ from src.email.enums import EmailType
 from src.email.repository import PendingEmailRepository
 from src.users.models import UserRole
 from src.users.repository import UserRepositoryBase
-from src.users.schemas import CreateUserPublic, UpdateUser, UpdateUserPasswordPublic
+from src.users.schemas import (
+    CreateUserPublic,
+    EmailChangeRequest,
+    UpdateUser,
+    UpdateUserPasswordPublic,
+)
 from src.users.service import UserServicePublic
 from src.utils.cache_keys import UserCacheKey
 from src.utils.custom_exceptions import (
     IncorrectPasswordError,
     PhonenumberAlreadyTakenError,
-    UserNotFoundError,
     UsernameAlreadyTakenError,
+    UserNotFoundError,
 )
 from src.utils.response_messages import PublicMessages
+from src.utils.response_schemas import MessageResponse
 from tests.constants import NEW_PASSWORD, OLD_PASSWORD, WRONG_PASSWORD
 from tests.factories import make_member, make_user
 
@@ -334,3 +341,92 @@ class TestUpdateMyPassword:
         await UserServicePublic.update_my_password(test_db, user.id, update_request)
 
         mock_send.assert_called_once_with(user.email)
+
+
+class TestRequestEmailChange:
+    async def test_returns_message_response(self, test_db: AsyncSession, mock_send_email_change_verification):
+        user = await make_member(test_db)
+ 
+        result = await UserServicePublic.request_email_change(
+            test_db, user.id, EmailChangeRequest(new_email="new_email@gmail.com")
+        )
+ 
+        assert isinstance(result, MessageResponse)
+        assert result.detail == PublicMessages.EMAIL_CHANGE_REQUESTED
+ 
+    async def test_pending_email_written_to_session(
+        self, test_db: AsyncSession, mock_send_email_change_verification
+    ):
+        user = await make_member(test_db)
+ 
+        await UserServicePublic.request_email_change(test_db, user.id, EmailChangeRequest(new_email="new_email@gmail.com"))
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        session = user_with_session.session
+ 
+        assert session.pending_new_email == "new_email@gmail.com"
+        assert session.email_change_code_hash is not None
+        assert session.email_change_code_expires_at is not None
+        assert session.email_change_code_expires_at > datetime.now(timezone.utc)
+ 
+    async def test_overwrites_existing_pending_change(
+        self, test_db: AsyncSession, mock_send_email_change_verification
+    ):
+        """
+        If the user requests an email change twice, the second
+        request overwrites the first. Only one pending change
+        exists at a time.
+        """
+        user = await make_member(test_db)
+ 
+        await UserServicePublic.request_email_change(
+            test_db, user.id, EmailChangeRequest(new_email="first_new_email@gmail.com")
+        )
+ 
+        await UserServicePublic.request_email_change(
+            test_db, user.id, EmailChangeRequest(new_email="second_new_email@gmail.com")
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        session = user_with_session.session
+ 
+        assert session.pending_new_email == "second_new_email@gmail.com"
+ 
+    async def test_verification_email_sent_to_new_address(
+        self, test_db: AsyncSession, mock_send_email_change_verification
+    ):
+        user = await make_member(test_db)
+ 
+        await UserServicePublic.request_email_change(test_db, user.id, EmailChangeRequest(new_email="new_email_address@gmail.com"))
+ 
+        await asyncio.sleep(0)
+ 
+        mock_send_email_change_verification.assert_called_once()
+        assert mock_send_email_change_verification.call_args.args[0] == "new_email_address@gmail.com"
+ 
+    async def test_raises_404_for_unknown_user(self, test_db: AsyncSession, mock_send_email_change_verification):
+        user = await make_member(test_db)
+        non_existent_id = user.id + 999999
+ 
+        with pytest.raises(UserNotFoundError):
+            await UserServicePublic.request_email_change(
+                test_db, non_existent_id, EmailChangeRequest(new_email="new_email_address@gmail.com")
+            )
+ 
+    async def test_current_email_not_changed_yet(
+        self, test_db: AsyncSession, mock_send_email_change_verification
+    ):
+        user = await make_member(test_db)
+        original_email = user.email
+ 
+        await UserServicePublic.request_email_change(
+            test_db, user.id, EmailChangeRequest(new_email="new_email_address@gmail.com")
+        )
+ 
+        await test_db.refresh(user)
+ 
+        assert user.email == original_email

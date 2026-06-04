@@ -752,6 +752,8 @@ class TestRefreshToken:
         assert payload["version"] == user_session.session.access_token_version
 
 
+# Tests for reseting password for unauthenticated users
+# Done
 class TestForgotPasswordPublic:
     """
     Forgot password is enumeration-protected — always returns the same

@@ -768,31 +768,34 @@ class UserServicePublic:
     async def request_email_change(
         db: AsyncSession,
         user_id: int,
-        new_email: str,
+        request: user_schemas.EmailChangeRequest,
     ) -> dict:
         user = await UserRepositoryBase.get_user_by_id(db, user_id, load_session=True)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         raw_email_change_code, hashed_email_change_code = generate_email_change_code()
         email_change_code_expires_at = datetime.now(timezone.utc) + timedelta(
-            minutes=settings.ACTIVATION_CODE_EXPIRES_MINUTES
+            minutes=settings.EMAIL_CHANGE_CODE_EXPIRES_MINUTES
         )
 
-        user.session.pending_new_email = new_email
+        user.session.pending_new_email = request.new_email
         user.session.email_change_code_hash = hashed_email_change_code
         user.session.email_change_code_expires_at = email_change_code_expires_at
 
         await db.commit()
 
         asyncio.create_task(
-            send_safe(
-                send_email_change_verification(new_email, raw_email_change_code),
+            email_sender.send_safe(
+                email_sender.send_email_change_verification(request.new_email, raw_email_change_code),
                 email_type="email_change_verification",
                 user_id=user_id,
             )
         )
 
-        logger.info("email_change_requested", user_id=user_id)
+        logger.info(
+            "email_change_requested", 
+            user_id=user_id,
+        )
 
         return MessageResponse(detail=PublicMessages.EMAIL_CHANGE_REQUESTED)
 
