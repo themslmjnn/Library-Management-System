@@ -19,6 +19,7 @@ from src.users.schemas import (
 from src.users.service import UserServiceAdmin
 from src.utils.cache_keys import SessionCacheKey, UserCacheKey
 from src.utils.custom_exceptions import (
+    AccessDeniedError,
     CannotCreateSystemAdminError,
     EmailAlreadyTakenError,
     PhonenumberAlreadyTakenError,
@@ -37,7 +38,7 @@ from tests.factories import (
 from utils.enums import BookSortField, UserSortField
 
 
-class TestCreateAccountAdmin:
+class TestCreateAccount:
     async def test_block_system_admin_creation(
         self,
         test_db: AsyncSession,
@@ -188,7 +189,7 @@ class TestCreateAccountAdmin:
         assert user.created_by == system_admin.id
 
 
-class TestGetUsersAdmin:
+class TestGetUsers:
     async def test_returns_empty_when_no_users(self, test_db: AsyncSession):
         filters = SearchUserAdmin()
 
@@ -598,7 +599,7 @@ class TestGetUsersAdmin:
         assert result.total == 2
 
 
-class TestGetUserByIDAdmin:
+class TestGetUserByID:
     async def test_get_user_by_id_admin_raises_not_found(self, test_db: AsyncSession):
         user = await make_user(test_db)
         non_existent_id = user.id + 9999999
@@ -662,7 +663,7 @@ class TestGetUserByIDAdmin:
         mock_get_user.assert_not_called()
 
 
-class TestDeactivateUserAdmin:
+class TestDeactivateUser:
     async def test_does_not_deactivate_unknown_user(
         self, test_db: AsyncSession, system_admin: User
     ):
@@ -764,7 +765,7 @@ class TestDeactivateUserAdmin:
         mock_send.assert_called_once_with(expected_email)
 
 
-class TestActivateUserAdmin:
+class TestActivateUser:
     async def test_does_not_activate_unknown_user(
         self, test_db: AsyncSession, system_admin: User
     ):
@@ -847,7 +848,7 @@ class TestActivateUserAdmin:
         mock_send.assert_called_once_with(expected_email)
 
 
-class TestUpdateUserAdmin:
+class TestUpdateUser:
     async def test_does_not_update_unknown_user(
         self, test_db: AsyncSession, system_admin: User
     ):
@@ -950,7 +951,7 @@ class TestUpdateUserAdmin:
         )
 
 
-class TestUpdateUserEmailAdmin:
+class TestUpdateUserEmail:
     async def test_raise_404_if_trying_to_update_system_admin(
         self, test_db: AsyncSession, system_admin: User
     ):
@@ -1086,3 +1087,95 @@ class TestUpdateUserEmailAdmin:
         await test_db.refresh(user)
 
         assert user.email == update_request.new_email
+
+class TestCreateResetPasswordRequest:
+    async def test_system_admin_cannot_create_request_for_other_system_admins(
+        self, test_db: AsyncSession, system_admin: User,
+    ):
+        user = await make_system_admin(test_db)
+
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.create_reset_password_request(test_db, system_admin, user.id)
+
+    async def test_system_admin_can_create_request_for_non_system_admins(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        user = await make_member(test_db)
+
+        await UserServiceAdmin.create_reset_password_request(test_db, system_admin, user.id)
+
+        user_with_session = await UserRepositoryBase.get_user_by_id(test_db, user.id, load_session=True)
+        pending_new_email = await PendingEmailRepository.get_pending_email_by_triggered_by(test_db, system_admin.id)
+
+        email = pending_new_email[0]
+
+        assert len(pending_new_email) == 1
+        assert user_with_session.session.user_id == user.id
+        assert user_with_session.session.reset_password_token_hash is not None
+        assert user_with_session.session.reset_password_token_expires_at is not None
+        assert user_with_session.session.reset_password_token_expires_at > datetime.now(timezone.utc)
+        assert email.recipient == user.email
+        assert email.subject is not None
+        assert email.html_body is not None
+        assert email.text_body is not None
+        assert email.email_type == EmailType.password_reset_admin
+        assert email.triggered_by == system_admin.id
+        assert email.recipient_user_id == user.id
+
+    async def test_library_admin_cannot_create_request_for_other_system_admins(
+        self, test_db: AsyncSession, library_admin: User
+    ):
+        user = await make_system_admin(test_db)
+
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.create_reset_password_request(test_db, library_admin, user.id)
+
+    async def test_library_admin_cannot_create_request_for_other_library_admins(
+        self, test_db: AsyncSession, library_admin: User
+    ):
+        user = await make_library_admin(test_db)
+
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.create_reset_password_request(test_db, library_admin, user.id)
+
+    async def test_library_admin_can_create_request_for_non_admins(
+        self, test_db: AsyncSession, library_admin: User
+    ):
+        user = await make_member(test_db)
+
+        await UserServiceAdmin.create_reset_password_request(test_db, library_admin, user.id)
+
+        user_with_session = await UserRepositoryBase.get_user_by_id(test_db, user.id, load_session=True)
+        pending_new_email = await PendingEmailRepository.get_pending_email_by_triggered_by(test_db, library_admin.id)
+
+        email = pending_new_email[0]
+
+        assert len(pending_new_email) == 1
+        assert user_with_session.session.user_id == user.id
+        assert user_with_session.session.reset_password_token_hash is not None
+        assert user_with_session.session.reset_password_token_expires_at is not None
+        assert user_with_session.session.reset_password_token_expires_at > datetime.now(timezone.utc)
+        assert email.recipient == user.email
+        assert email.subject is not None
+        assert email.html_body is not None
+        assert email.text_body is not None
+        assert email.email_type == EmailType.password_reset_admin
+        assert email.triggered_by == library_admin.id
+        assert email.recipient_user_id == user.id
+
+    async def test_non_admins_can_not_create_request(
+        self, test_db: AsyncSession, receptionist: User
+    ):
+        user = await make_member(test_db)
+
+        with pytest.raises(AccessDeniedError):
+            await UserServiceAdmin.create_reset_password_request(test_db, receptionist, user.id)
+
+    async def test_raise_404_for_unknown_user(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        user = await make_member(test_db)
+        non_existant_id = user.id + 999999
+
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.create_reset_password_request(test_db, system_admin, non_existant_id)

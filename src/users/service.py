@@ -391,11 +391,11 @@ class UserServiceAdmin:
         match current_user.role:
             case UserRole.system_admin:
                 user = await UserRepositoryBase.get_user_by_id(
-                    db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
+                    db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES, load_session=True
                 )
             case UserRole.library_admin:
                 user = await UserRepositoryBase.get_user_by_id(
-                    db, user_id, excluded_roles=LIBRARY_ADMIN_INVISIBLE_ROLES
+                    db, user_id, excluded_roles=LIBRARY_ADMIN_INVISIBLE_ROLES, load_session=True
                 )
             case _:
                 raise AccessDeniedError(HTTP403.ACCESS_DENIED)
@@ -409,7 +409,7 @@ class UserServiceAdmin:
             timezone.utc
         ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
 
-        subject, html_body, text_body = build_reset_password_email(raw_reset_token)
+        subject, html_body, text_body = email_sender.build_reset_password_email(raw_reset_token)
 
         PendingEmailRepository.create(
             db,
