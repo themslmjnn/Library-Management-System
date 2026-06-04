@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
@@ -13,6 +14,7 @@ from src.users.schemas import (
     CreateUserAdmin,
     SearchUserAdmin,
     UpdateUser,
+    UpdateUserEmail,
 )
 from src.users.service import UserServiceAdmin
 from src.utils.cache_keys import SessionCacheKey, UserCacheKey
@@ -29,6 +31,7 @@ from tests.factories import (
     make_library_admin,
     make_member,
     make_receptionist,
+    make_system_admin,
     make_user,
 )
 from utils.enums import BookSortField, UserSortField
@@ -261,6 +264,7 @@ class TestGetUsersAdmin:
             email="third@gmail.com",
             phone_number="+15550000003",
         )
+
         filters = SearchUserAdmin()
 
         result = await UserServiceAdmin.get_users(
@@ -284,6 +288,7 @@ class TestGetUsersAdmin:
             email="second@gmail.com",
             phone_number="+15550000002",
         )
+
         filters = SearchUserAdmin()
 
         result = await UserServiceAdmin.get_users(
@@ -310,6 +315,7 @@ class TestGetUsersAdmin:
             email="third@gmail.com",
             phone_number="+15550000003",
         )
+
         filters = SearchUserAdmin()
 
         result = await UserServiceAdmin.get_users(
@@ -334,6 +340,7 @@ class TestGetUsersAdmin:
             email="other@gmail.com",
             phone_number="+15550000002",
         )
+
         filters = SearchUserAdmin(email="target")
 
         result = await UserServiceAdmin.get_users(
@@ -359,6 +366,7 @@ class TestGetUsersAdmin:
             email="other@gmail.com",
             phone_number="+15550000002",
         )
+
         filters = SearchUserAdmin(first_name="Unique")
 
         result = await UserServiceAdmin.get_users(
@@ -384,6 +392,7 @@ class TestGetUsersAdmin:
             email="other@gmail.com",
             phone_number="+15550000002",
         )
+
         filters = SearchUserAdmin(last_name="Targetlast")
 
         result = await UserServiceAdmin.get_users(
@@ -408,6 +417,7 @@ class TestGetUsersAdmin:
             email="other@gmail.com",
             phone_number="+15550000002",
         )
+
         filters = SearchUserAdmin(phone_number="+15550000099")
 
         result = await UserServiceAdmin.get_users(
@@ -453,6 +463,7 @@ class TestGetUsersAdmin:
             email="inactive@gmail.com",
             phone_number="+15550000002",
         )
+
         filters = SearchUserAdmin(is_active=True)
 
         result = await UserServiceAdmin.get_users(
@@ -480,6 +491,7 @@ class TestGetUsersAdmin:
             email="inactive@gmail.com",
             phone_number="+15550000002",
         )
+
         filters = SearchUserAdmin(is_active=False)
 
         result = await UserServiceAdmin.get_users(
@@ -513,6 +525,7 @@ class TestGetUsersAdmin:
             email="bob@gmail.com",
             phone_number="+15550000003",
         )
+
         filters = SearchUserAdmin()
 
         result = await UserServiceAdmin.get_users(
@@ -545,6 +558,7 @@ class TestGetUsersAdmin:
             email="bob@gmail.com",
             phone_number="+15550000003",
         )
+
         filters = SearchUserAdmin()
 
         result = await UserServiceAdmin.get_users(
@@ -569,6 +583,7 @@ class TestGetUsersAdmin:
             email="second@gmail.com",
             phone_number="+15550000002",
         )
+
         filters = SearchUserAdmin()
 
         result = await UserServiceAdmin.get_users(
@@ -629,7 +644,6 @@ class TestGetUserByIDAdmin:
         user = await make_member(test_db)
 
         first_result = await UserServiceAdmin.get_user_by_id(test_db, user.id)
-
         second_result = await UserServiceAdmin.get_user_by_id(test_db, user.id)
 
         assert second_result == first_result
@@ -718,14 +732,36 @@ class TestDeactivateUserAdmin:
     ):
         user = await make_member(test_db)
 
+        mocker.patch(
+            "src.users.service.email_sender.send_account_deactivation_email",
+            new_callable=AsyncMock,
+        )
         mock_delete_cache = mocker.patch("src.users.service.delete_cache")
 
         await UserServiceAdmin.deactivate_user(test_db, system_admin.id, user.id)
 
+        assert mock_delete_cache.call_count == 1
         mock_delete_cache.assert_called_once_with(
-            UserCacheKey.user_detail_key_admin(user.id), 
+            UserCacheKey.user_detail_key_admin(user.id),
             SessionCacheKey.access_token_version_key(user.id),
         )
+
+    async def test_deactivation_email_sent_to_correct_address(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+        expected_email = user.email
+
+        mock_send = mocker.patch(
+            "src.users.service.email_sender.send_account_deactivation_email",
+            new_callable=AsyncMock,
+        )
+
+        await UserServiceAdmin.deactivate_user(test_db, system_admin.id, user.id)
+
+        await asyncio.sleep(0)
+
+        mock_send.assert_called_once_with(expected_email)
 
 
 class TestActivateUserAdmin:
@@ -760,7 +796,7 @@ class TestActivateUserAdmin:
         )
 
         with patch(
-            "src.users.service.send_account_activation_email",
+            "src.users.service.email_sender.send_account_activation_email",
             new_callable=AsyncMock,
         ):
             await UserServiceAdmin.activate_user(test_db, system_admin.id, user.id)
@@ -772,13 +808,44 @@ class TestActivateUserAdmin:
     async def test_cache_is_invalidated_after_activation(
         self, test_db: AsyncSession, system_admin: User, mocker
     ):
-        user = await make_member(test_db)
+        user = await make_member(
+            test_db,
+            is_active=False,
+        )
 
+        mocker.patch(
+            "src.users.service.email_sender.send_account_activation_email",
+            new_callable=AsyncMock,
+        )
         mock_delete_cache = mocker.patch("src.users.service.delete_cache")
 
         await UserServiceAdmin.activate_user(test_db, system_admin.id, user.id)
 
-        mock_delete_cache.assert_called_once_with(UserCacheKey.user_detail_key_admin(user.id))
+        assert mock_delete_cache.call_count == 1
+        mock_delete_cache.assert_called_once_with(
+            UserCacheKey.user_detail_key_admin(user.id)
+        )
+
+    async def test_activation_email_sent_to_correct_address(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        user = await make_member(
+            test_db,
+            is_active=False,
+        )
+        expected_email = user.email
+
+        mock_send = mocker.patch(
+            "src.users.service.email_sender.send_account_activation_email",
+            new_callable=AsyncMock,
+        )
+
+        await UserServiceAdmin.activate_user(test_db, system_admin.id, user.id)
+
+        await asyncio.sleep(0)
+
+        mock_send.assert_called_once_with(expected_email)
+
 
 class TestUpdateUserAdmin:
     async def test_does_not_update_unknown_user(
@@ -875,8 +942,147 @@ class TestUpdateUserAdmin:
 
         await UserServiceAdmin.update_user(test_db, system_admin.id, user.id)
 
+        assert mock_delete_cache.call_count == 1
         mock_delete_cache.assert_called_once_with(
-            UserCacheKey.user_detail_key_admin(user.id), 
+            UserCacheKey.user_detail_key_admin(user.id),
             UserCacheKey.user_detail_key_staff(user.id),
             UserCacheKey.user_detail_key_self(user.id),
         )
+
+
+class TestUpdateUserEmailAdmin:
+    async def test_raise_404_if_trying_to_update_system_admin(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        user = await make_system_admin(test_db)
+
+        update_request = UpdateUserEmail(new_email="new_user_email@gmail.com")
+
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.update_user_email(
+                test_db, system_admin.id, user.id, update_request
+            )
+
+    async def test_raise_409_duplicate_email(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        await make_member(
+            test_db,
+            email="new_user_email@gmail.com",
+        )
+        user_to_be_updated = await make_member(test_db)
+
+        update_request = UpdateUserEmail(new_email="new_user_email@gmail.com")
+
+        with pytest.raises(EmailAlreadyTakenError):
+            await UserServiceAdmin.update_user_email(
+                test_db, system_admin.id, user_to_be_updated.id, update_request
+            )
+
+    async def test_raise_404_for_unknown_user(
+        self, test_db: AsyncSession, system_admin: User
+    ):
+        user = await make_member(test_db)
+        non_existant_id = user.id + 999999
+
+        update_request = UpdateUserEmail(new_email="new_user_email@gmail.com")
+
+        with pytest.raises(UserNotFoundError):
+            await UserServiceAdmin.update_user_email(
+                test_db, system_admin.id, non_existant_id, update_request
+            )
+
+    async def test_invalidate_all_cache_keys(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+
+        update_request = UpdateUserEmail(new_email="new_user_email@gmail.com")
+
+        mocker.patch(
+            "src.users.service.email_sender.send_admin_email_override_notification",
+            new_callable=AsyncMock,
+        )
+        mock_delete_cache = mocker.patch("src.users.service.delete_cache")
+
+        await UserServiceAdmin.update_user_email(
+            test_db, system_admin.id, user.id, update_request
+        )
+
+        assert mock_delete_cache.call_count == 1
+        mock_delete_cache.assert_called_once_with(
+            UserCacheKey.user_detail_key_admin(user.id),
+            UserCacheKey.user_detail_key_staff(user.id),
+            UserCacheKey.user_detail_key_self(user.id),
+            SessionCacheKey.access_token_version_key(user.id),
+        )
+
+    async def test_invalidate_user_session(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+
+        update_request = UpdateUserEmail(new_email="new_user_email@gmail.com")
+
+        mocker.patch(
+            "src.users.service.email_sender.send_admin_email_override_notification",
+            new_callable=AsyncMock,
+        )
+
+        await UserServiceAdmin.update_user_email(
+            test_db, system_admin.id, user.id, update_request
+        )
+
+        user = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        session = user.session
+
+        assert session.access_token_version == 2
+        assert session.refresh_token_family is None
+        assert session.refresh_token_hash is None
+        assert session.refresh_token_expires_at is None
+        assert session.pending_new_email is None
+        assert session.email_change_code_hash is None
+        assert session.email_change_code_expires_at is None
+
+    async def test_email_override_notification_is_sent_to_the_correct_user(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+        expected_email = user.email
+
+        mock_send = mocker.patch(
+            "src.users.service.email_sender.send_admin_email_override_notification",
+            new_callable=AsyncMock,
+        )
+
+        update_request = UpdateUserEmail(new_email="new_user_email@gmail.com")
+
+        await UserServiceAdmin.update_user_email(
+            test_db, system_admin.id, user.id, update_request
+        )
+
+        await asyncio.sleep(0)
+
+        mock_send.assert_called_once_with(expected_email)
+
+    async def test_update_user_email_successfully(
+        self, test_db: AsyncSession, system_admin: User, mocker
+    ):
+        user = await make_member(test_db)
+
+        mocker.patch(
+            "src.users.service.email_sender.send_admin_email_override_notification",
+            new_callable=AsyncMock,
+        )
+
+        update_request = UpdateUserEmail(new_email="new_user_email@gmail.com")
+
+        await UserServiceAdmin.update_user_email(
+            test_db, system_admin.id, user.id, update_request
+        )
+
+        await test_db.refresh(user)
+
+        assert user.email == update_request.new_email

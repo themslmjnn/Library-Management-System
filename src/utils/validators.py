@@ -16,7 +16,7 @@ def validate_username(username: str) -> str:
             "invalid_username_characters",
             "Username can only contain lowercase letters and numbers",
         )
-    
+
     return username
 
 

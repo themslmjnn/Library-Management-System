@@ -328,7 +328,7 @@ class UserServiceAdmin:
         update_request: user_schemas.UpdateUserEmail,
     ) -> None:
         user = await UserRepositoryBase.get_user_by_id(
-            db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
+            db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES, load_session=True
         )
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
@@ -349,8 +349,8 @@ class UserServiceAdmin:
             await db.commit()
 
             asyncio.create_task(
-                send_safe(
-                    send_admin_email_override_notification(old_email),
+                email_sender.send_safe(
+                    email_sender.send_admin_email_override_notification(old_email),
                     email_type=EmailType.admin_email_override,
                 )
             )

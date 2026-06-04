@@ -6,9 +6,9 @@ class EmailType(str, Enum):
     password_reset_admin = "password_reset_admin"
     activation_with_token = "activation_with_token"
     activation_with_code = "activation_with_code"
-    # account_deactivation = "account_deactivation"
-    # account_activation = "account_activation"
-    # admin_email_override = "admin_email_override"
+    account_deactivation = "account_deactivation"
+    account_activation = "account_activation"
+    admin_email_override = "admin_email_override"
 
 
 class EmailSendingStatus(str, Enum):
