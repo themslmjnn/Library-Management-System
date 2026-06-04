@@ -941,7 +941,9 @@ class TestUpdateUser:
 
         mock_delete_cache = mocker.patch("src.users.service.delete_cache")
 
-        await UserServiceAdmin.update_user(test_db, system_admin.id, user.id, UpdateUser())
+        await UserServiceAdmin.update_user(
+            test_db, system_admin.id, user.id, UpdateUser()
+        )
 
         assert mock_delete_cache.call_count == 1
         mock_delete_cache.assert_called_once_with(
@@ -1088,24 +1090,37 @@ class TestUpdateUserEmail:
 
         assert user.email == update_request.new_email
 
+
 class TestCreateResetPasswordRequest:
     async def test_system_admin_cannot_create_request_for_other_system_admins(
-        self, test_db: AsyncSession, system_admin: User,
+        self,
+        test_db: AsyncSession,
+        system_admin: User,
     ):
         user = await make_system_admin(test_db)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.create_reset_password_request(test_db, system_admin, user.id)
+            await UserServiceAdmin.create_reset_password_request(
+                test_db, system_admin, user.id
+            )
 
     async def test_system_admin_can_create_request_for_non_system_admins(
         self, test_db: AsyncSession, system_admin: User
     ):
         user = await make_member(test_db)
 
-        await UserServiceAdmin.create_reset_password_request(test_db, system_admin, user.id)
+        await UserServiceAdmin.create_reset_password_request(
+            test_db, system_admin, user.id
+        )
 
-        user_with_session = await UserRepositoryBase.get_user_by_id(test_db, user.id, load_session=True)
-        pending_new_email = await PendingEmailRepository.get_pending_email_by_triggered_by(test_db, system_admin.id)
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        pending_new_email = (
+            await PendingEmailRepository.get_pending_email_by_triggered_by(
+                test_db, system_admin.id
+            )
+        )
 
         email = pending_new_email[0]
 
@@ -1113,7 +1128,9 @@ class TestCreateResetPasswordRequest:
         assert user_with_session.session.user_id == user.id
         assert user_with_session.session.reset_password_token_hash is not None
         assert user_with_session.session.reset_password_token_expires_at is not None
-        assert user_with_session.session.reset_password_token_expires_at > datetime.now(timezone.utc)
+        assert user_with_session.session.reset_password_token_expires_at > datetime.now(
+            timezone.utc
+        )
         assert email.recipient == user.email
         assert email.subject is not None
         assert email.html_body is not None
@@ -1128,7 +1145,9 @@ class TestCreateResetPasswordRequest:
         user = await make_system_admin(test_db)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.create_reset_password_request(test_db, library_admin, user.id)
+            await UserServiceAdmin.create_reset_password_request(
+                test_db, library_admin, user.id
+            )
 
     async def test_library_admin_cannot_create_request_for_other_library_admins(
         self, test_db: AsyncSession, library_admin: User
@@ -1136,17 +1155,27 @@ class TestCreateResetPasswordRequest:
         user = await make_library_admin(test_db)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.create_reset_password_request(test_db, library_admin, user.id)
+            await UserServiceAdmin.create_reset_password_request(
+                test_db, library_admin, user.id
+            )
 
     async def test_library_admin_can_create_request_for_non_admins(
         self, test_db: AsyncSession, library_admin: User
     ):
         user = await make_member(test_db)
 
-        await UserServiceAdmin.create_reset_password_request(test_db, library_admin, user.id)
+        await UserServiceAdmin.create_reset_password_request(
+            test_db, library_admin, user.id
+        )
 
-        user_with_session = await UserRepositoryBase.get_user_by_id(test_db, user.id, load_session=True)
-        pending_new_email = await PendingEmailRepository.get_pending_email_by_triggered_by(test_db, library_admin.id)
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        pending_new_email = (
+            await PendingEmailRepository.get_pending_email_by_triggered_by(
+                test_db, library_admin.id
+            )
+        )
 
         email = pending_new_email[0]
 
@@ -1154,7 +1183,9 @@ class TestCreateResetPasswordRequest:
         assert user_with_session.session.user_id == user.id
         assert user_with_session.session.reset_password_token_hash is not None
         assert user_with_session.session.reset_password_token_expires_at is not None
-        assert user_with_session.session.reset_password_token_expires_at > datetime.now(timezone.utc)
+        assert user_with_session.session.reset_password_token_expires_at > datetime.now(
+            timezone.utc
+        )
         assert email.recipient == user.email
         assert email.subject is not None
         assert email.html_body is not None
@@ -1169,7 +1200,9 @@ class TestCreateResetPasswordRequest:
         user = await make_member(test_db)
 
         with pytest.raises(AccessDeniedError):
-            await UserServiceAdmin.create_reset_password_request(test_db, receptionist, user.id)
+            await UserServiceAdmin.create_reset_password_request(
+                test_db, receptionist, user.id
+            )
 
     async def test_raise_404_for_unknown_user(
         self, test_db: AsyncSession, system_admin: User
@@ -1178,4 +1211,6 @@ class TestCreateResetPasswordRequest:
         non_existant_id = user.id + 999999
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceAdmin.create_reset_password_request(test_db, system_admin, non_existant_id)
+            await UserServiceAdmin.create_reset_password_request(
+                test_db, system_admin, non_existant_id
+            )

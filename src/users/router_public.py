@@ -69,9 +69,7 @@ async def request_email_change(
     current_user: current_user_dependency,
     request: EmailChangeRequest,
 ):
-    return await UserServicePublic.request_email_change(
-        db, current_user.id, request
-    )
+    return await UserServicePublic.request_email_change(db, current_user.id, request)
 
 
 @router.post(

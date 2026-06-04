@@ -44,6 +44,7 @@ class ResetPasswordRequest(BaseModel):
 class CreateResetPasswordRequest(BaseModel):
     identifier: str | EmailStr
 
+
 class ForgotPasswordPublicRequest(BaseModel):
     username: str = Field(min_length=6, max_length=20)
     phone_number: str

@@ -103,6 +103,7 @@ async def reset_password(
 ):
     return await AuthService.reset_password(db, update_request)
 
+
 @router.post(
     "/forgot_password", response_model=MessageResponse, status_code=status.HTTP_200_OK
 )

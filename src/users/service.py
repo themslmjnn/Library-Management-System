@@ -391,11 +391,17 @@ class UserServiceAdmin:
         match current_user.role:
             case UserRole.system_admin:
                 user = await UserRepositoryBase.get_user_by_id(
-                    db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES, load_session=True
+                    db,
+                    user_id,
+                    excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES,
+                    load_session=True,
                 )
             case UserRole.library_admin:
                 user = await UserRepositoryBase.get_user_by_id(
-                    db, user_id, excluded_roles=LIBRARY_ADMIN_INVISIBLE_ROLES, load_session=True
+                    db,
+                    user_id,
+                    excluded_roles=LIBRARY_ADMIN_INVISIBLE_ROLES,
+                    load_session=True,
                 )
             case _:
                 raise AccessDeniedError(HTTP403.ACCESS_DENIED)
@@ -409,7 +415,9 @@ class UserServiceAdmin:
             timezone.utc
         ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
 
-        subject, html_body, text_body = email_sender.build_reset_password_email(raw_reset_token)
+        subject, html_body, text_body = email_sender.build_reset_password_email(
+            raw_reset_token
+        )
 
         PendingEmailRepository.create(
             db,
@@ -786,14 +794,16 @@ class UserServicePublic:
 
         asyncio.create_task(
             email_sender.send_safe(
-                email_sender.send_email_change_verification(request.new_email, raw_email_change_code),
+                email_sender.send_email_change_verification(
+                    request.new_email, raw_email_change_code
+                ),
                 email_type="email_change_verification",
                 user_id=user_id,
             )
         )
 
         logger.info(
-            "email_change_requested", 
+            "email_change_requested",
             user_id=user_id,
         )
 
@@ -809,7 +819,7 @@ class UserServicePublic:
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
         if (
-            user.session.pending_email is None
+            user.session.pending_new_email is None
             or user.session.email_change_code_hash is None
         ):
             raise InvalidEmailChangeCodeError(HTTP400.INVALID_EMAIL_CHANGE_CODE)

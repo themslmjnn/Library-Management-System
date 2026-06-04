@@ -564,7 +564,6 @@ class AuthService:
             user_id=user.id,
         )
 
-
     @staticmethod
     async def create_forgot_passsword_request(
         db: AsyncSession,
