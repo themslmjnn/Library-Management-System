@@ -758,6 +758,8 @@ class UserServicePublic:
 
         await db.commit()
 
+        await delete_cache(SessionCacheKey.access_token_version_key(user_id))
+
         asyncio.create_task(
             email_sender.send_safe(
                 email_sender.send_password_changed_confirmation(user.email),

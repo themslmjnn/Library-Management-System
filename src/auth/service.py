@@ -110,7 +110,9 @@ class AuthService:
 
     @staticmethod
     async def _invalidate_all_tokens(db: AsyncSession, current_user_id: int) -> None:
-        user = await UserRepositoryBase.get_user_by_id(db, current_user_id, load_session=True)
+        user = await UserRepositoryBase.get_user_by_id(
+            db, current_user_id, load_session=True
+        )
         if user is None:
             return
 

@@ -418,7 +418,9 @@ class TestRefreshToken:
             password=CORRECT_PASSWORD,
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id, load_session=True)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         original_version = user_session.session.access_token_version
 
@@ -440,19 +442,25 @@ class TestRefreshToken:
 
         assert response.status_code == 401
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id, load_session=True)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.refresh_token_hash is None
         assert user_session.session.refresh_token_family is None
         assert user_session.session.refresh_token_expires_at is None
         assert user_session.session.access_token_version == original_version + 1
 
+
 class TestForgotPasswordPublic:
     async def test_returns_200_when_user_found(
-        self, test_db: AsyncSession, client: AsyncClient, mock_send_forgot_password_email
-    ): 
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        mock_send_forgot_password_email,
+    ):
         user = await make_member(test_db)
- 
+
         response = await client.post(
             "/auth/forgot_password",
             json={
@@ -460,13 +468,11 @@ class TestForgotPasswordPublic:
                 "phone_number": user.phone_number,
             },
         )
- 
+
         assert response.status_code == 200
         assert "detail" in response.json()
- 
-    async def test_returns_200_when_user_not_found(
-        self, client: AsyncClient
-    ):
+
+    async def test_returns_200_when_user_not_found(self, client: AsyncClient):
         response = await client.post(
             "/auth/forgot_password",
             json={
@@ -474,15 +480,18 @@ class TestForgotPasswordPublic:
                 "phone_number": "+15559999999",
             },
         )
- 
+
         assert response.status_code == 200
         assert "detail" in response.json()
- 
+
     async def test_response_is_identical_for_found_and_not_found(
-        self, test_db: AsyncSession, client: AsyncClient, mock_send_forgot_password_email
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        mock_send_forgot_password_email,
     ):
         user = await make_member(test_db)
- 
+
         found_response = await client.post(
             "/auth/forgot_password",
             json={
@@ -490,7 +499,7 @@ class TestForgotPasswordPublic:
                 "phone_number": user.phone_number,
             },
         )
- 
+
         not_found_response = await client.post(
             "/auth/forgot_password",
             json={
@@ -498,15 +507,18 @@ class TestForgotPasswordPublic:
                 "phone_number": "+15559999999",
             },
         )
- 
+
         assert found_response.status_code == not_found_response.status_code
         assert found_response.json() == not_found_response.json()
- 
+
     async def test_reset_token_written_to_session_when_found(
-        self, test_db: AsyncSession, client: AsyncClient, mock_send_forgot_password_email
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        mock_send_forgot_password_email,
     ):
         user = await make_member(test_db)
- 
+
         await client.post(
             "/auth/forgot_password",
             json={
@@ -514,18 +526,16 @@ class TestForgotPasswordPublic:
                 "phone_number": user.phone_number,
             },
         )
- 
+
         user_with_session = await UserRepositoryBase.get_user_by_id(
             test_db, user.id, load_session=True
         )
         session = user_with_session.session
- 
+
         assert session.reset_password_token_hash is not None
         assert session.reset_password_token_expires_at is not None
- 
-    async def test_returns_401_for_invalid_phone_format(
-        self, client: AsyncClient
-    ):
+
+    async def test_returns_401_for_invalid_phone_format(self, client: AsyncClient):
         response = await client.post(
             "/auth/forgot_password",
             json={
@@ -533,5 +543,5 @@ class TestForgotPasswordPublic:
                 "phone_number": "not_a_phone",
             },
         )
- 
+
         assert response.status_code == 422
