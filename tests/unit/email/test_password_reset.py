@@ -441,3 +441,568 @@ class TestResetPasswordService:
 
         with pytest.raises(ExpiredResetPasswordTokenError):
             await AuthService.reset_password(test_db, request)
+
+
+# tests/unit/email/test_email_content_remaining.py
+# Tests for all email content functions not covered in test_email_activation.py
+
+import urllib.parse
+from unittest.mock import AsyncMock
+
+import pytest
+
+from src.core.config import settings
+from src.utils.email import (
+    build_invite_email,
+    build_reset_password_email,
+    send_account_activation_email,
+    send_account_deactivation_email,
+    send_admin_email_override_notification,
+    send_already_registered_email,
+    send_email_change_verification,
+    send_forgot_password_email,
+    send_password_changed_confirmation,
+)
+from tests.constants import FAKE_EMAIL, FAKE_INVITE_TOKEN, FAKE_RESET_TOKEN
+
+
+# ===========================================================================
+# TestBuildInviteEmail
+# ===========================================================================
+
+
+class TestBuildInviteEmail:
+    def test_returns_tuple_of_three_strings(self):
+        result = build_invite_email(FAKE_INVITE_TOKEN, FAKE_EMAIL)
+
+        assert isinstance(result, tuple)
+        assert len(result) == 3
+        assert all(isinstance(s, str) for s in result)
+
+    def test_subject_is_non_empty(self):
+        subject, _, _ = build_invite_email(FAKE_INVITE_TOKEN, FAKE_EMAIL)
+
+        assert len(subject) > 5
+
+    def test_token_appears_in_html(self):
+        _, html, _ = build_invite_email(FAKE_INVITE_TOKEN, FAKE_EMAIL)
+
+        assert FAKE_INVITE_TOKEN in html
+
+    def test_token_appears_in_text(self):
+        _, _, text = build_invite_email(FAKE_INVITE_TOKEN, FAKE_EMAIL)
+
+        assert FAKE_INVITE_TOKEN in text
+
+    def test_email_is_url_encoded_in_link(self):
+        email_with_plus = "user+tag@example.com"
+        _, html, text = build_invite_email(FAKE_INVITE_TOKEN, email_with_plus)
+
+        encoded = urllib.parse.quote(email_with_plus)
+
+        assert encoded in html
+        assert encoded in text
+        # Raw email with + must NOT appear unencoded in the URL
+        assert f"&email={email_with_plus}" not in html
+
+    def test_both_token_and_email_in_activation_link(self):
+        _, html, text = build_invite_email(FAKE_INVITE_TOKEN, FAKE_EMAIL)
+
+        encoded_email = urllib.parse.quote(FAKE_EMAIL)
+
+        assert f"token={FAKE_INVITE_TOKEN}" in html
+        assert f"email={encoded_email}" in html
+        assert f"token={FAKE_INVITE_TOKEN}" in text
+        assert f"email={encoded_email}" in text
+
+    def test_app_url_in_link(self):
+        _, html, text = build_invite_email(FAKE_INVITE_TOKEN, FAKE_EMAIL)
+
+        assert settings.APP_URL in html
+        assert settings.APP_URL in text
+
+    def test_expiry_hours_mentioned(self):
+        _, html, text = build_invite_email(FAKE_INVITE_TOKEN, FAKE_EMAIL)
+
+        assert str(settings.INVITE_TOKEN_EXPIRES_HOURS) in html
+        assert str(settings.INVITE_TOKEN_EXPIRES_HOURS) in text
+
+    def test_different_tokens_produce_different_content(self):
+        _, html_a, text_a = build_invite_email("token_aaa", FAKE_EMAIL)
+        _, html_b, text_b = build_invite_email("token_bbb", FAKE_EMAIL)
+
+        assert html_a != html_b
+        assert text_a != text_b
+
+
+# ===========================================================================
+# TestBuildResetPasswordEmail
+# ===========================================================================
+
+
+class TestBuildResetPasswordEmail:
+    def test_returns_tuple_of_three_strings(self):
+        result = build_reset_password_email(FAKE_RESET_TOKEN)
+
+        assert isinstance(result, tuple)
+        assert len(result) == 3
+        assert all(isinstance(s, str) for s in result)
+
+    def test_subject_is_non_empty(self):
+        subject, _, _ = build_reset_password_email(FAKE_RESET_TOKEN)
+
+        assert len(subject) > 5
+
+    def test_token_in_html_body(self):
+        _, html, _ = build_reset_password_email(FAKE_RESET_TOKEN)
+
+        assert FAKE_RESET_TOKEN in html
+
+    def test_token_in_text_body(self):
+        _, _, text = build_reset_password_email(FAKE_RESET_TOKEN)
+
+        assert FAKE_RESET_TOKEN in text
+
+    def test_app_url_in_html(self):
+        _, html, _ = build_reset_password_email(FAKE_RESET_TOKEN)
+
+        assert settings.APP_URL in html
+
+    def test_expiry_minutes_in_html(self):
+        _, html, _ = build_reset_password_email(FAKE_RESET_TOKEN)
+
+        assert str(settings.RESET_PASSWORD_EXPIRES_MINUTES) in html
+
+    def test_expiry_minutes_in_text(self):
+        _, _, text = build_reset_password_email(FAKE_RESET_TOKEN)
+
+        assert str(settings.RESET_PASSWORD_EXPIRES_MINUTES) in text
+
+    def test_different_tokens_produce_different_content(self):
+        _, html_a, text_a = build_reset_password_email("token_aaa")
+        _, html_b, text_b = build_reset_password_email("token_bbb")
+
+        assert html_a != html_b
+        assert text_a != text_b
+
+
+# ===========================================================================
+# TestSendAlreadyRegisteredEmail
+# ===========================================================================
+
+
+class TestSendAlreadyRegisteredEmail:
+    async def test_calls_send_with_correct_recipient(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_already_registered_email(FAKE_EMAIL)
+
+        mock_send.assert_awaited_once()
+        assert mock_send.call_args.kwargs["to_email"] == FAKE_EMAIL
+
+    async def test_contains_forgot_password_link(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_already_registered_email(FAKE_EMAIL)
+
+        kwargs = mock_send.call_args.kwargs
+        assert settings.APP_URL in kwargs["html_body"]
+        assert settings.APP_URL in kwargs["text_body"]
+
+    async def test_does_not_contain_any_token(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_already_registered_email(FAKE_EMAIL)
+
+        kwargs = mock_send.call_args.kwargs
+        # This is a notification email — no tokens should appear
+        assert "token=" not in kwargs["html_body"]
+        assert "token=" not in kwargs["text_body"]
+
+    async def test_subject_is_non_empty(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_already_registered_email(FAKE_EMAIL)
+
+        subject = mock_send.call_args.kwargs["subject"]
+        assert len(subject) > 5
+
+    async def test_called_exactly_once(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_already_registered_email(FAKE_EMAIL)
+
+        assert mock_send.await_count == 1
+
+
+# ===========================================================================
+# TestSendForgotPasswordEmail
+# ===========================================================================
+
+
+class TestSendForgotPasswordEmail:
+    async def test_calls_send_with_correct_recipient(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_forgot_password_email(FAKE_EMAIL, FAKE_RESET_TOKEN)
+
+        assert mock_send.call_args.kwargs["to_email"] == FAKE_EMAIL
+
+    async def test_token_in_html_body(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_forgot_password_email(FAKE_EMAIL, FAKE_RESET_TOKEN)
+
+        assert FAKE_RESET_TOKEN in mock_send.call_args.kwargs["html_body"]
+
+    async def test_token_in_text_body(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_forgot_password_email(FAKE_EMAIL, FAKE_RESET_TOKEN)
+
+        assert FAKE_RESET_TOKEN in mock_send.call_args.kwargs["text_body"]
+
+    async def test_expiry_minutes_in_html(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_forgot_password_email(FAKE_EMAIL, FAKE_RESET_TOKEN)
+
+        assert (
+            str(settings.RESET_PASSWORD_EXPIRES_MINUTES)
+            in (mock_send.call_args.kwargs["html_body"])
+        )
+
+    async def test_called_exactly_once(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_forgot_password_email(FAKE_EMAIL, FAKE_RESET_TOKEN)
+
+        assert mock_send.await_count == 1
+
+
+# ===========================================================================
+# TestSendPasswordChangedConfirmation
+# ===========================================================================
+
+
+class TestSendPasswordChangedConfirmation:
+    async def test_calls_send_with_correct_recipient(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_password_changed_confirmation(FAKE_EMAIL)
+
+        assert mock_send.call_args.kwargs["to_email"] == FAKE_EMAIL
+
+    async def test_contains_no_token_or_link(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_password_changed_confirmation(FAKE_EMAIL)
+
+        kwargs = mock_send.call_args.kwargs
+        # Pure notification — no actionable links
+        assert "token=" not in kwargs["html_body"]
+        assert "token=" not in kwargs["text_body"]
+
+    async def test_subject_is_non_empty(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_password_changed_confirmation(FAKE_EMAIL)
+
+        assert len(mock_send.call_args.kwargs["subject"]) > 5
+
+    async def test_called_exactly_once(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_password_changed_confirmation(FAKE_EMAIL)
+
+        assert mock_send.await_count == 1
+
+
+# ===========================================================================
+# TestSendEmailChangeVerification
+# ===========================================================================
+
+
+class TestSendEmailChangeVerification:
+    async def test_sent_to_new_email_not_old(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        new_email = "new_address@example.com"
+        code = "123456"
+
+        await send_email_change_verification(new_email, code)
+
+        assert mock_send.call_args.kwargs["to_email"] == new_email
+
+    async def test_code_in_html_body(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        code = "654321"
+        await send_email_change_verification(FAKE_EMAIL, code)
+
+        assert code in mock_send.call_args.kwargs["html_body"]
+
+    async def test_code_in_text_body(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        code = "654321"
+        await send_email_change_verification(FAKE_EMAIL, code)
+
+        assert code in mock_send.call_args.kwargs["text_body"]
+
+    async def test_expiry_minutes_mentioned(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_email_change_verification(FAKE_EMAIL, "111111")
+
+        kwargs = mock_send.call_args.kwargs
+        assert str(settings.ACTIVATION_CODE_EXPIRES_MINUTES) in kwargs["html_body"]
+
+    async def test_called_exactly_once(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_email_change_verification(FAKE_EMAIL, "000000")
+
+        assert mock_send.await_count == 1
+
+    async def test_different_codes_produce_different_content(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_email_change_verification(FAKE_EMAIL, "111111")
+        html_a = mock_send.call_args.kwargs["html_body"]
+
+        await send_email_change_verification(FAKE_EMAIL, "999999")
+        html_b = mock_send.call_args.kwargs["html_body"]
+
+        assert html_a != html_b
+
+
+# ===========================================================================
+# TestSendAccountDeactivationEmail
+# ===========================================================================
+
+
+class TestSendAccountDeactivationEmail:
+    async def test_calls_send_with_correct_recipient(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_deactivation_email(FAKE_EMAIL)
+
+        assert mock_send.call_args.kwargs["to_email"] == FAKE_EMAIL
+
+    async def test_contains_no_reset_link_or_token(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_deactivation_email(FAKE_EMAIL)
+
+        kwargs = mock_send.call_args.kwargs
+        assert "token=" not in kwargs["html_body"]
+        assert "token=" not in kwargs["text_body"]
+
+    async def test_subject_is_non_empty(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_deactivation_email(FAKE_EMAIL)
+
+        assert len(mock_send.call_args.kwargs["subject"]) > 5
+
+    async def test_called_exactly_once(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_deactivation_email(FAKE_EMAIL)
+
+        assert mock_send.await_count == 1
+
+
+# ===========================================================================
+# TestSendAccountActivationEmail
+# ===========================================================================
+
+
+class TestSendAccountActivationEmail:
+    async def test_calls_send_with_correct_recipient(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_activation_email(FAKE_EMAIL)
+
+        assert mock_send.call_args.kwargs["to_email"] == FAKE_EMAIL
+
+    async def test_contains_login_link(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_activation_email(FAKE_EMAIL)
+
+        kwargs = mock_send.call_args.kwargs
+        assert settings.APP_URL in kwargs["html_body"]
+        assert settings.APP_URL in kwargs["text_body"]
+
+    async def test_contains_no_token(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_activation_email(FAKE_EMAIL)
+
+        kwargs = mock_send.call_args.kwargs
+        assert "token=" not in kwargs["html_body"]
+        assert "token=" not in kwargs["text_body"]
+
+    async def test_subject_is_non_empty(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_activation_email(FAKE_EMAIL)
+
+        assert len(mock_send.call_args.kwargs["subject"]) > 5
+
+    async def test_called_exactly_once(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_account_activation_email(FAKE_EMAIL)
+
+        assert mock_send.await_count == 1
+
+
+# ===========================================================================
+# TestSendAdminEmailOverrideNotification
+# ===========================================================================
+
+
+class TestSendAdminEmailOverrideNotification:
+    async def test_calls_send_with_correct_recipient(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_admin_email_override_notification(FAKE_EMAIL)
+
+        assert mock_send.call_args.kwargs["to_email"] == FAKE_EMAIL
+
+    async def test_contains_no_token_or_reset_link(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_admin_email_override_notification(FAKE_EMAIL)
+
+        kwargs = mock_send.call_args.kwargs
+        assert "token=" not in kwargs["html_body"]
+        assert "token=" not in kwargs["text_body"]
+
+    async def test_subject_is_non_empty(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_admin_email_override_notification(FAKE_EMAIL)
+
+        assert len(mock_send.call_args.kwargs["subject"]) > 5
+
+    async def test_called_exactly_once(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_admin_email_override_notification(FAKE_EMAIL)
+
+        assert mock_send.await_count == 1
+
+    async def test_html_and_text_both_present(self, mocker):
+        mock_send = mocker.patch(
+            "src.utils.email._send",
+            new_callable=AsyncMock,
+        )
+
+        await send_admin_email_override_notification(FAKE_EMAIL)
+
+        kwargs = mock_send.call_args.kwargs
+        assert len(kwargs["html_body"]) > 0
+        assert len(kwargs["text_body"]) > 0
