@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
@@ -361,13 +362,8 @@ class TestGetUserByIDAdmin:
 
 class TestDeactivateUserAdmin:
     async def test_deactivates_user(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mocker
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mock_send_account_deactivation_email
     ):
-        mocker.patch(
-            "src.users.service.send_account_deactivation_email",
-            new_callable=AsyncMock,
-        )
-
         user = await make_member(test_db)
         headers = await make_auth_header(test_db, system_admin)
 
@@ -382,14 +378,12 @@ class TestDeactivateUserAdmin:
         assert user.is_active is False
 
     async def test_returns_409_if_already_inactive(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mocker
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mock_send_account_deactivation_email
     ):
-        mocker.patch(
-            "src.users.service.send_account_deactivation_email",
-            new_callable=AsyncMock,
+        user = await make_member(
+            test_db, 
+            is_active=False,
         )
-
-        user = await make_member(test_db, is_active=False)
         headers = await make_auth_header(test_db, system_admin)
 
         response = await client.patch(
@@ -400,13 +394,8 @@ class TestDeactivateUserAdmin:
         assert response.status_code == 409
 
     async def test_receptionist_cannot_deactivate(
-        self, test_db: AsyncSession, client: AsyncClient, receptionist: User, mocker
+        self, test_db: AsyncSession, client: AsyncClient, receptionist: User, mock_send_account_deactivation_email
     ):
-        mocker.patch(
-            "src.users.service.send_account_deactivation_email",
-            new_callable=AsyncMock,
-        )
-
         user = await make_member(test_db)
         headers = await make_auth_header(test_db, receptionist)
 
@@ -418,13 +407,8 @@ class TestDeactivateUserAdmin:
         assert response.status_code == 403
 
     async def test_invalidates_session(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mocker
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mock_send_account_deactivation_email
     ):
-        mocker.patch(
-            "src.users.service.send_account_deactivation_email",
-            new_callable=AsyncMock,
-        )
-
         user = await make_member(test_db)
         headers = await make_auth_header(test_db, system_admin)
 
@@ -436,8 +420,8 @@ class TestDeactivateUserAdmin:
         )
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
         )
         session = user_session.session
 
@@ -451,13 +435,8 @@ class TestDeactivateUserAdmin:
 
 class TestActivateUserAdmin:
     async def test_activate_user(
-        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mocker
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mock_send_account_activation_email
     ):
-        mocker.patch(
-            "src.users.service.send_account_activation_email",
-            new_callable=AsyncMock,
-        )
-
         user = await make_member(
             test_db,
             is_active=False,
@@ -573,3 +552,302 @@ class TestUpdateUserAdmin:
         )
 
         assert response.status_code == 403
+
+class TestUpdateUserEmailAdmin:
+    async def test_system_admin_can_update_email(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mock_send_admin_email_override_notification
+    ): 
+        user = await make_member(test_db)
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        response = await client.patch(
+            f"/users/{user.id}/email",
+            json={"new_email": "updated_email@gmail.com"},
+            headers=headers,
+        )
+ 
+        assert response.status_code == 204
+ 
+        await test_db.refresh(user)
+
+        assert user.email == "updated_email@gmail.com"
+ 
+    async def test_returns_404_for_unknown_user(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        user = await make_member(test_db)
+        non_existent_id = user.id + 999999
+ 
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        response = await client.patch(
+            f"/users/{non_existent_id}/email",
+            json={"new_email": "updated_email@gmail.com"},
+            headers=headers,
+        )
+ 
+        assert response.status_code == 404
+ 
+    async def test_returns_409_for_duplicate_email(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        await make_member(
+            test_db, 
+            email="taken@gmail.com",
+        )
+        user = await make_member(test_db)
+ 
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        response = await client.patch(
+            f"/users/{user.id}/email",
+            json={"new_email": "taken@gmail.com"},
+            headers=headers,
+        )
+ 
+        assert response.status_code == 409
+ 
+    async def test_returns_403_for_library_admin(
+        self, test_db: AsyncSession, client: AsyncClient, library_admin: User
+    ):
+        user = await make_member(test_db)
+        headers = await make_auth_header(test_db, library_admin)
+ 
+        response = await client.patch(
+            f"/users/{user.id}/email",
+            json={"new_email": "updated_email@gmail.com"},
+            headers=headers,
+        )
+ 
+        assert response.status_code == 403
+ 
+    async def test_returns_403_for_receptionist(
+        self, test_db: AsyncSession, client: AsyncClient, receptionist: User
+    ):
+        user = await make_member(test_db)
+        headers = await make_auth_header(test_db, receptionist)
+ 
+        response = await client.patch(
+            f"/users/{user.id}/email",
+            json={"new_email": "updated_email@gmail.com"},
+            headers=headers,
+        )
+ 
+        assert response.status_code == 403
+ 
+    async def test_returns_401_for_unauthenticated(
+        self, test_db: AsyncSession, client: AsyncClient
+    ):
+        user = await make_member(test_db)
+ 
+        response = await client.patch(
+            f"/users/{user.id}/email",
+            json={"new_email": "updated_email@gmail.com"},
+        )
+ 
+        assert response.status_code == 401
+ 
+    async def test_returns_404_for_system_admin_target(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mocker
+    ):
+        other_system_admin = await make_system_admin(test_db)
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        response = await client.patch(
+            f"/users/{other_system_admin.id}/email",
+            json={"new_email": "updated_email@gmail.com"},
+            headers=headers,
+        )
+ 
+        assert response.status_code == 404
+ 
+    async def test_session_invalidated_after_email_update(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User, mock_send_admin_email_override_notification
+    ):
+        user = await make_member(test_db)
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        original_version = user_with_session.session.access_token_version
+ 
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        await client.patch(
+            f"/users/{user.id}/email",
+            json={"new_email": "updated_email@gmail.com"},
+            headers=headers,
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        session = user_with_session.session
+ 
+        assert session.access_token_version == original_version + 1
+        assert session.refresh_token_hash is None
+        assert session.refresh_token_family is None
+        assert session.refresh_token_expires_at is None
+ 
+    async def test_notification_sent_to_old_email(
+        self,
+        test_db: AsyncSession,
+        client: AsyncClient,
+        system_admin: User,
+        mock_send_admin_email_override_notification,
+    ):
+        user = await make_member(
+            test_db, 
+            email="old_email@gmail.com",
+        )
+ 
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        await client.patch(
+            f"/users/{user.id}/email",
+            json={"new_email": "updated_email@gmail.com"},
+            headers=headers,
+        )
+ 
+        await asyncio.sleep(0)
+ 
+        mock_send_admin_email_override_notification.assert_called_once_with("old_email@gmail.com")
+
+class TestCreateResetPasswordRequestAdmin:
+    async def test_system_admin_can_create_request(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        user = await make_member(test_db)
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        response = await client.post(
+            f"/users/{user.id}/password",
+            headers=headers,
+        )
+ 
+        assert response.status_code == 204
+ 
+    async def test_library_admin_can_create_request(
+        self, test_db: AsyncSession, client: AsyncClient, library_admin: User
+    ):
+        user = await make_member(test_db)
+        headers = await make_auth_header(test_db, library_admin)
+ 
+        response = await client.post(
+            f"/users/{user.id}/password",
+            headers=headers,
+        )
+ 
+        assert response.status_code == 204
+ 
+    async def test_receptionist_cannot_create_request(
+        self, test_db: AsyncSession, client: AsyncClient, receptionist: User
+    ):
+        user = await make_member(test_db)
+        headers = await make_auth_header(test_db, receptionist)
+ 
+        response = await client.post(
+            f"/users/{user.id}/password",
+            headers=headers,
+        )
+ 
+        assert response.status_code == 403
+ 
+    async def test_member_cannot_create_request(
+        self, test_db: AsyncSession, client: AsyncClient, member: User
+    ):
+        user = await make_member(test_db)
+        headers = await make_auth_header(test_db, member)
+ 
+        response = await client.post(
+            f"/users/{user.id}/password",
+            headers=headers,
+        )
+ 
+        assert response.status_code == 403
+ 
+    async def test_returns_401_for_unauthenticated(
+        self, test_db: AsyncSession, client: AsyncClient
+    ):
+        user = await make_member(test_db)
+ 
+        response = await client.post(f"/users/{user.id}/password")
+ 
+        assert response.status_code == 401
+ 
+    async def test_returns_404_for_unknown_user(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        user = await make_member(test_db)
+        non_existent_id = user.id + 999999
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        response = await client.post(
+            f"/users/{non_existent_id}/password",
+            headers=headers,
+        )
+ 
+        assert response.status_code == 404
+ 
+    async def test_library_admin_cannot_reset_system_admin_password(
+        self, test_db: AsyncSession, client: AsyncClient, library_admin: User
+    ):
+        system_admin = await make_system_admin(test_db)
+        headers = await make_auth_header(test_db, library_admin)
+ 
+        response = await client.post(
+            f"/users/{system_admin.id}/password",
+            headers=headers,
+        )
+ 
+        assert response.status_code == 404
+ 
+    async def test_library_admin_cannot_reset_other_library_admin_password(
+        self, test_db: AsyncSession, client: AsyncClient, library_admin: User
+    ):
+        other_library_admin = await make_library_admin(test_db)
+        headers = await make_auth_header(test_db, library_admin)
+ 
+        response = await client.post(
+            f"/users/{other_library_admin.id}/password",
+            headers=headers,
+        )
+ 
+        assert response.status_code == 404
+ 
+    async def test_pending_email_created_after_successful_request(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        user = await make_member(test_db)
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        await client.post(
+            f"/users/{user.id}/password",
+            headers=headers,
+        )
+ 
+        pending_emails = await PendingEmailRepository.get_pending_email_by_triggered_by(
+            test_db, system_admin.id
+        )
+ 
+        assert len(pending_emails) == 1
+        assert pending_emails[0].email_type == EmailType.password_reset_admin
+        assert pending_emails[0].recipient_user_id == user.id
+ 
+    async def test_reset_token_written_to_session(
+        self, test_db: AsyncSession, client: AsyncClient, system_admin: User
+    ):
+        user = await make_member(test_db)
+        headers = await make_auth_header(test_db, system_admin)
+ 
+        await client.post(
+            f"/users/{user.id}/password",
+            headers=headers,
+        )
+ 
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
+        session = user_with_session.session
+ 
+        assert session.reset_password_token_hash is not None
+        assert session.reset_password_token_expires_at is not None

@@ -213,5 +213,44 @@ def mock_send_email_change_verification(mocker):
 
 
 @pytest.fixture
-def mock_delete_cache(mocker):
+def mock_send_password_changed_confirmation(mocker):
+    return mocker.patch(
+        "src.users.service.email_sender.send_password_changed_confirmation",
+        new_callable=AsyncMock,
+    )
+
+@pytest.fixture
+def mock_send_already_registered_email(mocker):
+    return mocker.patch(
+        "src.users.service.email_sender.send_already_registered_email",
+        new_callable=AsyncMock,
+    )
+
+@pytest.fixture
+def mock_send_admin_email_override_notification(mocker):
+    return mocker.patch(
+        "src.users.service.email_sender.send_admin_email_override_notification",
+        new_callable=AsyncMock,
+    )
+
+@pytest.fixture
+def mock_send_account_deactivation_email(mocker):
+    return mocker.patch(
+        "src.users.service.email_sender.send_account_deactivation_email",
+        new_callable=AsyncMock,
+    )
+
+@pytest.fixture
+def mock_send_account_activation_email(mocker):
+    return mocker.patch(
+        "src.users.service.email_sender.send_account_activation_email",
+        new_callable=AsyncMock,
+    )
+
+@pytest.fixture
+def mock_delete_cache_users(mocker):
     return mocker.patch("src.users.service.delete_cache")
+
+@pytest.fixture
+def mock_set_cache_users(mocker):
+    return mocker.patch("src.users.service.set_cache")

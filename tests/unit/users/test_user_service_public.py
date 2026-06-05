@@ -1,6 +1,5 @@
 import asyncio
-from datetime import date, datetime, timedelta, timezone
-from unittest.mock import AsyncMock
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -90,7 +89,7 @@ class TestCreateAccountPublic:
         self,
         test_db: AsyncSession,
         valid_create_user_request_public: CreateUserPublic,
-        mocker,
+        mock_send_already_registered_email,
     ):
         valid_create_user_request_public.email = "user_email@gmail.com"
 
@@ -102,11 +101,6 @@ class TestCreateAccountPublic:
         valid_create_user_request_public.username = "new_username"
         valid_create_user_request_public.phone_number = "992000000000"
 
-        mocker.patch(
-            "src.users.service.email_sender.send_already_registered_email",
-            new_callable=AsyncMock,
-        )
-
         response2 = await UserServicePublic.create_account_public(
             test_db, valid_create_user_request_public
         )
@@ -117,16 +111,11 @@ class TestCreateAccountPublic:
         self,
         test_db: AsyncSession,
         valid_create_user_request_public: CreateUserPublic,
-        mocker,
+        mock_send_already_registered_email,
     ):
         await make_member(
             test_db,
             email="new_user_email@gmail.com",
-        )
-
-        mock_send = mocker.patch(
-            "src.users.service.email_sender.send_already_registered_email",
-            new_callable=AsyncMock,
         )
 
         valid_create_user_request_public.email = "new_user_email@gmail.com"
@@ -136,13 +125,15 @@ class TestCreateAccountPublic:
         )
 
         assert result.detail == PublicMessages.REGISTRATION
-        mock_send.assert_called_once_with("new_user_email@gmail.com")
+        mock_send_already_registered_email.assert_called_once_with(
+            "new_user_email@gmail.com"
+        )
 
     async def test_email_is_not_sent_for_other_integrity_errors(
         self,
         test_db: AsyncSession,
         valid_create_user_request_public: CreateUserPublic,
-        mocker,
+        mock_send_already_registered_email,
     ):
         await make_member(
             test_db,
@@ -151,41 +142,34 @@ class TestCreateAccountPublic:
 
         valid_create_user_request_public.username = "test_username"
 
-        mock_send = mocker.patch(
-            "src.users.service.email_sender.send_already_registered_email",
-            new_callable=AsyncMock,
-        )
-
         with pytest.raises(UsernameAlreadyTakenError):
             await UserServicePublic.create_account_public(
                 test_db, valid_create_user_request_public
             )
 
-        mock_send.assert_not_called()
+        mock_send_already_registered_email.assert_not_called()
 
 
 class TestGetMe:
-    async def test_get_me_returns_correct_data(self, test_db: AsyncSession, mocker):
+    async def test_get_me_returns_correct_data(self, test_db: AsyncSession):
         user = await make_member(test_db)
 
         result = await UserServicePublic.get_me(test_db, user.id)
 
-        assert result.id is not None
-        assert result.username is not None
-        assert result.first_name == "test_fname"
-        assert result.last_name == "last_lname"
-        assert result.date_of_birth == date(2000, 1, 1)
+        assert result["id"] is not None
+        assert result["username"] is not None
+        assert result["first_name"] == "test_fname"
+        assert result["last_name"] == "test_lname"
+        assert result["date_of_birth"] == "2000-01-01"
 
     async def test_get_me_populates_cache_after_db_hit(
-        self, test_db: AsyncSession, mocker
+        self, test_db: AsyncSession, mock_set_cache_users, mocker
     ):
         user = await make_member(test_db)
 
-        mock_set_cache = mocker.patch("src.users.service.set_cache")
-
         await UserServicePublic.get_me(test_db, user.id)
 
-        mock_set_cache.assert_called_once_with(
+        mock_set_cache_users.assert_called_once_with(
             UserCacheKey.user_detail_key_self(user.id),
             mocker.ANY,
             900,
@@ -230,7 +214,6 @@ class TestUpdateMe:
 
         update_request = UpdateUser(
             username="username_test",
-            email="new_email@gmail.com",
             phone_number="+992 101 101 101",
         )
 
@@ -239,20 +222,17 @@ class TestUpdateMe:
         await test_db.refresh(user)
 
         assert user.username == "username_test"
-        assert user.email == "new_email@gmail.com"
         assert user.phone_number == "+992 101 101 101"
 
     async def test_cache_is_invalidated_after_update(
-        self, test_db: AsyncSession, mocker
+        self, test_db: AsyncSession, mock_delete_cache_users
     ):
         user = await make_member(test_db)
 
-        mock_delete_cache = mocker.patch("src.users.service.delete_cache")
-
         await UserServicePublic.update_me(test_db, user.id, UpdateUser())
 
-        assert mock_delete_cache.call_count == 1
-        mock_delete_cache.assert_called_once_with(
+        assert mock_delete_cache_users.call_count == 1
+        mock_delete_cache_users.assert_called_once_with(
             UserCacheKey.user_detail_key_admin(user.id),
             UserCacheKey.user_detail_key_staff(user.id),
             UserCacheKey.user_detail_key_self(user.id),
@@ -263,7 +243,7 @@ class TestUpdateMe:
         non_existant_id = user.id + 999999
 
         with pytest.raises(UserNotFoundError):
-            await UserServicePublic.update_me(test_db, user.id, UpdateUser())
+            await UserServicePublic.update_me(test_db, non_existant_id, UpdateUser())
 
     @pytest.mark.parametrize(
         ("existing_user_data", "request_override", "expected_exception"),
@@ -288,7 +268,12 @@ class TestUpdateMe:
         expected_exception,
     ):
 
-        user = await make_member(test_db, **existing_user_data)
+        await make_member(
+            test_db,
+            **existing_user_data,
+        )
+
+        user_to_be_updated = await make_member(test_db)
 
         update_request = UpdateUser()
 
@@ -296,17 +281,21 @@ class TestUpdateMe:
             setattr(update_request, field, value)
 
         with pytest.raises(expected_exception):
-            await UserServicePublic.update_me(test_db, user.id, update_request)
+            await UserServicePublic.update_me(
+                test_db, user_to_be_updated.id, update_request
+            )
 
 
 class TestUpdateMyPassword:
-    async def test_updates_password_successfully(self, test_db: AsyncSession):
+    async def test_updates_password_successfully(
+        self, test_db: AsyncSession, mock_send_password_changed_confirmation
+    ):
         user = await make_member(
             test_db,
             password=OLD_PASSWORD,
         )
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
         )
         session = user_session.session
 
@@ -321,8 +310,8 @@ class TestUpdateMyPassword:
         await UserServicePublic.update_my_password(test_db, user.id, update_request)
 
         await test_db.refresh(user)
-        user_session = await UserRepositoryBase.get_user_by_id_with_session(
-            test_db, user.id
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
         )
         session = user_session.session
 
@@ -347,7 +336,7 @@ class TestUpdateMyPassword:
             await UserServicePublic.update_my_password(test_db, user.id, update_request)
 
     async def test_password_change_confirmation_is_sent_correctly(
-        self, test_db: AsyncSession, mocker
+        self, test_db: AsyncSession, mock_send_password_changed_confirmation
     ):
         user = await make_member(
             test_db,
@@ -355,22 +344,15 @@ class TestUpdateMyPassword:
         )
 
         update_request = UpdateUserPasswordPublic(
-            old_password=WRONG_PASSWORD,
+            old_password=OLD_PASSWORD,
             new_password=NEW_PASSWORD,
-        )
-
-        mock_send = mocker.patch(
-            "src.users.service.email_sender.send_password_changed_confirmation",
-            new_callable=AsyncMock,
         )
 
         await UserServicePublic.update_my_password(test_db, user.id, update_request)
 
-        mock_send.assert_called_once_with(user.email)
+        mock_send_password_changed_confirmation.assert_called_once_with(user.email)
 
 
-# Tests for requesting email change for authenticated users
-# Done
 class TestRequestEmailChange:
     async def test_returns_message_response(
         self, test_db: AsyncSession, mock_send_email_change_verification
@@ -406,11 +388,6 @@ class TestRequestEmailChange:
     async def test_overwrites_existing_pending_change(
         self, test_db: AsyncSession, mock_send_email_change_verification
     ):
-        """
-        If the user requests an email change twice, the second
-        request overwrites the first. Only one pending change
-        exists at a time.
-        """
         user = await make_member(test_db)
 
         await UserServicePublic.request_email_change(
@@ -485,11 +462,6 @@ class TestConfirmEmailChange:
         new_email: str = "new_email@gmail.com",
         expired: bool = False,
     ) -> str:
-        """
-        Helper that manually writes a pending email change to the session,
-        bypassing the service so we can control the raw email change code and expiry.
-        Returns the raw email change code to submit.
-        """
         raw_email_change_code, hashed_email_change_code = generate_email_change_code()
 
         user_with_session = await UserRepositoryBase.get_user_by_id(
@@ -574,7 +546,7 @@ class TestConfirmEmailChange:
         assert session.refresh_token_expires_at is None
 
     async def test_all_cache_keys_invalidated_after_confirmation(
-        self, test_db: AsyncSession, mock_delete_cache
+        self, test_db: AsyncSession, mock_delete_cache_users
     ):
         user = await make_member(test_db)
         raw_email_change_code = await self._setup_pending_change(test_db, user)
@@ -583,8 +555,8 @@ class TestConfirmEmailChange:
             test_db, user.id, raw_email_change_code
         )
 
-        assert mock_delete_cache.call_count == 1
-        mock_delete_cache.assert_called_once_with(
+        assert mock_delete_cache_users.call_count == 1
+        mock_delete_cache_users.assert_called_once_with(
             UserCacheKey.user_detail_key_admin(user.id),
             UserCacheKey.user_detail_key_staff(user.id),
             UserCacheKey.user_detail_key_self(user.id),
