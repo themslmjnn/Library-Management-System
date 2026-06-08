@@ -59,6 +59,7 @@ from src.utils.email import (
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
 from src.utils.response_messages import PublicMessages
 from src.utils.response_schemas import MessageResponse
+from utils.enums import UserRole
 
 logger = get_logger(__name__)
 
@@ -308,6 +309,9 @@ class AuthService:
         user.activation.invite_token_hash = None
         user.activation.invite_token_expires_at = None
 
+        if user.role == UserRole.guest:
+            user.role = UserRole.member
+
         await db.commit()
         await db.refresh(user)
 
@@ -362,6 +366,9 @@ class AuthService:
         user.is_active = True
         user.activation.account_activation_code_hash = None
         user.activation.account_activation_code_expires_at = None
+
+        if user.role == UserRole.guest:
+            user.role = UserRole.member
 
         await db.commit()
         await db.refresh(user)

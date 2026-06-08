@@ -34,9 +34,9 @@ async def create_account(
     request: Request,
     db: async_db_dependency,
     current_user: Annotated[User, Depends(require_system_admin)],
-    user_request: CreateUserAdmin,
+    create_request: CreateUserAdmin,
 ):
-    return await UserServiceAdmin.create_account(db, current_user.id, user_request)
+    return await UserServiceAdmin.create_account(db, current_user.id, create_request)
 
 
 @router.get(

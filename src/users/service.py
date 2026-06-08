@@ -80,19 +80,19 @@ class UserServiceAdmin:
             hours=settings.INVITE_TOKEN_EXPIRES_HOURS
         )
 
-        new_user = User(
-            username=user_request.username,
-            first_name=user_request.first_name,
-            last_name=user_request.last_name,
-            date_of_birth=user_request.date_of_birth,
-            email=user_request.email,
-            phone_number=user_request.phone_number,
-            role=user_request.role,
-            is_active=False,
-            created_by=current_user_id,
-        )
-
         try:
+            new_user = User(
+                username=user_request.username,
+                first_name=user_request.first_name,
+                last_name=user_request.last_name,
+                date_of_birth=user_request.date_of_birth,
+                email=user_request.email,
+                phone_number=user_request.phone_number,
+                role=user_request.role,
+                is_active=False,
+                created_by=current_user_id,
+            )
+
             UserRepositoryBase.add_entity(db, new_user)
 
             await db.flush()
@@ -450,19 +450,19 @@ class UserServiceStaff:
             hours=settings.INVITE_TOKEN_EXPIRES_HOURS
         )
 
-        new_user = User(
-            username=user_request.username,
-            first_name=user_request.first_name,
-            last_name=user_request.last_name,
-            date_of_birth=user_request.date_of_birth,
-            email=user_request.email,
-            phone_number=user_request.phone_number,
-            role=UserRole.guest,
-            is_active=False,
-            created_by=current_user_id,
-        )
-
         try:
+            new_user = User(
+                username=user_request.username,
+                first_name=user_request.first_name,
+                last_name=user_request.last_name,
+                date_of_birth=user_request.date_of_birth,
+                email=user_request.email,
+                phone_number=user_request.phone_number,
+                role=UserRole.guest,
+                is_active=False,
+                created_by=current_user_id,
+            )
+
             UserRepositoryBase.add_entity(db, new_user)
 
             await db.flush()
@@ -603,19 +603,19 @@ class UserServicePublic:
             minutes=settings.ACTIVATION_CODE_EXPIRES_MINUTES
         )
 
-        new_user = User(
-            username=user_request.username,
-            first_name=user_request.first_name,
-            last_name=user_request.last_name,
-            date_of_birth=user_request.date_of_birth,
-            email=user_request.email,
-            phone_number=user_request.phone_number,
-            password_hash=hash_password(user_request.password),
-            role=UserRole.guest,
-            is_active=False,
-        )
-
         try:
+            new_user = User(
+                username=user_request.username,
+                first_name=user_request.first_name,
+                last_name=user_request.last_name,
+                date_of_birth=user_request.date_of_birth,
+                email=user_request.email,
+                phone_number=user_request.phone_number,
+                password_hash=hash_password(user_request.password),
+                role=UserRole.guest,
+                is_active=False,
+            )
+
             UserRepositoryBase.add_entity(db, new_user)
 
             await db.flush()

@@ -260,3 +260,4 @@ def mock_delete_cache_users(mocker):
 @pytest.fixture
 def mock_set_cache_users(mocker):
     return mocker.patch("src.users.service.set_cache")
+

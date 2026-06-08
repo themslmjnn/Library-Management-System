@@ -55,10 +55,10 @@ def validate_date_of_birth(birth_date: date) -> date:
         - ((today.month, today.day) < (birth_date.month, birth_date.day))
     )
 
-    if age < 13:
+    if age < 12:
         raise PydanticCustomError(
             "date_of_birth_too_young",
-            "User must be at least 13 years old",
+            "User must be at least 12 years old",
         )
     if age > 120:
         raise PydanticCustomError(

@@ -387,10 +387,7 @@ class TestDeactivateUserAdmin:
         system_admin: User,
         mock_send_account_deactivation_email,
     ):
-        user = await make_member(
-            test_db,
-            is_active=False,
-        )
+        user = await make_member(test_db, is_active=False)
         headers = await make_auth_header(test_db, system_admin)
 
         response = await client.patch(
@@ -456,10 +453,7 @@ class TestActivateUserAdmin:
         system_admin: User,
         mock_send_account_activation_email,
     ):
-        user = await make_member(
-            test_db,
-            is_active=False,
-        )
+        user = await make_member(test_db, is_active=False)
         headers = await make_auth_header(test_db, system_admin)
 
         response = await client.patch(
@@ -475,10 +469,7 @@ class TestActivateUserAdmin:
     async def test_returns_409_if_already_active(
         self, test_db: AsyncSession, client: AsyncClient, system_admin: User
     ):
-        user = await make_member(
-            test_db,
-            is_active=True,
-        )
+        user = await make_member(test_db, is_active=True)
         headers = await make_auth_header(test_db, system_admin)
 
         response = await client.patch(
@@ -615,10 +606,7 @@ class TestUpdateUserEmailAdmin:
     async def test_returns_409_for_duplicate_email(
         self, test_db: AsyncSession, client: AsyncClient, system_admin: User
     ):
-        await make_member(
-            test_db,
-            email="taken@gmail.com",
-        )
+        await make_member(test_db, email="taken@gmail.com")
         user = await make_member(test_db)
 
         headers = await make_auth_header(test_db, system_admin)

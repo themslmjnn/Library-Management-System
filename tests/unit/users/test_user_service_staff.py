@@ -189,15 +189,13 @@ class TestGetUserByIDStaff:
             )
 
     async def test_get_user_by_id_staff_populates_cache_after_db_hit(
-        self, test_db: AsyncSession, library_admin: User, mocker
+        self, test_db: AsyncSession, library_admin: User, mock_set_cache_users, mocker
     ):
         user = await make_member(test_db)
 
-        mock_set_cache = mocker.patch("src.users.service.set_cache")
-
         await UserServiceStaff.get_user_by_id_staff(test_db, library_admin, user.id)
 
-        mock_set_cache.assert_called_once_with(
+        mock_set_cache_users.assert_called_once_with(
             UserCacheKey.user_detail_key_staff(user.id),
             mocker.ANY,
             900,

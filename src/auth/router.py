@@ -15,7 +15,6 @@ from src.auth.service import AuthService
 from src.core.dependencies import async_db_dependency, current_user_dependency
 from src.core.limiter import ip_limiter
 from src.utils.exception_constants import HTTP401
-from users.service import UserServicePublic
 from utils.response_schemas import MessageResponse
 
 router = APIRouter(

@@ -80,10 +80,7 @@ class TestLogin:
     async def test_login_blocked_when_account_locked(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
         user_session.session.locked_until = datetime.now(timezone.utc) + timedelta(
@@ -100,10 +97,7 @@ class TestLogin:
     async def test_locked_account_allows_login_after_expiry(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
         user_session.session.locked_until = datetime.now(timezone.utc) - timedelta(
@@ -139,10 +133,7 @@ class TestLogin:
     async def test_login_increments_failed_attempts(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         with pytest.raises(InvalidCredentialsError):
             await AuthService.login(
@@ -156,10 +147,7 @@ class TestLogin:
     async def test_login_locks_account_after_max_attempts(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
 
@@ -181,10 +169,7 @@ class TestLogin:
     async def test_login_fails_wrong_password(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         with pytest.raises(InvalidCredentialsError):
             await AuthService.login(
@@ -208,10 +193,7 @@ class TestLogin:
     async def test_reset_failed_attempts_on_successful_login(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=DEFAULT_PASSWORD,
-        )
+        user = await make_member(test_db, password=DEFAULT_PASSWORD)
         user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
 
         user_session.session.failed_login_attempts = 3
@@ -255,10 +237,7 @@ class TestLogin:
     async def test_login_does_not_increment_access_token_version(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
         original_version = user_session.session.access_token_version
@@ -274,10 +253,7 @@ class TestLogin:
     async def test_login_sets_new_refresh_token(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         await AuthService.login(
             test_db, mock_response, _form(user.email, CORRECT_PASSWORD)
@@ -365,10 +341,7 @@ class TestLogin:
     async def test_refresh_token_expiry_is_in_future(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         await AuthService.login(
             test_db, mock_response, _form(user.email, CORRECT_PASSWORD)
@@ -385,10 +358,7 @@ class TestLogin:
     async def test_access_token_payload_contains_correct_user_id(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         result = await AuthService.login(
             test_db, mock_response, _form(user.email, CORRECT_PASSWORD)
@@ -401,10 +371,7 @@ class TestLogin:
     async def test_access_token_payload_contains_correct_role(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         result = await AuthService.login(
             test_db, mock_response, _form(user.email, CORRECT_PASSWORD)
@@ -417,10 +384,7 @@ class TestLogin:
     async def test_access_token_payload_contains_correct_version(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         user_with_session = await UserRepositoryBase.get_user_by_id(
             test_db, user.id, load_session=True
@@ -456,10 +420,7 @@ class TestLogin:
     async def test_each_login_creates_new_refresh_token_family(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user = await make_member(
-            test_db,
-            password=CORRECT_PASSWORD,
-        )
+        user = await make_member(test_db, password=CORRECT_PASSWORD)
 
         await AuthService.login(
             test_db, mock_response, _form(user.email, CORRECT_PASSWORD)
