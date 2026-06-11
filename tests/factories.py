@@ -190,10 +190,7 @@ async def make_user_with_activation_code(
 
 
 async def make_user_with_refresh_token(test_db: AsyncSession):
-    user = await make_member(
-        test_db,
-        password=CORRECT_PASSWORD,
-    )
+    user = await make_member(test_db, password=CORRECT_PASSWORD)
 
     raw_refresh_token, hashed_refresh_token = create_refresh_token(
         CreateRefreshTokenRequest(
@@ -201,8 +198,8 @@ async def make_user_with_refresh_token(test_db: AsyncSession):
             family="test_family_abc",
         )
     )
-    user_session = await UserRepositoryBase.get_user_by_id_with_session(
-        test_db, user.id
+    user_session = await UserRepositoryBase.get_user_by_id(
+        test_db, user.id, load_session=True
     )
     user_session.session.refresh_token_hash = hashed_refresh_token
     user_session.session.refresh_token_family = "test_family_abc"

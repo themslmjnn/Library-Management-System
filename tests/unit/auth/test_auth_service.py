@@ -82,7 +82,9 @@ class TestLogin:
     ):
         user = await make_member(test_db, password=CORRECT_PASSWORD)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
         user_session.session.locked_until = datetime.now(timezone.utc) + timedelta(
             minutes=15
         )
@@ -99,7 +101,9 @@ class TestLogin:
     ):
         user = await make_member(test_db, password=CORRECT_PASSWORD)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
         user_session.session.locked_until = datetime.now(timezone.utc) - timedelta(
             seconds=1
         )
@@ -110,7 +114,9 @@ class TestLogin:
             test_db, mock_response, _form(user.email, CORRECT_PASSWORD)
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert "access_token" in result
         assert user_session.session.failed_login_attempts == 0
@@ -140,7 +146,9 @@ class TestLogin:
                 test_db, mock_response, _form(user.email, WRONG_PASSWORD)
             )
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.failed_login_attempts == 1
 
@@ -149,7 +157,9 @@ class TestLogin:
     ):
         user = await make_member(test_db, password=CORRECT_PASSWORD)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         user_session.session.failed_login_attempts = 4
 
@@ -194,7 +204,9 @@ class TestLogin:
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
         user = await make_member(test_db, password=DEFAULT_PASSWORD)
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         user_session.session.failed_login_attempts = 3
 
@@ -204,7 +216,9 @@ class TestLogin:
             test_db, mock_response, _form(user.email, DEFAULT_PASSWORD)
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.failed_login_attempts == 0
         assert user_session.session.locked_until is None
@@ -239,14 +253,18 @@ class TestLogin:
     ):
         user = await make_member(test_db, password=CORRECT_PASSWORD)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
         original_version = user_session.session.access_token_version
 
         await AuthService.login(
             test_db, mock_response, _form(user.email, CORRECT_PASSWORD)
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.access_token_version == original_version
 
@@ -259,7 +277,9 @@ class TestLogin:
             test_db, mock_response, _form(user.email, CORRECT_PASSWORD)
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.refresh_token_hash is not None
         assert user_session.session.refresh_token_expires_at is not None
@@ -435,7 +455,9 @@ class TestLogin:
             test_db, mock_response, _form(user.email, CORRECT_PASSWORD)
         )
 
-        user_with_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_with_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
         second_family = user_with_session.session.refresh_token_family
 
         assert first_family != second_family
@@ -447,7 +469,9 @@ class TestLogout:
     ):
         user = await make_member(test_db)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         user_session.session.refresh_token_hash = "some_hash"
         user_session.session.refresh_token_family = "some_family"
@@ -457,9 +481,11 @@ class TestLogout:
 
         await test_db.commit()
 
-        await AuthService.logout(test_db, mock_response, user.id)
+        await AuthService.logout(mock_response, test_db, user.id)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.refresh_token_hash is None
         assert user_session.session.refresh_token_family is None
@@ -480,9 +506,11 @@ class TestLogout:
     ):
         user = await make_member(test_db)
 
-        await AuthService.logout(test_db, mock_response, user.id)
+        await AuthService.logout(mock_response, test_db, user.id)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.refresh_token_hash is None
         assert user_session.session.refresh_token_family is None
@@ -493,13 +521,17 @@ class TestLogout:
     ):
         user = await make_member(test_db)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         original_version = user_session.session.access_token_version
 
-        await AuthService.logout(test_db, mock_response, user.id)
+        await AuthService.logout(mock_response, test_db, user.id)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.access_token_version == original_version + 1
 
@@ -509,7 +541,7 @@ class TestActivateAccountWithToken:
         request = ActivateAccountWithToken(
             email="nobody@gmail.com",
             invite_token="MagicMock_token",
-            password=NEW_PASSWORD,
+            new_password=NEW_PASSWORD,
         )
 
         with pytest.raises(InvalidInviteTokenError):
@@ -521,7 +553,7 @@ class TestActivateAccountWithToken:
         request = ActivateAccountWithToken(
             email=user.email,
             invite_token="MagicMock_token",
-            password=NEW_PASSWORD,
+            new_password=NEW_PASSWORD,
         )
 
         with pytest.raises(InvalidInviteTokenError):
@@ -543,7 +575,7 @@ class TestActivateAccountWithToken:
         activation_request = ActivateAccountWithToken(
             email=user.email,
             invite_token=raw_invite_token,
-            password=NEW_PASSWORD,
+            new_password=NEW_PASSWORD,
         )
 
         with pytest.raises(ExpiredInviteTokenError):
@@ -555,7 +587,7 @@ class TestActivateAccountWithToken:
         request = ActivateAccountWithToken(
             email=user.email,
             invite_token="2787daa7fed0ac356ac8ce76c0e37079a033e47cdc929b04a2bbb195ea4361d5",
-            password=NEW_PASSWORD,
+            new_password=NEW_PASSWORD,
         )
 
         with pytest.raises(InvalidInviteTokenError):
@@ -570,7 +602,7 @@ class TestActivateAccountWithToken:
         request = ActivateAccountWithToken(
             email=user.email,
             invite_token=raw_invite_token,
-            password=NEW_PASSWORD,
+            new_password=NEW_PASSWORD,
         )
 
         await AuthService.activate_account_with_token(test_db, request)
@@ -591,7 +623,7 @@ class TestActivateAccountWithToken:
         request = ActivateAccountWithToken(
             email=user.email,
             invite_token=raw_invite_token,
-            password=NEW_PASSWORD,
+            new_password=NEW_PASSWORD,
         )
 
         await AuthService.activate_account_with_token(test_db, request)
@@ -611,7 +643,7 @@ class TestActivateAccountWithToken:
             ActivateAccountWithToken(
                 email=user.email,
                 invite_token=raw_token,
-                password=NEW_PASSWORD,
+                new_password=NEW_PASSWORD,
             ),
         )
 
@@ -633,7 +665,7 @@ class TestActivateAccountWithToken:
             ActivateAccountWithToken(
                 email=user.email,
                 invite_token=raw_token,
-                password=NEW_PASSWORD,
+                new_password=NEW_PASSWORD,
             ),
         )
 
@@ -652,7 +684,7 @@ class TestActivateAccountWithToken:
             ActivateAccountWithToken(
                 email=user.email,
                 invite_token=raw_token,
-                password=NEW_PASSWORD,
+                new_password=NEW_PASSWORD,
             ),
         )
 
@@ -799,7 +831,9 @@ class TestRefreshToken:
         user, raw_refresh = await make_user_with_refresh_token(test_db)
         new_family = secrets.token_urlsafe(32)
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         user_session.session.refresh_token_hash = None
 
@@ -814,7 +848,9 @@ class TestRefreshToken:
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
         user_session.session.refresh_token_expires_at = datetime.now(
             timezone.utc
         ) - timedelta(seconds=1)
@@ -841,7 +877,7 @@ class TestRefreshToken:
     async def test_refresh_issues_new_access_token(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user, raw_refresh = await make_user_with_refresh_token(test_db)
+        _, raw_refresh = await make_user_with_refresh_token(test_db)
 
         result = await AuthService.refresh_token(
             test_db, mock_response, raw_refresh, "test_family_abc"
@@ -854,7 +890,9 @@ class TestRefreshToken:
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
         old_hash = user_session.session.refresh_token_hash
         old_family = user_session.session.refresh_token_family
 
@@ -862,7 +900,9 @@ class TestRefreshToken:
             test_db, mock_response, raw_refresh, "test_family_abc"
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.refresh_token_hash != old_hash
         assert user_session.session.refresh_token_family != old_family
@@ -871,14 +911,18 @@ class TestRefreshToken:
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
         user, raw_refresh = await make_user_with_refresh_token(test_db)
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
         original_version = user_session.session.access_token_version
 
         await AuthService.refresh_token(
             test_db, mock_response, raw_refresh, "test_family_abc"
         )
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
 
         assert user_session.session.access_token_version == original_version
 
@@ -893,7 +937,9 @@ class TestRefreshToken:
 
         payload = decode_access_token(result["access_token"])
 
-        user_session = await UserRepositoryBase.get_user_by_id(test_db, user.id)
+        user_session = await UserRepositoryBase.get_user_by_id(
+            test_db, user.id, load_session=True
+        )
         assert payload["version"] == user_session.session.access_token_version
 
     async def test_family_mismatch_with_valid_hash_triggers_full_invalidation(
@@ -927,7 +973,7 @@ class TestRefreshToken:
     async def test_hash_mismatch_with_valid_family_triggers_full_invalidation(
         self, test_db: AsyncSession, mock_response: MagicMock
     ):
-        user, raw_refresh = await make_user_with_refresh_token(test_db)
+        user, _ = await make_user_with_refresh_token(test_db)
 
         user_with_session = await UserRepositoryBase.get_user_by_id(
             test_db, user.id, load_session=True
