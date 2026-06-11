@@ -145,7 +145,7 @@ class ExpiredEmailChangeCodeError(AppException):
     pass
 
 
-class AssigningAlreadyExistingValueError(AppException):
+class NoChangesDetectedError(AppException):
     pass
 
 

@@ -13,7 +13,7 @@ BATCH_SIZE = 10
 
 async def _process_batch() -> None:
     async with AsyncSessionLocal() as db:
-        pending = await PendingEmailRepository.get_pending(db, limit=BATCH_SIZE)
+        pending = await PendingEmailRepository.get_pending_emails(db, limit=BATCH_SIZE)
 
         if not pending:
             return

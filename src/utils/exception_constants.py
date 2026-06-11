@@ -32,6 +32,7 @@ class HTTP404:
     INVENTORY = "Inventory not found"
     LOAN = "Loan not found"
     BOOK_NOT_AVAILABLE = "Book is not available"
+    PENDING_EMAIL = "Pending email not found"
 
 
 class HTTP409:

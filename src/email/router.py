@@ -1,3 +1,4 @@
+from email.service import PendingEmailService
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status
@@ -28,39 +29,29 @@ router = APIRouter(
     response_model=PaginatedResponse[PendingEmailResponse],
     status_code=status.HTTP_200_OK,
 )
-async def get_all_failed_emails(
+async def get_failed_emails(
     db: async_db_dependency,
     pagination: pagination_dependency,
     _: Annotated[User, Depends(require_system_admin)],
 ):
-    emails, total = await PendingEmailRepository.get_all_failed(
+    return await PendingEmailService.get_failed_emails(
         db,
-        skip=pagination.skip,
-        limit=pagination.limit,
-    )
-
-    return PaginatedResponse(
-        items=emails,
-        total=total,
         skip=pagination.skip,
         limit=pagination.limit,
     )
 
 
 @router.post("/{email_id}/retry", status_code=status.HTTP_204_NO_CONTENT)
-async def retry_any_failed_email(
+async def retry_failed_email(
     db: async_db_dependency,
-    email_id: Annotated[int, Path(ge=1)],
     _: Annotated[User, Depends(require_system_admin)],
+    email_id: Annotated[int, Path(ge=1)],
 ):
-    record = await PendingEmailRepository.get_by_id(db, email_id)
-    ensure_exists(record, PendingEmailNotFoundError(HTTP404.PENDING_EMAIL))
-
-    await PendingEmailRepository.reset_for_retry(db, record)
+    await PendingEmailService.retry_failed_email(db, email_id)
 
 
 @router.get(
-    "/my-failed",
+    "/my_failed",
     response_model=PaginatedResponse[PendingEmailResponse],
     status_code=status.HTTP_200_OK,
 )
@@ -69,25 +60,8 @@ async def get_my_failed_emails(
     current_user: current_user_dependency,
     pagination: pagination_dependency,
 ):
-    if current_user.role not in (
-        UserRole.library_admin,
-        UserRole.receptionist,
-        UserRole.system_admin,
-    ):
-        raise AccessDeniedError(HTTP403.ACCESS_DENIED)
-
-    emails, total = await PendingEmailRepository.get_failed_by_triggered_by(
-        db,
-        triggered_by=current_user.id,
-        skip=pagination.skip,
-        limit=pagination.limit,
-    )
-
-    return PaginatedResponse(
-        items=emails,
-        total=total,
-        skip=pagination.skip,
-        limit=pagination.limit,
+    return await PendingEmailService.get_my_failed_emails(
+        db, current_user, skip=pagination.skip, limit=pagination.limit
     )
 
 
@@ -97,20 +71,4 @@ async def retry_my_failed_email(
     current_user: current_user_dependency,
     email_id: Annotated[int, Path(ge=1)],
 ):
-    if current_user.role not in (
-        UserRole.library_admin,
-        UserRole.receptionist,
-        UserRole.system_admin,
-    ):
-        raise AccessDeniedError(HTTP403.ACCESS_DENIED)
-
-    record = await PendingEmailRepository.get_by_id(db, email_id)
-    ensure_exists(record, PendingEmailNotFoundError(HTTP404.PENDING_EMAIL))
-
-    if (
-        current_user.role != UserRole.system_admin
-        and record.triggered_by != current_user.id
-    ):
-        raise AccessDeniedError(HTTP403.ACCESS_DENIED)
-
-    await PendingEmailRepository.reset_for_retry(db, record)
+    return await PendingEmailService.retry_my_failed_email(db, current_user, email_id)

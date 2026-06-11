@@ -1,5 +1,3 @@
-# src/email/repository.py
-
 from datetime import datetime, timezone
 
 from sqlalchemy import func, select
@@ -11,7 +9,7 @@ from src.email.models import PendingEmail
 
 class PendingEmailRepository:
     @staticmethod
-    def create(
+    def add_pending_email(
         db: AsyncSession,
         *,
         recipient: str,
@@ -22,14 +20,6 @@ class PendingEmailRepository:
         triggered_by: int | None = None,
         recipient_user_id: int | None = None,
     ) -> PendingEmail:
-        """
-        Adds a PendingEmail to the session WITHOUT flushing or committing.
-
-        The caller controls the transaction. This means the email record
-        is inserted atomically with whatever else the caller is doing —
-        user creation, token write, etc. Either everything commits or
-        nothing does.
-        """
         record = PendingEmail(
             recipient=recipient,
             subject=subject,
@@ -40,11 +30,21 @@ class PendingEmailRepository:
             triggered_by=triggered_by,
             recipient_user_id=recipient_user_id,
         )
+
         db.add(record)
-        return record
 
     @staticmethod
-    async def get_pending(
+    async def _count_failed(db: AsyncSession) -> int:
+        query = select(func.count()).select_from(
+            select(PendingEmail).where(PendingEmail.status == "failed").subquery()
+        )
+
+        result = await db.execute(query)
+
+        return result.scalar_one()
+
+    @staticmethod
+    async def get_pending_emails(
         db: AsyncSession,
         limit: int = 10,
     ) -> list[PendingEmail]:
@@ -63,23 +63,23 @@ class PendingEmailRepository:
         return list(result.scalars().all())
 
     @staticmethod
-    async def get_all_failed(
+    async def get_failed_emails(
         db: AsyncSession,
         skip: int = 0,
-        limit: int = 20,
+        limit: int = 10,
     ) -> tuple[list[PendingEmail], int]:
-        """
-        Returns all failed emails regardless of who triggered them.
-        Used by system admin endpoint.
-        """
-        total = await _count_failed(db)
-        result = await db.execute(
+        total = await PendingEmailRepository._count_failed(db)
+
+        query = (
             select(PendingEmail)
             .where(PendingEmail.status == "failed")
             .order_by(PendingEmail.created_at.desc())
             .offset(skip)
             .limit(limit)
         )
+
+        result = await db.execute(query)
+
         return list(result.scalars().all()), total
 
     @staticmethod
@@ -89,23 +89,18 @@ class PendingEmailRepository:
         skip: int = 0,
         limit: int = 20,
     ) -> tuple[list[PendingEmail], int]:
-        """
-        Returns failed emails triggered by a specific staff member.
-        Used by library admin endpoint — they see only their own.
-        """
-        count_result = await db.execute(
-            select(func.count()).select_from(
-                select(PendingEmail)
-                .where(
-                    PendingEmail.status == "failed",
-                    PendingEmail.triggered_by == triggered_by,
-                )
-                .subquery()
+        count_query = select(func.count()).select_from(
+            select(PendingEmail)
+            .where(
+                PendingEmail.status == "failed",
+                PendingEmail.triggered_by == triggered_by,
             )
+            .subquery()
         )
+        count_result = await db.execute(count_query)
         total = count_result.scalar_one()
 
-        result = await db.execute(
+        query = (
             select(PendingEmail)
             .where(
                 PendingEmail.status == "failed",
@@ -115,6 +110,8 @@ class PendingEmailRepository:
             .offset(skip)
             .limit(limit)
         )
+        result = await db.execute(query)
+
         return list(result.scalars().all()), total
 
     @staticmethod
@@ -161,21 +158,8 @@ class PendingEmailRepository:
         db: AsyncSession,
         record: PendingEmail,
     ) -> None:
-        """
-        Admin-triggered retry. Resets a failed record back to pending.
-        The worker picks it up on the next poll cycle (within 60 seconds).
-        """
         record.status = "pending"
         record.retry_count = 0
         record.last_error = None
+
         await db.commit()
-
-
-async def _count_failed(db: AsyncSession) -> int:
-    """Private helper — counts all failed emails for pagination."""
-    result = await db.execute(
-        select(func.count()).select_from(
-            select(PendingEmail).where(PendingEmail.status == "failed").subquery()
-        )
-    )
-    return result.scalar_one()

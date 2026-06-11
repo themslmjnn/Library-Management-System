@@ -1,3 +1,7 @@
+from datetime import datetime
+
+from pydantic import field_serializer
+
 from src.utils.base_schema import BaseSchema
 
 
@@ -12,4 +16,8 @@ class PendingEmailResponse(BaseSchema):
     sent_at: str | None
     triggered_by: int | None
     recipient_user_id: int | None
-    created_at: str
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> str:
+        return value.strftime("%d %b %Y, %H:%M")

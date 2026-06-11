@@ -124,6 +124,7 @@ EXCEPTION_STATUS_MAP = {
     exc.PendingEmailNotFoundError: 404,
     exc.InvalidEmailChangeCodeError: 400,
     exc.ExpiredEmailChangeCodeError: 400,
+    exc.NoChangesDetectedError: 400,
 }
 
 
