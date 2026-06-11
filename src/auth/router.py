@@ -39,7 +39,7 @@ async def logout(
     db: async_db_dependency,
     current_user: current_user_dependency,
 ):
-    await AuthService.logout(db, response, current_user.id)
+    await AuthService.logout(response, db, current_user.id)
 
 
 @router.post("/activate_with_token", status_code=status.HTTP_204_NO_CONTENT)

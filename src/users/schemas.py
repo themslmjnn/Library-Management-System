@@ -117,7 +117,6 @@ class UpdateUserPasswordPublic(BaseModel):
 class SearchUserBase(BaseModel):
     first_name: str | None = Field(default=None, max_length=20)
     last_name: str | None = Field(default=None, max_length=20)
-    date_of_birth: date | None = None
     email: str | None = Field(default=None, max_length=20)
     phone_number: str | None = Field(default=None, max_length=15)
 

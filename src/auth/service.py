@@ -249,7 +249,7 @@ class AuthService:
 
     @staticmethod
     async def logout(
-        db: AsyncSession, response: Response, current_user_id: int
+        response: Response, db: AsyncSession, current_user_id: int
     ) -> None:
         await AuthService._invalidate_all_tokens(db, current_user_id)
 

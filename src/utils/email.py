@@ -1,5 +1,8 @@
 import urllib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
+import aiosmtplib
 import httpx
 
 from src.core.config import settings
@@ -7,8 +10,7 @@ from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-
-async def send(
+async def _send_via_resend(
     subject: str,
     to_email: str,
     html_body: str,
@@ -21,7 +23,6 @@ async def send(
         "html": html_body,
         "text": text_body,
     }
-
     headers = {
         "Authorization": f"Bearer {settings.RESEND_API_KEY}",
         "Content-Type": "application/json",
@@ -32,9 +33,9 @@ async def send(
             "https://api.resend.com/emails",
             json=payload,
             headers=headers,
-            timeout=30.0,
+            timeout=10.0,
         )
-
+    
     response.raise_for_status()
 
     logger.info(
@@ -42,6 +43,46 @@ async def send(
         to_email=to_email,
         subject=subject,
     )
+
+async def _send_via_mailtrap(
+    subject: str,
+    to_email: str,
+    html_body: str,
+    text_body: str,
+) -> None:
+    message = MIMEMultipart("alternative")
+    message["Subject"] = subject
+    message["From"] = f"{settings.MAIL_FROM_NAME} <{settings.MAIL_FROM}>"
+    message["To"] = to_email
+
+    message.attach(MIMEText(text_body, "plain"))
+    message.attach(MIMEText(html_body, "html"))
+
+    await aiosmtplib.send(
+        message,
+        hostname=settings.MAILTRAP_HOST,
+        port=settings.MAILTRAP_PORT,
+        username=settings.MAILTRAP_USERNAME,
+        password=settings.MAILTRAP_PASSWORD,
+        start_tls=True,
+    )
+
+    logger.info(
+        "email_sent_mailtrap", 
+        to_email=to_email, 
+        subject=subject,
+    )
+
+async def send(
+    subject: str,
+    to_email: str,
+    html_body: str,
+    text_body: str,
+) -> None:
+    if settings.ENVIRONMENT == "development":
+        await _send_via_mailtrap(subject, to_email, html_body, text_body)
+    else:
+        await _send_via_resend(subject, to_email, html_body, text_body)
 
 
 async def send_safe(coro, **log_context) -> None:

@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 
 import pytest
 from httpx import AsyncClient
@@ -13,7 +14,7 @@ from tests.conftest import make_auth_header
 from tests.factories import make_library_admin, make_member, make_system_admin
 
 
-class TestCreateAccountAdmin:
+class TestCreateAccount:
     async def test_creates_user_with_invite_token(
         self,
         test_db: AsyncSession,
@@ -49,6 +50,7 @@ class TestCreateAccountAdmin:
         assert data["is_active"] is False
         assert user_activation.invite_token_hash is not None
         assert user_activation.invite_token_expires_at is not None
+        assert user_activation.invite_token_expires_at > datetime.now(timezone.utc)
         assert user_activation.user_id == data["id"]
         assert email.email_type == EmailType.invite
 
@@ -97,10 +99,7 @@ class TestCreateAccountAdmin:
         existing_user_data: dict,
         request_override: dict,
     ):
-        await make_member(
-            test_db,
-            **existing_user_data,
-        )
+        await make_member(test_db, **existing_user_data)
 
         for field, value in request_override.items():
             setattr(valid_create_user_request_admin, field, value)
@@ -212,7 +211,7 @@ class TestCreateAccountAdmin:
         assert "date_of_birth" in error_fields
 
 
-class TestGetUsersAdmin:
+class TestGetUsers:
     async def test_returns_paginated_users(
         self, test_db: AsyncSession, client: AsyncClient, system_admin: User
     ):
@@ -231,7 +230,7 @@ class TestGetUsersAdmin:
         assert "items" in data
         assert "total" in data
         assert "has_more" in data
-        assert data["total"] >= 2
+        assert data["total"] == 2
 
     async def test_requires_system_admin_role(
         self, test_db: AsyncSession, client: AsyncClient, library_admin: User
@@ -281,7 +280,7 @@ class TestGetUsersAdmin:
         data = response.json()
 
         assert all(user["role"] == UserRole.member for user in data["items"])
-        assert data["total"] >= 5
+        assert data["total"] == 5
 
     async def test_does_not_show_other_system_admins(
         self, test_db: AsyncSession, client: AsyncClient, system_admin: User
@@ -305,7 +304,7 @@ class TestGetUsersAdmin:
         assert system_admin.id not in ids
 
 
-class TestGetUserByIDAdmin:
+class TestGetUserByID:
     async def test_returns_user_detail(
         self, test_db: AsyncSession, client: AsyncClient, system_admin: User
     ):
@@ -321,7 +320,9 @@ class TestGetUserByIDAdmin:
 
         assert response.status_code == 200
         assert data["id"] == user.id
+        assert data["username"] == user.username
         assert data["email"] == user.email
+        assert data["phone_number"] == user.phone_number
         assert data["role"] == UserRole.member
 
     async def test_returns_404_for_unknown_id(
@@ -354,12 +355,15 @@ class TestGetUserByIDAdmin:
         user = await make_member(test_db)
         headers = await make_auth_header(test_db, library_admin)
 
-        response = await client.get(f"/users/{user.id}", headers=headers)
+        response = await client.get(
+            f"/users/{user.id}", 
+            headers=headers,
+        )
 
         assert response.status_code == 403
 
 
-class TestDeactivateUserAdmin:
+class TestDeactivateUser:
     async def test_deactivates_user(
         self,
         test_db: AsyncSession,
@@ -397,7 +401,7 @@ class TestDeactivateUserAdmin:
 
         assert response.status_code == 409
 
-    async def test_receptionist_cannot_deactivate(
+    async def test_non_system_admin_cannot_deactivate(
         self,
         test_db: AsyncSession,
         client: AsyncClient,
@@ -445,7 +449,7 @@ class TestDeactivateUserAdmin:
         assert session.refresh_token_expires_at is None
 
 
-class TestActivateUserAdmin:
+class TestActivateUser:
     async def test_activate_user(
         self,
         test_db: AsyncSession,
@@ -479,7 +483,7 @@ class TestActivateUserAdmin:
 
         assert response.status_code == 409
 
-    async def test_receptionist_cannot_activate(
+    async def test_non_system_admin_cannot_activate(
         self, test_db: AsyncSession, client: AsyncClient, receptionist: User
     ):
         user = await make_member(test_db)

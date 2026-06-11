@@ -66,7 +66,7 @@ async def get_users(
 
 @router.get(
     "/{user_id}",
-    response_model=Union[UserResponseAdmin | dict],
+    response_model=UserResponseAdmin,
     status_code=status.HTTP_200_OK,
 )
 async def get_user_by_id(

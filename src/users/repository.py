@@ -58,8 +58,6 @@ class UserRepositoryBase:
             base_query = base_query.filter(
                 User.last_name.ilike(f"%{filters.last_name}%")
             )
-        if filters.date_of_birth:
-            base_query = base_query.filter(User.date_of_birth == filters.date_of_birth)
         if filters.email:
             base_query = base_query.filter(User.email.ilike(f"%{filters.email}%"))
         if filters.phone_number:

@@ -174,23 +174,25 @@ class UserServiceAdmin:
     @staticmethod
     async def get_user_by_id(
         db: AsyncSession, user_id: int
-    ) -> user_schemas.UserResponseAdmin | dict:
+    ) -> user_schemas.UserResponseAdmin:
         cache_key = UserCacheKey.user_detail_key_admin(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
-            return cached
+            return user_schemas.UserResponseAdmin.model_validate(cached)
 
         user = await UserRepositoryBase.get_user_by_id(
             db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
         )
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
-        serialized = user_schemas.UserResponseAdmin.model_validate(user).model_dump(
-            mode="json"
+        result = user_schemas.UserResponseAdmin.model_validate(user)
+        await set_cache(
+            cache_key,
+            result.model_dump(mode="json"), 
+            900,
         )
-        await set_cache(cache_key, serialized, 900)
 
-        return serialized
+        return result
 
     @staticmethod
     async def deactivate_user(

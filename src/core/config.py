@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     MAIL_FROM: str = "onboarding@resend.dev"
     MAIL_FROM_NAME: str = "Library Management System"
 
+    MAILTRAP_HOST: str = "sandbox.smtp.mailtrap.io"
+    MAILTRAP_PORT: int = 587
+    MAILTRAP_USERNAME: str
+    MAILTRAP_PASSWORD: str
+
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_secret_key(cls, v: str) -> str:
