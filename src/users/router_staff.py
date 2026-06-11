@@ -54,7 +54,9 @@ async def get_users(
 
 
 @router.get(
-    "/{user_id}/staff", response_model=UserResponseStaff, status_code=status.HTTP_200_OK
+    "/{user_id}/staff",
+    response_model=UserResponseStaff | dict,
+    status_code=status.HTTP_200_OK,
 )
 async def get_user_by_id(
     db: async_db_dependency,

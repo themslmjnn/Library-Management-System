@@ -81,7 +81,10 @@ class TestCreateAccount:
         request_override: dict,
         expected_exception,
     ):
-        await make_user(test_db, **existing_user_data,)
+        await make_user(
+            test_db,
+            **existing_user_data,
+        )
 
         for field, value in request_override.items():
             setattr(valid_create_user_request_admin, field, value)
@@ -608,9 +611,7 @@ class TestGetUserByID:
         with pytest.raises(UserNotFoundError):
             await UserServiceAdmin.get_user_by_id(test_db, non_existent_id)
 
-    async def test_returns_correct_data(
-        self, test_db: AsyncSession
-    ):
+    async def test_returns_correct_data(self, test_db: AsyncSession):
         user = await make_member(
             test_db,
             email="test_email@gmail.com",
@@ -638,9 +639,7 @@ class TestGetUserByID:
             900,
         )
 
-    async def test_returns_cached_data(
-        self, test_db: AsyncSession
-    ):
+    async def test_returns_cached_data(self, test_db: AsyncSession):
         user = await make_member(test_db)
 
         first_result = await UserServiceAdmin.get_user_by_id(test_db, user.id)
@@ -648,9 +647,7 @@ class TestGetUserByID:
 
         assert second_result == first_result
 
-    async def test_does_not_hit_db_on_cache_hit(
-        self, test_db: AsyncSession, mocker
-    ):
+    async def test_does_not_hit_db_on_cache_hit(self, test_db: AsyncSession, mocker):
         user = await make_member(test_db)
 
         await UserServiceAdmin.get_user_by_id(test_db, user.id)

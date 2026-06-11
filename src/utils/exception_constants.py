@@ -38,5 +38,6 @@ class HTTP409:
     USERNAME = "Username already taken"
     EMAIL = "Email already taken"
     PHONE_NUMBER = "Phone number already taken"
+    DUPLICATE_VALUE = "No changes detected"
     TITLE_OR_AUTHOR = "Book already exists"
     LOAN = "Loan already exists"

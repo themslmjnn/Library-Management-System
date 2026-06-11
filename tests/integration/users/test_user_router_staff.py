@@ -7,7 +7,7 @@ from tests.conftest import make_auth_header
 from tests.factories import make_member, make_system_admin
 
 
-class TestCreateAccountStaff:
+class TestCreateAccount:
     async def test_creates_user_with_invite_token(
         self,
         test_db: AsyncSession,
@@ -74,7 +74,7 @@ class TestCreateAccountStaff:
         assert response.status_code == 422
 
 
-class TestGetUsersStaff:
+class TestGetUsers:
     async def test_returns_paginated_users(
         self, test_db: AsyncSession, client: AsyncClient, library_admin: User
     ):
@@ -140,7 +140,7 @@ class TestGetUsersStaff:
         assert data["has_more"] is True
 
 
-class TestGetUserByIDStaff:
+class TestGetUserByID:
     async def test_returns_user_detail(
         self, test_db: AsyncSession, client: AsyncClient, library_admin: User
     ):

@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_serializer, field_validator
 
 from src.users.models import UserRole
 from src.utils import validators as field_validators
@@ -64,18 +64,27 @@ class UserResponseBase(BaseSchema):
     date_of_birth: date
     email: EmailStr
     phone_number: str
+    created_at: datetime
+
+    @field_serializer("created_at")
+    def serialize_created_at(self, value: datetime) -> str:
+        return value.strftime("%d %b %Y, %H:%M")
 
 
 class UserResponseAdmin(UserResponseBase):
     role: UserRole
     is_active: bool
     created_by: int | None = None
-    created_at: datetime
     updated_at: datetime
+
+    @field_serializer("updated_at")
+    def serialize_updated_at(self, value: datetime) -> str:
+        return value.strftime("%d %b %Y, %H:%M")
 
 
 class UserResponseStaff(UserResponseBase):
     role: UserRole
+    is_active: bool
 
 
 class UpdateUser(BaseModel):
@@ -119,12 +128,12 @@ class SearchUserBase(BaseModel):
     last_name: str | None = Field(default=None, max_length=20)
     email: str | None = Field(default=None, max_length=20)
     phone_number: str | None = Field(default=None, max_length=15)
+    role: UserRole | None = None
+    is_active: bool | None = None
 
 
 class SearchUserAdmin(SearchUserBase):
     username: str | None = Field(default=None, max_length=15)
-    role: UserRole | None = None
-    is_active: bool | None = None
 
 
 class EmailChangeRequest(BaseModel):

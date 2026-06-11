@@ -10,6 +10,7 @@ from src.core.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 async def _send_via_resend(
     subject: str,
     to_email: str,
@@ -35,7 +36,7 @@ async def _send_via_resend(
             headers=headers,
             timeout=10.0,
         )
-    
+
     response.raise_for_status()
 
     logger.info(
@@ -43,6 +44,7 @@ async def _send_via_resend(
         to_email=to_email,
         subject=subject,
     )
+
 
 async def _send_via_mailtrap(
     subject: str,
@@ -68,10 +70,11 @@ async def _send_via_mailtrap(
     )
 
     logger.info(
-        "email_sent_mailtrap", 
-        to_email=to_email, 
+        "email_sent_mailtrap",
+        to_email=to_email,
         subject=subject,
     )
+
 
 async def send(
     subject: str,
@@ -379,13 +382,15 @@ async def send_email_change_verification(new_email: str, code: str) -> None:
                     It expires in
                     <strong>{settings.ACTIVATION_CODE_EXPIRES_MINUTES} minutes</strong>.
                 </p>
-                <div style="display:inline-block;background:#f0f4ff;
-                            border:2px solid #1d4ed8;border-radius:8px;
-                            padding:20px 48px;margin:24px 0;">
-                    <span style="font-size:36px;font-weight:700;
-                                letter-spacing:10px;color:#1d4ed8;">
-                        {code}
-                    </span>
+                <div style="text-align:center;">
+                    <div style="display:inline-block;background:#f0f4ff;
+                                border:2px solid #1d4ed8;border-radius:8px;
+                                padding:20px 48px;margin:24px 0;">
+                        <span style="font-size:36px;font-weight:700;
+                                    letter-spacing:10px;color:#1d4ed8;">
+                            {code}
+                        </span>
+                    </div>
                 </div>
                 <p style="font-size:13px;color:#6b7280;">
                     If you did not request this change, ignore this email.

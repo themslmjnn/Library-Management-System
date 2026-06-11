@@ -22,7 +22,7 @@ from tests.factories import (
 )
 
 
-class TestCreateAccountStaff:
+class TestCreateAccount:
     async def test_create_user_successfully(
         self,
         test_db: AsyncSession,
@@ -58,7 +58,7 @@ class TestCreateAccountStaff:
         assert email.triggered_by == library_admin.id
 
 
-class TestGetUsersStaff:
+class TestGetUsers:
     async def test_return_valid_info_for_library_admin(
         self, test_db: AsyncSession, library_admin: User
     ):
@@ -122,7 +122,7 @@ class TestGetUsersStaff:
             )
 
 
-class TestGetUserByIDStaff:
+class TestGetUserByID:
     async def test_library_admin_can_not_view_library_and_system_admins(
         self, test_db: AsyncSession, library_admin: User
     ):
@@ -130,23 +130,17 @@ class TestGetUserByIDStaff:
         user2 = await make_system_admin(test_db)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceStaff.get_user_by_id(
-                test_db, library_admin, user1.id
-            )
+            await UserServiceStaff.get_user_by_id(test_db, library_admin, user1.id)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceStaff.get_user_by_id(
-                test_db, library_admin, user2.id
-            )
+            await UserServiceStaff.get_user_by_id(test_db, library_admin, user2.id)
 
     async def test_get_user_by_id_return_valid_info_for_library_admin(
         self, test_db: AsyncSession, library_admin: User
     ):
         user = await make_receptionist(test_db)
 
-        result = await UserServiceStaff.get_user_by_id(
-            test_db, library_admin, user.id
-        )
+        result = await UserServiceStaff.get_user_by_id(test_db, library_admin, user.id)
 
         assert result["id"] == user.id
         assert result["role"] == UserRole.receptionist
@@ -168,9 +162,7 @@ class TestGetUserByIDStaff:
     ):
         user = await make_member(test_db)
 
-        result = await UserServiceStaff.get_user_by_id(
-            test_db, receptionist, user.id
-        )
+        result = await UserServiceStaff.get_user_by_id(test_db, receptionist, user.id)
 
         assert result["id"] == user.id
         assert result["role"] == UserRole.member

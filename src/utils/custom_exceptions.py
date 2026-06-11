@@ -145,6 +145,10 @@ class ExpiredEmailChangeCodeError(AppException):
     pass
 
 
+class AssigningAlreadyExistingValueError(AppException):
+    pass
+
+
 def handle_user_integrity_error(error: IntegrityError) -> None:
     error_str = str(error.orig)
 

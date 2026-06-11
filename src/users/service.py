@@ -174,11 +174,11 @@ class UserServiceAdmin:
     @staticmethod
     async def get_user_by_id(
         db: AsyncSession, user_id: int
-    ) -> user_schemas.UserResponseAdmin:
+    ) -> user_schemas.UserResponseAdmin | dict:
         cache_key = UserCacheKey.user_detail_key_admin(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
-            return user_schemas.UserResponseAdmin.model_validate(cached)
+            return cached
 
         user = await UserRepositoryBase.get_user_by_id(
             db, user_id, excluded_roles=SYSTEM_ADMIN_INVISIBLE_ROLES
@@ -188,7 +188,7 @@ class UserServiceAdmin:
         result = user_schemas.UserResponseAdmin.model_validate(user)
         await set_cache(
             cache_key,
-            result.model_dump(mode="json"), 
+            result.model_dump(mode="json"),
             900,
         )
 
@@ -336,7 +336,6 @@ class UserServiceAdmin:
 
         try:
             old_email = user.email
-
             user.email = update_request.new_email
 
             user.session.access_token_version += 1
@@ -567,7 +566,7 @@ class UserServiceStaff:
     @staticmethod
     async def get_user_by_id(
         db: AsyncSession, current_user: CurrentUser, user_id: int
-    ) -> dict:
+    ) -> user_schemas.UserResponseStaff | dict:
         cache_key = UserCacheKey.user_detail_key_staff(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
@@ -587,12 +586,14 @@ class UserServiceStaff:
 
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
-        serialized = user_schemas.UserResponseStaff.model_validate(user).model_dump(
-            mode="json"
+        result = user_schemas.UserResponseStaff.model_validate(user)
+        await set_cache(
+            cache_key,
+            result.model_dump(mode="json"),
+            900,
         )
-        await set_cache(cache_key, serialized, 900)
 
-        return serialized
+        return result
 
 
 class UserServicePublic:
@@ -655,7 +656,7 @@ class UserServicePublic:
             logger.info(
                 "user_registered",
                 user_id=new_user.id,
-                method="self-registered",
+                method="self_registered",
             )
         except IntegrityError as e:
             await db.rollback()
@@ -682,23 +683,23 @@ class UserServicePublic:
         return MessageResponse(detail=PublicMessages.REGISTRATION)
 
     @staticmethod
-    async def get_me(
-        db: AsyncSession, user_id: int
-    ) -> user_schemas.UserResponseBase | dict:
+    async def get_me(db: AsyncSession, user_id: int) -> user_schemas.UserResponseBase:
         cache_key = UserCacheKey.user_detail_key_self(user_id)
         cached = await get_cache(cache_key)
         if cached is not None:
-            return cached
+            return user_schemas.UserResponseBase.model_validate(cached)
 
         user = await UserRepositoryBase.get_user_by_id(db, user_id)
         ensure_exists(user, UserNotFoundError(HTTP404.USER))
 
-        serialized = user_schemas.UserResponseBase.model_validate(user).model_dump(
-            mode="json"
+        result = user_schemas.UserResponseBase.model_validate(user)
+        await set_cache(
+            cache_key,
+            result.model_dump(mode="json"),
+            900,
         )
-        await set_cache(cache_key, serialized, 900)
 
-        return serialized
+        return result
 
     @staticmethod
     async def update_me(

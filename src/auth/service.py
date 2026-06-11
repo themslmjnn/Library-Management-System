@@ -309,6 +309,13 @@ class AuthService:
         if user.role == UserRole.guest:
             user.role = UserRole.member
 
+            logger.info(
+                "user_promoted",
+                user_id=user.id,
+                previous_role=UserRole.guest,
+                current_role=UserRole.member,
+            )
+
         await db.commit()
         await db.refresh(user)
 

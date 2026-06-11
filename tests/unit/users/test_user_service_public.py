@@ -32,7 +32,7 @@ from tests.constants import NEW_PASSWORD, OLD_PASSWORD, WRONG_PASSWORD
 from tests.factories import make_member, make_user
 
 
-class TestCreateAccountPublic:
+class TestCreateAccount:
     async def test_create_user_activation_table_successfully(
         self,
         test_db: AsyncSession,

@@ -356,7 +356,7 @@ class TestGetUserByID:
         headers = await make_auth_header(test_db, library_admin)
 
         response = await client.get(
-            f"/users/{user.id}", 
+            f"/users/{user.id}",
             headers=headers,
         )
 

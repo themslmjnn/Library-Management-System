@@ -83,12 +83,13 @@ async def refresh(
         db, response, refresh_token, refresh_token_family
     )
 
+
 @router.post("/reset_password", status_code=status.HTTP_204_NO_CONTENT)
 @ip_limiter.limit("5/minute")
 async def reset_password(
-    request: Request, 
-    db: async_db_dependency, 
-    reset_password_request: ResetPasswordRequest
+    request: Request,
+    db: async_db_dependency,
+    reset_password_request: ResetPasswordRequest,
 ):
     return await AuthService.reset_password(db, reset_password_request)
 
@@ -102,4 +103,6 @@ async def create_forgot_password_request(
     db: async_db_dependency,
     forgot_password_request: ForgotPasswordPublicRequest,
 ):
-    return await AuthService.create_forgot_passsword_request(db, forgot_password_request)
+    return await AuthService.create_forgot_passsword_request(
+        db, forgot_password_request
+    )

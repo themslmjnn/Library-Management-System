@@ -1,4 +1,4 @@
-from typing import Annotated, Union
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Request, status
 
@@ -66,7 +66,7 @@ async def get_users(
 
 @router.get(
     "/{user_id}",
-    response_model=UserResponseAdmin,
+    response_model=UserResponseAdmin | dict,
     status_code=status.HTTP_200_OK,
 )
 async def get_user_by_id(
