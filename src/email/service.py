@@ -1,12 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.dependencies import CurrentUser
-from pagination import PaginatedResponse
+from src.core.dependencies import CurrentUser
 from src.email.repository import PendingEmailRepository
-from utils.custom_exceptions import AccessDeniedError, PendingEmailNotFoundError
-from utils.enums import UserRole
-from utils.exception_constants import HTTP403, HTTP404
-from utils.helpers import ensure_exists
+from src.pagination import PaginatedResponse
+from src.utils.custom_exceptions import AccessDeniedError, PendingEmailNotFoundError
+from src.utils.enums import UserRole
+from src.utils.exception_constants import HTTP403, HTTP404
+from src.utils.helpers import ensure_exists
 
 
 class PendingEmailService:
@@ -68,6 +68,7 @@ class PendingEmailService:
             total=total,
             skip=skip,
             limit=limit,
+            has_more=skip + limit < total,
         )
 
     @staticmethod

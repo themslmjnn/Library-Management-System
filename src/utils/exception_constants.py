@@ -9,6 +9,7 @@ class HTTP400:
     EXPIRED_RESET_PASSWORD_TOKEN = "Expired reset password token"
     INVALID_EMAIL_CHANGE_CODE = "Invalid email change code"
     EXPIRED_EMAIL_CHANGE_CODE = "Expired email change code"
+    NO_CHANGES_DETECTED = "No changes detected"
 
 
 class HTTP401:
@@ -39,6 +40,5 @@ class HTTP409:
     USERNAME = "Username already taken"
     EMAIL = "Email already taken"
     PHONE_NUMBER = "Phone number already taken"
-    DUPLICATE_VALUE = "No changes detected"
     TITLE_OR_AUTHOR = "Book already exists"
     LOAN = "Loan already exists"

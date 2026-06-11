@@ -2,8 +2,8 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from src.utils.custom_exceptions import AppException, AssigningAlreadyExistingValueError
-from src.utils.exception_constants import HTTP409
+from src.utils.custom_exceptions import AppException, NoChangesDetectedError
+from src.utils.exception_constants import HTTP400
 
 
 def ensure_exists(obj: Any, exception: AppException) -> None:
@@ -20,4 +20,4 @@ def update_object(instance: Any, request: BaseModel) -> None:
             changed = True
 
     if not changed:
-        raise AssigningAlreadyExistingValueError(HTTP409.DUPLICATE_VALUE)
+        raise NoChangesDetectedError(HTTP400.NO_CHANGES_DETECTED)

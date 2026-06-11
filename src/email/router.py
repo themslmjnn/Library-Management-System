@@ -1,4 +1,3 @@
-from email.service import PendingEmailService
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status
@@ -9,14 +8,10 @@ from src.core.dependencies import (
     pagination_dependency,
     require_system_admin,
 )
-from src.email.repository import PendingEmailRepository
 from src.email.schemas import PendingEmailResponse
+from src.email.service import PendingEmailService
 from src.pagination import PaginatedResponse
 from src.users.models import User
-from src.utils.custom_exceptions import AccessDeniedError, PendingEmailNotFoundError
-from src.utils.enums import UserRole
-from src.utils.exception_constants import HTTP403, HTTP404
-from src.utils.helpers import ensure_exists
 
 router = APIRouter(
     prefix="/emails",

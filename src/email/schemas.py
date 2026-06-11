@@ -13,11 +13,11 @@ class PendingEmailResponse(BaseSchema):
     status: str
     retry_count: int
     last_error: str | None
-    sent_at: str | None
+    sent_at: datetime | None
     triggered_by: int | None
     recipient_user_id: int | None
     created_at: datetime
 
-    @field_serializer("created_at")
-    def serialize_created_at(self, value: datetime) -> str:
+    @field_serializer("created_at", "sent_at")
+    def serialize_datetime(self, value: datetime) -> str:
         return value.strftime("%d %b %Y, %H:%M")
