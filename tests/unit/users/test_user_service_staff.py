@@ -59,14 +59,14 @@ class TestCreateAccountStaff:
 
 
 class TestGetUsersStaff:
-    async def test_get_users_staff_return_valid_info_for_library_admin(
+    async def test_return_valid_info_for_library_admin(
         self, test_db: AsyncSession, library_admin: User
     ):
         await make_system_admin(test_db)
         await make_library_admin(test_db)
         visible_user = await make_receptionist(test_db)
 
-        result = await UserServiceStaff.get_users_staff(
+        result = await UserServiceStaff.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -82,7 +82,7 @@ class TestGetUsersStaff:
         assert UserRole.library_admin not in roles
         assert visible_user.id in [user.id for user in result.items]
 
-    async def test_get_users_staff_return_valid_info_for_receptionist(
+    async def test_return_valid_info_for_receptionist(
         self, test_db: AsyncSession, receptionist: User
     ):
         await make_system_admin(test_db)
@@ -90,7 +90,7 @@ class TestGetUsersStaff:
         await make_receptionist(test_db)
         visible_user = await make_member(test_db)
 
-        result = await UserServiceStaff.get_users_staff(
+        result = await UserServiceStaff.get_users(
             test_db,
             skip=0,
             limit=10,
@@ -107,11 +107,11 @@ class TestGetUsersStaff:
         assert UserRole.receptionist not in roles
         assert visible_user.id in [user.id for user in result.items]
 
-    async def test_get_users_staff_raises_for_unauthorized_role(
+    async def test_raises_for_unauthorized_role(
         self, test_db: AsyncSession, system_admin: User
     ):
         with pytest.raises(AccessDeniedError):
-            await UserServiceStaff.get_users_staff(
+            await UserServiceStaff.get_users(
                 test_db,
                 current_user=system_admin,
                 skip=0,
@@ -130,21 +130,21 @@ class TestGetUserByIDStaff:
         user2 = await make_system_admin(test_db)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceStaff.get_user_by_id_staff(
+            await UserServiceStaff.get_user_by_id(
                 test_db, library_admin, user1.id
             )
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceStaff.get_user_by_id_staff(
+            await UserServiceStaff.get_user_by_id(
                 test_db, library_admin, user2.id
             )
 
-    async def test_get_user_by_id_staff_return_valid_info_for_library_admin(
+    async def test_get_user_by_id_return_valid_info_for_library_admin(
         self, test_db: AsyncSession, library_admin: User
     ):
         user = await make_receptionist(test_db)
 
-        result = await UserServiceStaff.get_user_by_id_staff(
+        result = await UserServiceStaff.get_user_by_id(
             test_db, library_admin, user.id
         )
 
@@ -158,42 +158,42 @@ class TestGetUserByIDStaff:
         user2 = await make_library_admin(test_db)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceStaff.get_user_by_id_staff(test_db, receptionist, user1.id)
+            await UserServiceStaff.get_user_by_id(test_db, receptionist, user1.id)
 
         with pytest.raises(UserNotFoundError):
-            await UserServiceStaff.get_user_by_id_staff(test_db, receptionist, user2.id)
+            await UserServiceStaff.get_user_by_id(test_db, receptionist, user2.id)
 
-    async def test_get_user_by_id_staff_return_valid_info_for_receptionist(
+    async def test_get_user_by_id_return_valid_info_for_receptionist(
         self, test_db: AsyncSession, receptionist: User
     ):
         user = await make_member(test_db)
 
-        result = await UserServiceStaff.get_user_by_id_staff(
+        result = await UserServiceStaff.get_user_by_id(
             test_db, receptionist, user.id
         )
 
         assert result["id"] == user.id
         assert result["role"] == UserRole.member
 
-    async def test_get_user_by_id_staff_raises_for_unauthorized_role(
+    async def test_get_user_by_id_raises_for_unauthorized_role(
         self, test_db: AsyncSession, system_admin: User
     ):
         user = await make_member(test_db)
         non_existant_id = user.id + 999999
 
         with pytest.raises(AccessDeniedError):
-            await UserServiceStaff.get_user_by_id_staff(
+            await UserServiceStaff.get_user_by_id(
                 test_db,
                 current_user=system_admin,
                 user_id=non_existant_id,
             )
 
-    async def test_get_user_by_id_staff_populates_cache_after_db_hit(
+    async def test_get_user_by_id_populates_cache_after_db_hit(
         self, test_db: AsyncSession, library_admin: User, mock_set_cache_users, mocker
     ):
         user = await make_member(test_db)
 
-        await UserServiceStaff.get_user_by_id_staff(test_db, library_admin, user.id)
+        await UserServiceStaff.get_user_by_id(test_db, library_admin, user.id)
 
         mock_set_cache_users.assert_called_once_with(
             UserCacheKey.user_detail_key_staff(user.id),
@@ -206,10 +206,10 @@ class TestGetUserByIDStaff:
     ):
         user = await make_member(test_db)
 
-        await UserServiceStaff.get_user_by_id_staff(test_db, library_admin, user.id)
+        await UserServiceStaff.get_user_by_id(test_db, library_admin, user.id)
 
         mock_get_user = mocker.patch.object(UserRepositoryBase, "get_user_by_id")
 
-        await UserServiceStaff.get_user_by_id_staff(test_db, library_admin, user.id)
+        await UserServiceStaff.get_user_by_id(test_db, library_admin, user.id)
 
         mock_get_user.assert_not_called()

@@ -520,7 +520,7 @@ class UserServiceStaff:
             raise
 
     @staticmethod
-    async def get_users_staff(
+    async def get_users(
         db: AsyncSession,
         current_user: CurrentUser,
         skip: int,
@@ -563,7 +563,7 @@ class UserServiceStaff:
         )
 
     @staticmethod
-    async def get_user_by_id_staff(
+    async def get_user_by_id(
         db: AsyncSession, current_user: CurrentUser, user_id: int
     ) -> dict:
         cache_key = UserCacheKey.user_detail_key_staff(user_id)
@@ -595,7 +595,7 @@ class UserServiceStaff:
 
 class UserServicePublic:
     @staticmethod
-    async def create_account_public(
+    async def create_account(
         db: AsyncSession, user_request: user_schemas.CreateUserPublic
     ) -> MessageResponse:
         raw_activation_code, hashed_activation_code = generate_account_activation_code()

@@ -38,7 +38,7 @@ class TestCreateAccountPublic:
         test_db: AsyncSession,
         valid_create_user_request_public: CreateUserPublic,
     ):
-        await UserServicePublic.create_account_public(
+        await UserServicePublic.create_account(
             test_db, valid_create_user_request_public
         )
 
@@ -62,7 +62,7 @@ class TestCreateAccountPublic:
         test_db: AsyncSession,
         valid_create_user_request_public: CreateUserPublic,
     ):
-        result = await UserServicePublic.create_account_public(
+        result = await UserServicePublic.create_account(
             test_db, valid_create_user_request_public
         )
 
@@ -93,7 +93,7 @@ class TestCreateAccountPublic:
     ):
         valid_create_user_request_public.email = "user_email@gmail.com"
 
-        response1 = await UserServicePublic.create_account_public(
+        response1 = await UserServicePublic.create_account(
             test_db, valid_create_user_request_public
         )
 
@@ -101,7 +101,7 @@ class TestCreateAccountPublic:
         valid_create_user_request_public.username = "new_username"
         valid_create_user_request_public.phone_number = "992000000000"
 
-        response2 = await UserServicePublic.create_account_public(
+        response2 = await UserServicePublic.create_account(
             test_db, valid_create_user_request_public
         )
 
@@ -120,7 +120,7 @@ class TestCreateAccountPublic:
 
         valid_create_user_request_public.email = "new_user_email@gmail.com"
 
-        result = await UserServicePublic.create_account_public(
+        result = await UserServicePublic.create_account(
             test_db, valid_create_user_request_public
         )
 
@@ -143,7 +143,7 @@ class TestCreateAccountPublic:
         valid_create_user_request_public.username = "test_username"
 
         with pytest.raises(UsernameAlreadyTakenError):
-            await UserServicePublic.create_account_public(
+            await UserServicePublic.create_account(
                 test_db, valid_create_user_request_public
             )
 

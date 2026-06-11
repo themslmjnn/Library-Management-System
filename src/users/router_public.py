@@ -23,12 +23,12 @@ router = APIRouter(
     "/register", response_model=MessageResponse, status_code=status.HTTP_200_OK
 )
 @ip_limiter.limit("5/minute")
-async def create_account_public(
+async def create_account(
     request: Request,
     db: async_db_dependency,
     user_request: CreateUserPublic,
 ):
-    return await UserServicePublic.create_account_public(db, user_request)
+    return await UserServicePublic.create_account(db, user_request)
 
 
 @router.get("/me", response_model=UserResponseBase, status_code=status.HTTP_200_OK)

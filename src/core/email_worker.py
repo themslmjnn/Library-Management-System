@@ -1,10 +1,9 @@
-# 2. src/core/email_worker.py
 import asyncio
 
 from src.core.logging import get_logger
 from src.database import AsyncSessionLocal
 from src.email.repository import PendingEmailRepository
-from src.utils.email import _send
+from src.utils.email import send
 
 logger = get_logger(__name__)
 
@@ -26,7 +25,7 @@ async def _process_batch() -> None:
 
         for record in pending:
             try:
-                await _send(
+                await send(
                     subject=record.subject,
                     to_email=record.recipient,
                     html_body=record.html_body,
@@ -50,7 +49,8 @@ async def _process_batch() -> None:
                     email_id=record.id,
                     email_type=record.email_type,
                     retry_count=record.retry_count,
-                    error=str(exc),
+                    error_type=type(exc).__name__,
+                    error_repr=repr(exc),
                 )
 
                 if record.retry_count >= 3:

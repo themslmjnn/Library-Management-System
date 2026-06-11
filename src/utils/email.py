@@ -8,7 +8,7 @@ from src.core.logging import get_logger
 logger = get_logger(__name__)
 
 
-async def _send(
+async def send(
     subject: str,
     to_email: str,
     html_body: str,
@@ -32,7 +32,7 @@ async def _send(
             "https://api.resend.com/emails",
             json=payload,
             headers=headers,
-            timeout=10.0,
+            timeout=30.0,
         )
 
     response.raise_for_status()
@@ -108,7 +108,7 @@ def build_invite_email(invite_token: str, email: str) -> tuple[str, str, str]:
 async def send_invite_email(email: str, raw_invite_token: str) -> None:
     subject, html, text = build_invite_email(raw_invite_token, email)
 
-    await _send(subject=subject, to_email=email, html_body=html, text_body=text)
+    await send(subject=subject, to_email=email, html_body=html, text_body=text)
 
 
 def build_activation_code_email(code: str) -> tuple[str, str, str]:
@@ -177,7 +177,7 @@ def build_activation_code_email(code: str) -> tuple[str, str, str]:
 async def send_account_activation_code(email: str, code: str) -> None:
     subject, html, text = build_activation_code_email(code)
 
-    await _send(subject=subject, to_email=email, html_body=html, text_body=text)
+    await send(subject=subject, to_email=email, html_body=html, text_body=text)
 
 
 async def send_already_registered_email(email: str) -> None:
@@ -227,7 +227,7 @@ async def send_already_registered_email(email: str) -> None:
         f"Your account and password have not been changed."
     )
 
-    await _send(
+    await send(
         subject="Someone tried to register with your email",
         to_email=email,
         html_body=html,
@@ -277,7 +277,7 @@ async def send_forgot_password_email(email: str, raw_reset_token: str) -> None:
         f"Your password has not been changed."
     )
 
-    await _send(
+    await send(
         subject="Your Library password reset link",
         to_email=email,
         html_body=html,
@@ -315,7 +315,7 @@ async def send_password_changed_confirmation(email: str) -> None:
         "immediately as your account may be compromised."
     )
 
-    await _send(
+    await send(
         subject="Your Library password was changed",
         to_email=email,
         html_body=html,
@@ -364,7 +364,7 @@ async def send_email_change_verification(new_email: str, code: str) -> None:
         f"Your current email address has not been changed."
     )
 
-    await _send(
+    await send(
         subject="Confirm your new Library email address",
         to_email=new_email,
         html_body=html,
@@ -420,7 +420,7 @@ def build_reset_password_email(reset_password_token: str) -> tuple[str, str, str
 async def send_reset_password_token(email: str, raw_reset_token: str) -> None:
     subject, html, text = build_reset_password_email(raw_reset_token)
 
-    await _send(subject=subject, to_email=email, html_body=html, text_body=text)
+    await send(subject=subject, to_email=email, html_body=html, text_body=text)
 
 
 async def send_account_deactivation_email(email: str) -> None:
@@ -453,7 +453,7 @@ async def send_account_deactivation_email(email: str) -> None:
         "your library administrator."
     )
 
-    await _send(
+    await send(
         subject="Your Library account has been deactivated",
         to_email=email,
         html_body=html,
@@ -499,7 +499,7 @@ async def send_account_activation_email(email: str) -> None:
         "If you were not expecting this, contact your administrator."
     )
 
-    await _send(
+    await send(
         subject="Your Library account has been activated",
         to_email=email,
         html_body=html,
@@ -541,7 +541,7 @@ async def send_admin_email_override_notification(email: str) -> None:
         "administrator immediately."
     )
 
-    await _send(
+    await send(
         subject="Your Library account email was changed",
         to_email=email,
         html_body=html,

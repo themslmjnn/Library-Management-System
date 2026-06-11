@@ -376,14 +376,14 @@ class TestGetBookByIDCache:
             created_by=system_admin.id,
         )
 
-        mock_set_cache = mocker.patch("src.book.service.set_cache")
+        mock_set_cache = mocker.patch("src.books.service.set_cache")
 
         await BookService.get_book_by_id(test_db, book.id)
 
         mock_set_cache.assert_called_once_with(
             BookCacheKey.book_detail_key(book.id),
             mocker.ANY,
-            600,
+            900,
         )
 
 

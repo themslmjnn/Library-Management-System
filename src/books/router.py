@@ -6,7 +6,6 @@ from src.books.schemas import BookResponse, BookResponsePublic, CreateBook, Upda
 from src.books.service import BookService
 from src.core.dependencies import (
     BookQueryParams,
-    CurrentUser,
     async_db_dependency,
     require_system_admin_and_staff,
     require_system_and_library_admin,

@@ -1,4 +1,3 @@
-# 4. src/auth/service.py
 import asyncio
 import hmac
 import secrets
@@ -15,7 +14,6 @@ from src.auth.schemas import (
     ActivateAccountWithToken,
     CreateAccessTokenRequest,
     CreateRefreshTokenRequest,
-    CreateResetPasswordRequest,
     ForgotPasswordPublicRequest,
     LoginResponse,
     ResetPasswordRequest,
@@ -53,13 +51,12 @@ from src.utils.custom_exceptions import (
 )
 from src.utils.email import (
     send_forgot_password_email,
-    send_reset_password_token,
     send_safe,
 )
+from src.utils.enums import UserRole
 from src.utils.exception_constants import HTTP400, HTTP401, HTTP403
 from src.utils.response_messages import PublicMessages
 from src.utils.response_schemas import MessageResponse
-from utils.enums import UserRole
 
 logger = get_logger(__name__)
 
@@ -481,41 +478,6 @@ class AuthService:
             "access_token": access_token,
             "token_type": "bearer",
         }
-
-    @staticmethod
-    async def create_reset_password_request(
-        db: AsyncSession, reset_password_request: CreateResetPasswordRequest
-    ):
-        user = await AuthRepository.get_user_by_login_identifier_with_session(
-            db, reset_password_request.identifier
-        )
-
-        if user is not None:
-            raw_reset_token, hashed_reset_token = generate_reset_password_token()
-
-            user.session.reset_password_token_hash = hashed_reset_token
-            user.session.reset_password_token_expires_at = datetime.now(
-                timezone.utc
-            ) + timedelta(minutes=settings.RESET_PASSWORD_EXPIRES_MINUTES)
-
-            await db.commit()
-            await db.refresh(user)
-
-            reset_password_token_task = asyncio.create_task(
-                send_reset_password_token(
-                    reset_password_request.identifier, raw_reset_token
-                )
-            )
-
-            logger.info(
-                "reset_password_request_created",
-                user_id=user.id,
-            )
-        else:
-            logger.info(
-                "reset_password_request_creation_failed",
-                reason="user_not_found",
-            )
 
     @staticmethod
     async def reset_password(db: AsyncSession, update_request: ResetPasswordRequest):

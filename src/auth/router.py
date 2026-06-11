@@ -6,7 +6,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 from src.auth.schemas import (
     ActivateAccountWithCode,
     ActivateAccountWithToken,
-    CreateResetPasswordRequest,
     ForgotPasswordPublicRequest,
     LoginResponse,
     ResetPasswordRequest,
@@ -15,7 +14,7 @@ from src.auth.service import AuthService
 from src.core.dependencies import async_db_dependency, current_user_dependency
 from src.core.limiter import ip_limiter
 from src.utils.exception_constants import HTTP401
-from utils.response_schemas import MessageResponse
+from src.utils.response_schemas import MessageResponse
 
 router = APIRouter(
     prefix="/auth",
@@ -84,23 +83,14 @@ async def refresh(
         db, response, refresh_token, refresh_token_family
     )
 
-
-@router.post("/reset_password_request", status_code=status.HTTP_204_NO_CONTENT)
-@ip_limiter.limit("5/minute")
-async def create_reset_password_request(
-    request: Request,
-    db: async_db_dependency,
-    reset_password_request: CreateResetPasswordRequest,
-):
-    return await AuthService.create_reset_password_request(db, reset_password_request)
-
-
 @router.post("/reset_password", status_code=status.HTTP_204_NO_CONTENT)
 @ip_limiter.limit("5/minute")
 async def reset_password(
-    request: Request, db: async_db_dependency, update_request: ResetPasswordRequest
+    request: Request, 
+    db: async_db_dependency, 
+    reset_password_request: ResetPasswordRequest
 ):
-    return await AuthService.reset_password(db, update_request)
+    return await AuthService.reset_password(db, reset_password_request)
 
 
 @router.post(
@@ -112,6 +102,4 @@ async def create_forgot_password_request(
     db: async_db_dependency,
     forgot_password_request: ForgotPasswordPublicRequest,
 ):
-    return await AuthService.create_forgot_passsword_request(
-        db, forgot_password_request
-    )
+    return await AuthService.create_forgot_passsword_request(db, forgot_password_request)

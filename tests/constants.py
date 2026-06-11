@@ -1,3 +1,4 @@
+# 3.tests/constants.py
 DEFAULT_PASSWORD = "Valid123!"
 CORRECT_PASSWORD = "Correct123!"
 WRONG_PASSWORD = "Wrong123!"
