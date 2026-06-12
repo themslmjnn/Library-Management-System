@@ -11,7 +11,7 @@ POLL_INTERVAL_SECONDS = 60
 BATCH_SIZE = 10
 
 
-async def _process_batch() -> None:
+async def process_batch() -> None:
     async with AsyncSessionLocal() as db:
         pending = await PendingEmailRepository.get_pending_emails(db, limit=BATCH_SIZE)
 
@@ -71,7 +71,7 @@ async def run_email_worker() -> None:
 
     while True:
         try:
-            await _process_batch()
+            await process_batch()
         except asyncio.CancelledError:
             logger.info("email_worker_stopping")
 
