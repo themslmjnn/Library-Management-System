@@ -15,6 +15,8 @@ from src.core.security import (
     generate_reset_password_token,
     hash_password,
 )
+from src.email.enums import EmailType
+from src.email.models import PendingEmail
 from src.inventories.models import Inventory
 from src.inventories.repository import InventoryRepository
 from src.users.models import User, UserActivation, UserRole, UserSession
@@ -288,3 +290,27 @@ async def make_inventory(
     await test_db.refresh(inventory)
 
     return inventory
+
+async def make_failed_email(
+    test_db: AsyncSession,
+    *,
+    triggered_by: int | None = None,
+    status: str = "failed",
+) -> PendingEmail:
+    record = PendingEmail(
+        recipient="test@example.com",
+        subject="Test Subject",
+        html_body="<p>body</p>",
+        text_body="body",
+        email_type=EmailType.invite,
+        status=status,
+        retry_count=3 if status == "failed" else 0,
+        last_error="SMTP timeout" if status == "failed" else None,
+        triggered_by=triggered_by,
+    )
+    test_db.add(record)
+    
+    await test_db.commit()
+    await test_db.refresh(record)
+
+    return record
