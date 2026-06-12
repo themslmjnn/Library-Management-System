@@ -84,7 +84,7 @@ class PendingEmailService:
         ):
             raise AccessDeniedError(HTTP403.ACCESS_DENIED)
 
-        failed_email = await PendingEmailRepository.get_by_id(db, email_id)
+        failed_email = await PendingEmailRepository.get_pending_email_by_id(db, email_id)
         ensure_exists(failed_email, PendingEmailNotFoundError(HTTP404.PENDING_EMAIL))
 
         if (

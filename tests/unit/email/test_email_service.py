@@ -65,7 +65,7 @@ class TestRetryFailedEmail:
         await PendingEmailService.retry_failed_email(test_db, email.id)
  
         await test_db.refresh(email)
-        
+
         assert email.status == EmailSendingStatus.pending
         assert email.retry_count == 0
         assert email.last_error is None
@@ -124,3 +124,50 @@ class TestGetMyFailedEmails:
         )
  
         assert result.has_more is True
+
+class TestRetryMyFailedEmail:
+    async def test_owner_resets_own_email_for_retry(self, test_db: AsyncSession):
+        user = await make_library_admin(test_db)
+        email = await make_failed_email(test_db, triggered_by=user.id)
+ 
+        await PendingEmailService.retry_my_failed_email(test_db, user, email.id)
+ 
+        await test_db.refresh(email)
+
+        assert email.status == EmailSendingStatus.pending
+        assert email.retry_count == 0
+        assert email.last_error is None
+ 
+    async def test_system_admin_can_retry_any_email(self, test_db: AsyncSession):
+        owner = await make_library_admin(test_db)
+        admin = await make_system_admin(test_db)
+        email = await make_failed_email(test_db, triggered_by=owner.id)
+ 
+        await PendingEmailService.retry_my_failed_email(test_db, admin, email.id)
+ 
+        await test_db.refresh(email)
+        
+        assert email.status == EmailSendingStatus.pending
+ 
+    async def test_non_owner_library_admin_raises_access_denied(
+        self, test_db: AsyncSession
+    ):
+        owner = await make_library_admin(test_db)
+        other = await make_library_admin(test_db)
+        email = await make_failed_email(test_db, triggered_by=owner.id)
+ 
+        with pytest.raises(AccessDeniedError):
+            await PendingEmailService.retry_my_failed_email(test_db, other, email.id)
+ 
+    async def test_member_raises_access_denied(self, test_db: AsyncSession):
+        user = await make_member(test_db)
+ 
+        with pytest.raises(AccessDeniedError):
+            await PendingEmailService.retry_my_failed_email(test_db, user, email_id=1)
+ 
+    async def test_raises_not_found_for_nonexistent_email(self, test_db: AsyncSession):
+        user = await make_library_admin(test_db)
+ 
+        with pytest.raises(PendingEmailNotFoundError):
+            await PendingEmailService.retry_my_failed_email(test_db, user, email_id=999999)
+ 
